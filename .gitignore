@@ -1,0 +1,7 @@
+# Keep only the project README tracked; ignore other documentation
+*.md
+!README.md
+
+# Explicit documentation trees (covers nested markdown already matched above)
+docs/
+DevGuard_PRD.md
