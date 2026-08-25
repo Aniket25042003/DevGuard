@@ -19,6 +19,7 @@
     "@devguard/config": "workspace:*",
     "@devguard/contracts": "workspace:*",
     "@devguard/errors": "workspace:*",
+    "@devguard/security": "workspace:*",
     "@devguard/worker": "workspace:*"
   }
 }

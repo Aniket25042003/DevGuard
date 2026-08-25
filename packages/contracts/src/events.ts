@@ -270,6 +270,103 @@ for (const suffix of ['accepted', 'routed', 'rejected'] as const) {
   });
 }
 
+registerEvent('security.trust_violation', {
+  family: 'audit',
+  description: 'Content attempted to exercise authority it does not possess.',
+  payload: z
+    .object({
+      sourceKind: z.string().min(1).max(48),
+      reasonCode: z.string().min(1).max(128),
+    })
+    .strip(),
+});
+
+registerEvent('security.untrusted_content.quarantined', {
+  family: 'audit',
+  description: 'Untrusted content was quarantined and excluded from model context.',
+  payload: z
+    .object({
+      contentDigest: z.string().regex(/^[0-9a-f]{64}$/),
+      reasonCode: z.string().min(1).max(128),
+    })
+    .strip(),
+});
+
+registerEvent('context.provenance.recorded', {
+  family: 'session',
+  description: 'Provenance envelope recorded for a context item.',
+  payload: z
+    .object({
+      provenanceId: z.string().min(1).max(128),
+      sourceKind: z.string().min(1).max(48),
+      trustClass: z.enum([
+        'control_plane',
+        'authenticated_request',
+        'advisory_instruction',
+        'untrusted_data',
+      ]),
+      contentDigest: z.string().regex(/^[0-9a-f]{64}$/),
+    })
+    .strip(),
+});
+
+registerEvent('instruction.rejected', {
+  family: 'workflow',
+  description:
+    'An advisory instruction conflicted with higher-authority controls and was rejected.',
+  payload: z
+    .object({
+      path: z.string().max(512).optional(),
+      reasonCode: z.string().min(1).max(128),
+    })
+    .strip(),
+});
+
+registerEvent('secret.redacted', {
+  family: 'audit',
+  description: 'Sensitive values were redacted at an output boundary.',
+  payload: z
+    .object({
+      sinkType: z.enum(['log', 'error', 'event', 'model_context', 'artifact', 'api', 'provider']),
+      detectorClass: z.string().min(1).max(64).optional(),
+      redactionCount: z.number().int().nonnegative(),
+    })
+    .strip(),
+});
+
+registerEvent('secret.exposure.blocked', {
+  family: 'audit',
+  description: 'Suspected secret leakage blocked publication or execution.',
+  payload: z
+    .object({
+      subjectDigest: z.string().regex(/^[0-9a-f]{64}$/),
+      findingCount: z.number().int().nonnegative(),
+    })
+    .strip(),
+});
+
+registerEvent('secret.reference.unavailable', {
+  family: 'configuration',
+  description: 'A secret reference could not be resolved for its authorized purpose.',
+  payload: z
+    .object({
+      referenceName: z.string().min(1).max(128),
+      reasonCode: z.string().min(1).max(64),
+    })
+    .strip(),
+});
+
+registerEvent('secret.rotation.required', {
+  family: 'configuration',
+  description: 'Exposure evidence requires rotation of the affected credential.',
+  payload: z
+    .object({
+      fingerprintHmac: z.string().regex(/^[0-9a-f]{64}$/),
+      reasonCode: z.string().min(1).max(64),
+    })
+    .strip(),
+});
+
 registerEvent('outbox.recorded', {
   family: 'outbox',
   description: 'Publishable intent committed atomically with a domain transition.',
