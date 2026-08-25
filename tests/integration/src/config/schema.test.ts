@@ -145,6 +145,41 @@ describe('C002 process schemas', () => {
     });
     expect(dev.warnings.join('\n')).toMatch(/FLAG_GITHUB_WRITE_ENABLED/);
   });
+
+  it('rejects malformed flag names that evade the namespace regex (Qodo fix)', () => {
+    // These never matched isOwnedNamespace, so they must still be caught by
+    // the closed FLAG_ registry check.
+    const malformed = [
+      'FLAG_githubWritesEnabled', // lowercase segments
+      'FLAG_FEATURE_1', // digit segment
+      'flag_webhook_ingress_enabled', // lowercase prefix
+      'FLAG_', // empty name
+      'FLAG__WEBHOOK_INGRESS_ENABLED', // double underscore
+    ];
+    let issuePaths: string[] = [];
+    try {
+      loadConfig('api', {
+        env: {
+          ...BASE_ENV,
+          CI: 'true',
+          ...Object.fromEntries(malformed.map((name) => [name, 'true'])),
+        },
+      });
+    } catch (error) {
+      issuePaths = ((error as { safeDetails?: Array<{ path: string }> }).safeDetails ?? []).map(
+        (issue) => issue.path,
+      );
+    }
+    for (const name of malformed) {
+      expect(issuePaths, `${name} must be rejected as unknown`).toContain(name);
+    }
+
+    // Canonical flags remain valid.
+    const canonical = loadConfig('api', {
+      env: { ...BASE_ENV, CI: 'true', FLAG_WEBHOOK_INGRESS_ENABLED: 'true' },
+    });
+    expect(canonical.features['webhookIngressEnabled'].value).toBe(true);
+  });
 });
 
 function loadConfigFailing(

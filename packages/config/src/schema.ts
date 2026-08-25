@@ -265,13 +265,16 @@ export function scanForUnknownVariables(
 ): EnvScanResult {
   const unknown: string[] = [];
   for (const name of Object.keys(env)) {
-    if (!isOwnedNamespace(name)) continue;
-    if (name.startsWith('FLAG_')) {
-      // Fail closed on misspelled flags (e.g. FLAG_GITHUB_WRITE_ENABLED):
-      // only the closed typed registry is acceptable.
+    // Any name whose prefix looks like a flag (case-insensitively) must be in
+    // the closed typed registry, regardless of casing or characters. This runs
+    // BEFORE the owned-namespace patterns so malformed flags
+    // (FLAG_githubWritesEnabled, FLAG_FEATURE_1, flag_webhook_ingress_enabled,
+    // FLAG_, double underscores) can never slip through unvalidated.
+    if (name.toUpperCase().startsWith('FLAG_')) {
       if (!isKnownFlagEnvName(name)) unknown.push(name);
       continue;
     }
+    if (!isOwnedNamespace(name)) continue;
     if (!INVENTORY_BY_NAME.has(name)) {
       unknown.push(name);
     }
