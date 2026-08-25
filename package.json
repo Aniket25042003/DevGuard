@@ -1,0 +1,37 @@
+{
+  "name": "devguard",
+  "private": true,
+  "version": "0.0.0",
+  "description": "DevGuard — GitHub-focused autonomous software-engineering governance control plane.",
+  "type": "module",
+  "packageManager": "pnpm@10.10.0",
+  "engines": {
+    "node": ">=26.7.0 <27"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json --force",
+    "typecheck": "tsc -b tsconfig.json",
+    "lint": "eslint . && node scripts/check-boundaries.mjs",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:e2e": "vitest run --project e2e",
+    "clean": "node scripts/clean.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "^26.3.0",
+    "dependency-cruiser": "^16.10.4",
+    "eslint": "^9.39.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^3.2.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

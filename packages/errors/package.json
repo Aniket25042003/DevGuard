@@ -1,0 +1,21 @@
+{
+  "name": "@devguard/errors",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Provider-neutral typed error taxonomy with stable codes and safe transport mappings.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "zod": "^4.1.12"
+  }
+}

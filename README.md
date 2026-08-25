@@ -14,12 +14,12 @@ Maintainers choose how much authority DevGuard has per repository: which workflo
 
 ## Architecture at a glance
 
-| Layer | Responsibility |
-| --- | --- |
-| **DevGuard** | Product governance, deterministic policy, durable approvals, workflows, audit, and UX |
-| **TrueForge** | Agent runtime — sessions, MCP tools, sandbox execution, streaming, checkpoints |
-| **GitHub** | System of record for source, issues, pull requests, checks, and reviews |
-| **Humans** | Authorize exact privileged actions |
+| Layer         | Responsibility                                                                        |
+| ------------- | ------------------------------------------------------------------------------------- |
+| **DevGuard**  | Product governance, deterministic policy, durable approvals, workflows, audit, and UX |
+| **TrueForge** | Agent runtime — sessions, MCP tools, sandbox execution, streaming, checkpoints        |
+| **GitHub**    | System of record for source, issues, pull requests, checks, and reviews               |
+| **Humans**    | Authorize exact privileged actions                                                    |
 
 **Core rule:** the model proposes; DevGuard governs and records; TrueForge runs; GitHub holds repository truth; a human authorizes exact high-impact actions.
 

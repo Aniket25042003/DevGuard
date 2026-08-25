@@ -1,0 +1,7 @@
+packages:
+  # Application composition/transport shells.
+  - 'apps/*'
+  # Responsibility-oriented packages (flat or nested; only dirs with package.json count).
+  - 'packages/**'
+  # Isolated test suites (integration shares CI infra; e2e runs gated separately).
+  - 'tests/*'

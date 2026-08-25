@@ -1,0 +1,14 @@
+{
+  "name": "@devguard/tests-integration",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "In-process integration suites: use cases + fakes, contract checks, architecture gates.",
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  }
+}
