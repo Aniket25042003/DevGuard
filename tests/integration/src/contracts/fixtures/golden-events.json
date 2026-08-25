@@ -1,441 +1,4 @@
 {
-  "golden": [
-    {
-      "id": "37307903-da1d-476e-89b3-49e515cd336e",
-      "schemaVersion": 1,
-      "type": "action.proposed",
-      "aggregate": {
-        "type": "action",
-        "id": "018f6d2e-0000-7000-8000-000000000001"
-      },
-      "sequence": 1,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "actionType": "pull_request.merge",
-        "riskClass": "sensitive_write",
-        "toolName": "github_merge"
-      }
-    },
-    {
-      "id": "961b34b4-faca-4916-b0e5-a306c9dd6817",
-      "schemaVersion": 1,
-      "type": "approval.approved",
-      "aggregate": {
-        "type": "approval",
-        "id": "018f6d2e-0000-7000-8000-000000000002"
-      },
-      "sequence": 2,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "resolvedByUserId": "018f6d2e-7c1a-7000-8000-0000000000b1"
-      }
-    },
-    {
-      "id": "60331faa-ffcd-49b0-bdce-c98b4bb6c4b0",
-      "schemaVersion": 1,
-      "type": "approval.expired",
-      "aggregate": {
-        "type": "approval",
-        "id": "018f6d2e-0000-7000-8000-000000000003"
-      },
-      "sequence": 3,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "reasonCode": "ttl_elapsed"
-      }
-    },
-    {
-      "id": "116c7651-0804-4bef-bc5a-86674c0e223f",
-      "schemaVersion": 1,
-      "type": "approval.rejected",
-      "aggregate": {
-        "type": "approval",
-        "id": "018f6d2e-0000-7000-8000-000000000004"
-      },
-      "sequence": 4,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "resolvedByUserId": "018f6d2e-7c1a-7000-8000-0000000000b1"
-      }
-    },
-    {
-      "id": "77ccb45c-3d8e-4138-bac7-53f93a10779c",
-      "schemaVersion": 1,
-      "type": "approval.requested",
-      "aggregate": {
-        "type": "approval",
-        "id": "018f6d2e-0000-7000-8000-000000000005"
-      },
-      "sequence": 5,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {}
-    },
-    {
-      "id": "5b0141ec-bed8-4750-b432-407b4893e6d6",
-      "schemaVersion": 1,
-      "type": "approval.required",
-      "aggregate": {
-        "type": "approval",
-        "id": "018f6d2e-0000-7000-8000-000000000006"
-      },
-      "sequence": 6,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {}
-    },
-    {
-      "id": "1747193c-d375-4681-b598-c8adcb5eeb25",
-      "schemaVersion": 1,
-      "type": "approval.stale",
-      "aggregate": {
-        "type": "approval",
-        "id": "018f6d2e-0000-7000-8000-000000000007"
-      },
-      "sequence": 7,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "reasonCode": "head_sha_changed"
-      }
-    },
-    {
-      "id": "898ffee7-b9cc-4ead-a732-c3c4fc5c7bf4",
-      "schemaVersion": 1,
-      "type": "artifact.created",
-      "aggregate": {
-        "type": "artifact",
-        "id": "018f6d2e-0000-7000-8000-000000000008"
-      },
-      "sequence": 8,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "classification": "internal",
-        "checksumSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "contentType": "text/plain"
-      }
-    },
-    {
-      "id": "a00757a2-473d-4a8a-a73d-689591638cea",
-      "schemaVersion": 1,
-      "type": "authorization.allowed",
-      "aggregate": {
-        "type": "authorization_check",
-        "id": "018f6d2e-0000-7000-8000-000000000009"
-      },
-      "sequence": 9,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "repositoryId": "018f6d2e-7c1a-7000-8000-0000000000a1",
-        "permission": "repository:read",
-        "userId": "018f6d2e-7c1a-7000-8000-0000000000b1"
-      }
-    },
-    {
-      "id": "0caf35e0-c401-48ce-9271-be9895dc9482",
-      "schemaVersion": 1,
-      "type": "authorization.denied",
-      "aggregate": {
-        "type": "authorization_check",
-        "id": "018f6d2e-0000-7000-8000-000000000010"
-      },
-      "sequence": 10,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "repositoryId": "018f6d2e-7c1a-7000-8000-0000000000a1",
-        "permission": "approval:resolve",
-        "reasonCode": "role_below_floor"
-      }
-    },
-    {
-      "id": "108d4113-3d32-437a-b16d-b0b9a44c0169",
-      "schemaVersion": 1,
-      "type": "configuration.validated",
-      "aggregate": {
-        "type": "process",
-        "id": "018f6d2e-0000-7000-8000-000000000011"
-      },
-      "sequence": 11,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "processKind": "api",
-        "environment": "test",
-        "configHash": "abc123"
-      }
-    },
-    {
-      "id": "d3ea23d8-6921-4022-95d2-f0d67910b300",
-      "schemaVersion": 1,
-      "type": "feature_flag.changed",
-      "aggregate": {
-        "type": "process",
-        "id": "018f6d2e-0000-7000-8000-000000000012"
-      },
-      "sequence": 12,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "key": "webhookIngressEnabled",
-        "value": false
-      }
-    },
-    {
-      "id": "3472a95b-9832-44dd-97bc-3f8d41ea7b63",
-      "schemaVersion": 1,
-      "type": "outbox.recorded",
-      "aggregate": {
-        "type": "outbox_row",
-        "id": "018f6d2e-0000-7000-8000-000000000013"
-      },
-      "sequence": 13,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "eventType": "workflow.queued",
-        "destination": "queue"
-      }
-    },
-    {
-      "id": "889e79b3-1f9e-4235-a9b1-251de79f8cea",
-      "schemaVersion": 1,
-      "type": "policy.decision.recorded",
-      "aggregate": {
-        "type": "policy_decision",
-        "id": "018f6d2e-0000-7000-8000-000000000014"
-      },
-      "sequence": 14,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "effect": "REQUIRE_APPROVAL",
-        "reasonCode": "sensitive_write_requires_approval",
-        "policyVersionRef": "pv-1"
-      }
-    },
-    {
-      "id": "f72f7b89-6eb2-4aa3-a1fb-fac8d2b21779",
-      "schemaVersion": 1,
-      "type": "repository.connected",
-      "aggregate": {
-        "type": "repository",
-        "id": "018f6d2e-0000-7000-8000-000000000015"
-      },
-      "sequence": 15,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "fullName": "octo/repo",
-        "status": "active"
-      }
-    },
-    {
-      "id": "d9c42b4a-ba74-49aa-b54e-1b5e315e8e7d",
-      "schemaVersion": 1,
-      "type": "repository.disconnected",
-      "aggregate": {
-        "type": "repository",
-        "id": "018f6d2e-0000-7000-8000-000000000016"
-      },
-      "sequence": 16,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "reasonCode": "installation_removed"
-      }
-    },
-    {
-      "id": "d536fa76-18a3-411a-9154-c66ebdfe6bfa",
-      "schemaVersion": 1,
-      "type": "step.state.changed",
-      "aggregate": {
-        "type": "workflow_step",
-        "id": "018f6d2e-0000-7000-8000-000000000017"
-      },
-      "sequence": 17,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "from": "pending",
-        "to": "running",
-        "attempt": 1
-      }
-    },
-    {
-      "id": "b2fc849d-ee65-470f-abee-b677890926c5",
-      "schemaVersion": 1,
-      "type": "validation.completed",
-      "aggregate": {
-        "type": "validation_result",
-        "id": "018f6d2e-0000-7000-8000-000000000018"
-      },
-      "sequence": 18,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "validator": "unit_tests",
-        "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "status": "passed"
-      }
-    },
-    {
-      "id": "a06f5664-6943-41bb-9ab9-19027cdbd38f",
-      "schemaVersion": 1,
-      "type": "webhook.accepted",
-      "aggregate": {
-        "type": "webhook_delivery",
-        "id": "018f6d2e-0000-7000-8000-000000000019"
-      },
-      "sequence": 19,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "deliveryExternalId": "d-1",
-        "eventFamily": "pull_request"
-      }
-    },
-    {
-      "id": "4c1b6735-d57d-4fee-9b68-54507a2da017",
-      "schemaVersion": 1,
-      "type": "webhook.rejected",
-      "aggregate": {
-        "type": "webhook_delivery",
-        "id": "018f6d2e-0000-7000-8000-000000000020"
-      },
-      "sequence": 20,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "deliveryExternalId": "d-bad",
-        "reasonCode": "invalid_signature"
-      }
-    },
-    {
-      "id": "8e2a2441-f2c1-4f52-a3e9-314a8723c6a2",
-      "schemaVersion": 1,
-      "type": "webhook.routed",
-      "aggregate": {
-        "type": "webhook_delivery",
-        "id": "018f6d2e-0000-7000-8000-000000000021"
-      },
-      "sequence": 21,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "deliveryExternalId": "d-1",
-        "eventFamily": "pull_request"
-      }
-    },
-    {
-      "id": "82bd57e0-591e-4b51-8d88-cf70281482c7",
-      "schemaVersion": 1,
-      "type": "workflow.queued",
-      "aggregate": {
-        "type": "workflow_run",
-        "id": "018f6d2e-0000-7000-8000-000000000022"
-      },
-      "sequence": 22,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "repositoryId": "018f6d2e-7c1a-7000-8000-0000000000a1",
-        "trigger": "manual",
-        "requestedBy": "maintainer"
-      }
-    },
-    {
-      "id": "48650fd3-c567-455e-b1d3-ff0410335f53",
-      "schemaVersion": 1,
-      "type": "workflow.state.changed",
-      "aggregate": {
-        "type": "workflow_run",
-        "id": "018f6d2e-0000-7000-8000-000000000023"
-      },
-      "sequence": 23,
-      "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": {},
-      "actor": {
-        "kind": "system"
-      },
-      "payload": {
-        "from": "queued",
-        "to": "running"
-      }
-    }
-  ],
   "legacyMustQuarantine": [
     {
       "$comment": "Pre-v1 envelope shape: must fail closed (unknown_version), never parse best-effort.",
@@ -456,6 +19,598 @@
       "actor": {
         "kind": "system"
       },
+      "payload": {
+        "from": "queued",
+        "to": "running"
+      }
+    }
+  ],
+  "golden": [
+    {
+      "id": "6ab2f54e-876e-4d71-871b-a0f1fa35b38e",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "action",
+        "id": "018f6d2e-0000-7000-8000-000000000001"
+      },
+      "sequence": 1,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "action.proposed",
+      "payload": {
+        "actionType": "pull_request.merge",
+        "riskClass": "sensitive_write",
+        "toolName": "github_merge"
+      }
+    },
+    {
+      "id": "86e6b800-62dc-4e96-b06b-922ade13b9ea",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000002"
+      },
+      "sequence": 2,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "approval.approved",
+      "payload": {
+        "resolvedByUserId": "018f6d2e-7c1a-7000-8000-0000000000b1"
+      }
+    },
+    {
+      "id": "3f131a4f-fb03-4a61-945f-370c529ba28a",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000003"
+      },
+      "sequence": 3,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "approval.expired",
+      "payload": {
+        "reasonCode": "ttl_elapsed"
+      }
+    },
+    {
+      "id": "01518a83-e6c9-4f13-93a6-2057ba9fed2a",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000004"
+      },
+      "sequence": 4,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "approval.rejected",
+      "payload": {
+        "resolvedByUserId": "018f6d2e-7c1a-7000-8000-0000000000b1"
+      }
+    },
+    {
+      "id": "473f487a-9c64-46f4-987c-3fd5e0bb496c",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000005"
+      },
+      "sequence": 5,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "approval.requested",
+      "payload": {}
+    },
+    {
+      "id": "959f23bb-6b9a-4dc7-a4bf-0cc2ffe28f8c",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000006"
+      },
+      "sequence": 6,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "approval.required",
+      "payload": {}
+    },
+    {
+      "id": "d7fa4807-3c92-4ff6-9de3-2d51d48099fd",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000007"
+      },
+      "sequence": 7,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "approval.stale",
+      "payload": {
+        "reasonCode": "head_sha_changed"
+      }
+    },
+    {
+      "id": "43504c37-d030-411d-9d37-e4260d15dcf0",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "artifact",
+        "id": "018f6d2e-0000-7000-8000-000000000008"
+      },
+      "sequence": 8,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "artifact.created",
+      "payload": {
+        "classification": "internal",
+        "checksumSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "contentType": "text/plain"
+      }
+    },
+    {
+      "id": "4e5fb748-b97f-4a7c-9704-4e475b3bfb4e",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "authorization_check",
+        "id": "018f6d2e-0000-7000-8000-000000000009"
+      },
+      "sequence": 9,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "authorization.allowed",
+      "payload": {
+        "repositoryId": "018f6d2e-7c1a-7000-8000-0000000000a1",
+        "permission": "repository:read",
+        "userId": "018f6d2e-7c1a-7000-8000-0000000000b1"
+      }
+    },
+    {
+      "id": "6b715096-e681-4c8d-9e90-7fa44da7ad60",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "authorization_check",
+        "id": "018f6d2e-0000-7000-8000-000000000010"
+      },
+      "sequence": 10,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "authorization.denied",
+      "payload": {
+        "repositoryId": "018f6d2e-7c1a-7000-8000-0000000000a1",
+        "permission": "approval:resolve",
+        "reasonCode": "role_below_floor"
+      }
+    },
+    {
+      "id": "9b2cd0ef-cdf4-42af-bda1-fe389b65f5da",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "process",
+        "id": "018f6d2e-0000-7000-8000-000000000011"
+      },
+      "sequence": 11,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "configuration.validated",
+      "payload": {
+        "processKind": "api",
+        "environment": "test",
+        "configHash": "abc123"
+      }
+    },
+    {
+      "id": "2cfd14b6-8f84-4fd4-9aa7-c944aa8f3a78",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "provenance",
+        "id": "018f6d2e-0000-7000-8000-000000000012"
+      },
+      "sequence": 12,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "context.provenance.recorded",
+      "payload": {
+        "provenanceId": "018f6d2e-0000-7000-8000-0000000000e1",
+        "sourceKind": "issue",
+        "trustClass": "untrusted_data",
+        "contentDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    },
+    {
+      "id": "1c009872-9d4b-4b5c-803d-1cebc70b5057",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "process",
+        "id": "018f6d2e-0000-7000-8000-000000000013"
+      },
+      "sequence": 13,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "feature_flag.changed",
+      "payload": {
+        "key": "webhookIngressEnabled",
+        "value": false
+      }
+    },
+    {
+      "id": "b203fd7b-81f3-4a47-8ca0-83f17ff5fefc",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "instruction",
+        "id": "018f6d2e-0000-7000-8000-000000000014"
+      },
+      "sequence": 14,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "instruction.rejected",
+      "payload": {
+        "path": "AGENTS.md",
+        "reasonCode": "conflicts_with_repository_policy"
+      }
+    },
+    {
+      "id": "216bca08-65de-4bab-b848-8d9715ab5310",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "outbox_row",
+        "id": "018f6d2e-0000-7000-8000-000000000015"
+      },
+      "sequence": 15,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "outbox.recorded",
+      "payload": {
+        "eventType": "workflow.queued",
+        "destination": "queue"
+      }
+    },
+    {
+      "id": "436406cd-900d-4e6d-aeca-3db9b6cd21f4",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "policy_decision",
+        "id": "018f6d2e-0000-7000-8000-000000000016"
+      },
+      "sequence": 16,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "policy.decision.recorded",
+      "payload": {
+        "effect": "REQUIRE_APPROVAL",
+        "reasonCode": "sensitive_write_requires_approval",
+        "policyVersionRef": "pv-1"
+      }
+    },
+    {
+      "id": "78f8e554-c699-49bc-8892-d94d46361ce0",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "repository",
+        "id": "018f6d2e-0000-7000-8000-000000000017"
+      },
+      "sequence": 17,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "repository.connected",
+      "payload": {
+        "fullName": "octo/repo",
+        "status": "active"
+      }
+    },
+    {
+      "id": "776e39ef-d202-4d06-ae35-6496f64e603f",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "repository",
+        "id": "018f6d2e-0000-7000-8000-000000000018"
+      },
+      "sequence": 18,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "repository.disconnected",
+      "payload": {
+        "reasonCode": "installation_removed"
+      }
+    },
+    {
+      "id": "e5c509a3-43c9-4f13-8f18-c2c2158ad25d",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "secret_reference",
+        "id": "018f6d2e-0000-7000-8000-000000000019"
+      },
+      "sequence": 19,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "secret.exposure.blocked",
+      "payload": {
+        "subjectDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "findingCount": 1
+      }
+    },
+    {
+      "id": "4a4d4601-105a-4a70-ae86-59860b8e0572",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "secret_reference",
+        "id": "018f6d2e-0000-7000-8000-000000000020"
+      },
+      "sequence": 20,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "secret.redacted",
+      "payload": {
+        "sinkType": "log",
+        "detectorClass": "github_token",
+        "redactionCount": 1
+      }
+    },
+    {
+      "id": "3518f2c3-d49b-42e5-9103-46478e626f3b",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "secret_reference",
+        "id": "018f6d2e-0000-7000-8000-000000000021"
+      },
+      "sequence": 21,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "secret.reference.unavailable",
+      "payload": {
+        "referenceName": "GITHUB_APP_PRIVATE_KEY",
+        "reasonCode": "missing"
+      }
+    },
+    {
+      "id": "653cc0f3-4eca-427d-9f96-855f52680432",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "secret_reference",
+        "id": "018f6d2e-0000-7000-8000-000000000022"
+      },
+      "sequence": 22,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "secret.rotation.required",
+      "payload": {
+        "fingerprintHmac": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "reasonCode": "exposure_confirmed"
+      }
+    },
+    {
+      "id": "65008e05-3d10-43d7-b2d6-bcc1cae61282",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "security_evidence",
+        "id": "018f6d2e-0000-7000-8000-000000000023"
+      },
+      "sequence": 23,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "security.trust_violation",
+      "payload": {
+        "sourceKind": "agents_md",
+        "reasonCode": "authority_claim_detected"
+      }
+    },
+    {
+      "id": "1f6682c3-6f91-4703-b60e-bd74cfb279f2",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "security_evidence",
+        "id": "018f6d2e-0000-7000-8000-000000000024"
+      },
+      "sequence": 24,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "security.untrusted_content.quarantined",
+      "payload": {
+        "contentDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "reasonCode": "injection_signals_present"
+      }
+    },
+    {
+      "id": "ff9b7eab-5809-42db-8899-bafddbc3645e",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "workflow_step",
+        "id": "018f6d2e-0000-7000-8000-000000000025"
+      },
+      "sequence": 25,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "step.state.changed",
+      "payload": {
+        "from": "pending",
+        "to": "running",
+        "attempt": 1
+      }
+    },
+    {
+      "id": "d51c2015-9ab5-47f8-8a2b-69b9cfa0a6f5",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "validation_result",
+        "id": "018f6d2e-0000-7000-8000-000000000026"
+      },
+      "sequence": 26,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "validation.completed",
+      "payload": {
+        "validator": "unit_tests",
+        "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "passed"
+      }
+    },
+    {
+      "id": "e683bfc2-48ef-4a6a-a776-b4d61747e4a9",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "webhook_delivery",
+        "id": "018f6d2e-0000-7000-8000-000000000027"
+      },
+      "sequence": 27,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "webhook.accepted",
+      "payload": {
+        "deliveryExternalId": "d-1",
+        "eventFamily": "pull_request"
+      }
+    },
+    {
+      "id": "39e1fc50-16f5-4141-a6d4-18061bd13fa1",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "webhook_delivery",
+        "id": "018f6d2e-0000-7000-8000-000000000028"
+      },
+      "sequence": 28,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "webhook.rejected",
+      "payload": {
+        "deliveryExternalId": "d-bad",
+        "reasonCode": "invalid_signature"
+      }
+    },
+    {
+      "id": "ee7a91c7-4a68-4468-89fa-b43f38245171",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "webhook_delivery",
+        "id": "018f6d2e-0000-7000-8000-000000000029"
+      },
+      "sequence": 29,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "webhook.routed",
+      "payload": {
+        "deliveryExternalId": "d-1",
+        "eventFamily": "pull_request"
+      }
+    },
+    {
+      "id": "55377402-9319-4d95-935b-5751105027eb",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "workflow_run",
+        "id": "018f6d2e-0000-7000-8000-000000000030"
+      },
+      "sequence": 30,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "workflow.queued",
+      "payload": {
+        "repositoryId": "018f6d2e-7c1a-7000-8000-0000000000a1",
+        "trigger": "manual",
+        "requestedBy": "maintainer"
+      }
+    },
+    {
+      "id": "460d053c-f8eb-47fc-a034-fd55eda18742",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "workflow_run",
+        "id": "018f6d2e-0000-7000-8000-000000000031"
+      },
+      "sequence": 31,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "workflow.state.changed",
       "payload": {
         "from": "queued",
         "to": "running"

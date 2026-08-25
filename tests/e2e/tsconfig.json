@@ -13,6 +13,7 @@
     { "path": "../../packages/api-contracts" },
     { "path": "../../packages/auth" },
     { "path": "../../packages/authorization" },
+    { "path": "../../packages/security" },
     { "path": "../../packages/config" },
     { "path": "../../apps/api" },
     { "path": "../../apps/worker" }

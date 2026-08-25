@@ -1,0 +1,23 @@
+{
+  "name": "@devguard/security",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cross-cutting security library: trust/provenance boundaries, secrets resolution/redaction, leak scanning (C092/C093).",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/contracts": "workspace:*",
+    "@devguard/errors": "workspace:*",
+    "zod": "^4.1.12"
+  }
+}

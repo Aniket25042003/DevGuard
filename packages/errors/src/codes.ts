@@ -20,7 +20,8 @@ export type ErrorCategory =
   | 'configuration'
   | 'authorization'
   | 'concurrency'
-  | 'validation';
+  | 'validation'
+  | 'security';
 
 /**
  * Runtime schema every public detail payload must satisfy before it may be
@@ -154,6 +155,80 @@ export const FOUNDATION_ERROR_DESCRIPTORS = [
     httpStatus: 500,
     retryClass: 'human_intervention',
     safeMessage: 'An unexpected error occurred.',
+  },
+  // ---- Security boundary codes (C092/C093) ----
+  {
+    code: 'PROVENANCE_INVALID',
+    category: 'validation',
+    httpStatus: 400,
+    retryClass: 'no_retry',
+    safeMessage: 'Content provenance could not be verified.',
+    detailSchema: z.object({ field: z.string().max(64) }),
+  },
+  {
+    code: 'TRUST_ITEM_INVALID_TRANSITION',
+    category: 'domain',
+    httpStatus: 409,
+    retryClass: 'no_retry',
+    safeMessage: 'Trust evaluation state transition is not allowed.',
+    detailSchema: z.object({
+      from: z.string().min(1).max(32),
+      to: z.string().min(1).max(32),
+    }),
+  },
+  {
+    code: 'CONTENT_QUARANTINED',
+    category: 'domain',
+    httpStatus: 403,
+    retryClass: 'no_retry',
+    safeMessage: 'This content was quarantined and cannot be used.',
+    detailSchema: z.object({ reasonCode: z.string().min(1).max(128) }),
+  },
+  {
+    code: 'UNTRUSTED_PROPOSAL_REJECTED',
+    category: 'authorization',
+    httpStatus: 403,
+    retryClass: 'no_retry',
+    safeMessage: 'The proposal carried untrusted authorization data and was rejected.',
+    detailSchema: z.object({
+      strippedFields: z.array(z.string().max(64)).max(16),
+    }),
+  },
+  {
+    code: 'SECRET_ACCESS_DENIED',
+    category: 'authorization',
+    httpStatus: 403,
+    retryClass: 'no_retry',
+    safeMessage: 'Access to this secret is not permitted for the caller.',
+  },
+  {
+    code: 'SECRET_UNAVAILABLE',
+    category: 'integration',
+    httpStatus: 503,
+    retryClass: 'safe_retry',
+    safeMessage: 'The requested secret is unavailable or expired.',
+  },
+  {
+    code: 'SECRET_STATE_INVALID',
+    category: 'domain',
+    httpStatus: 409,
+    retryClass: 'no_retry',
+    safeMessage: 'The secret reference is not in a resolvable state.',
+    detailSchema: z.object({
+      status: z.string().min(1).max(24),
+      expectedStatus: z.string().min(1).max(24).optional(),
+    }),
+  },
+  {
+    code: 'PUBLICATION_BLOCKED',
+    category: 'security',
+    httpStatus: 422,
+    retryClass: 'no_retry',
+    safeMessage: 'Publication was blocked by the leak-scan guard.',
+    detailSchema: z.object({
+      reasonCode: z.enum(['findings_present', 'scanner_unavailable', 'digest_mismatch']),
+      findingCount: z.number().int().nonnegative(),
+    }),
   },
 ] as const satisfies readonly ErrorDescriptor[];
 

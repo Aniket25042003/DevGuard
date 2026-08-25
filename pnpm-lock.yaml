@@ -125,6 +125,18 @@ importers:
         specifier: ^4.1.12
         version: 4.4.3
 
+  packages/security:
+    dependencies:
+      '@devguard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@devguard/errors':
+        specifier: workspace:*
+        version: link:../errors
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
+
   tests/e2e:
     dependencies:
       '@devguard/api':
@@ -148,6 +160,9 @@ importers:
       '@devguard/errors':
         specifier: workspace:*
         version: link:../../packages/errors
+      '@devguard/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@devguard/worker':
         specifier: workspace:*
         version: link:../../apps/worker
@@ -175,6 +190,9 @@ importers:
       '@devguard/errors':
         specifier: workspace:*
         version: link:../../packages/errors
+      '@devguard/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@devguard/worker':
         specifier: workspace:*
         version: link:../../apps/worker
