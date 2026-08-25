@@ -40,12 +40,16 @@ export function decodePageCursor(raw: string | undefined): PageCursorPayload {
 export function page<T>(
   items: readonly T[],
   nextOffset: number | undefined,
+  effectiveLimit: number = DEFAULT_PAGE_SIZE,
 ): {
   readonly items: readonly T[];
   readonly nextCursor?: string;
 } {
   if (nextOffset === undefined) return { items };
-  return { items, nextCursor: encodePageCursor({ limit: DEFAULT_PAGE_SIZE, offset: nextOffset }) };
+  // The cursor carries the EFFECTIVE limit so pagination state survives across
+  // requests instead of silently reverting to the default page size.
+  const boundedLimit = Math.min(Math.max(1, effectiveLimit), MAX_PAGE_SIZE);
+  return { items, nextCursor: encodePageCursor({ limit: boundedLimit, offset: nextOffset }) };
 }
 
 /** Success envelope for JSON responses. */

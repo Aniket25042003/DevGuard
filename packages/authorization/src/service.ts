@@ -198,20 +198,38 @@ export class RepositoryAuthorizationService {
       return this.deny(q, 'system_actor_capability_forbidden');
     }
     const binding = principal.binding ?? {};
-    const needsRunBinding = q.capability === 'workflow:start' || q.capability === 'workflow:cancel';
-    const needsApprovalBinding = q.capability === 'approval:resolve';
-    if (needsRunBinding && binding.workflowRunId === undefined) {
-      return this.deny(q, 'system_actor_missing_run_binding');
-    }
-    if (needsApprovalBinding && binding.approvalId === undefined) {
-      return this.deny(q, 'system_actor_missing_approval_binding');
-    }
-    if (
-      q.context?.workflowRunId !== undefined &&
-      binding.workflowRunId !== undefined &&
-      binding.workflowRunId !== q.context.workflowRunId
-    ) {
-      return this.deny(q, 'system_actor_binding_mismatch');
+    // Caller-provided IDs are references, NOT authorization evidence: the
+    // requested operation context must be PRESENT and EQUAL the persisted
+    // binding for both run-scoped and approval-scoped capabilities.
+    const needsRunContext = q.capability === 'workflow:start' || q.capability === 'workflow:cancel';
+    const needsApprovalContext = q.capability === 'approval:resolve';
+
+    if (needsRunContext || needsApprovalContext) {
+      if (q.context === undefined) {
+        return this.deny(q, 'system_actor_missing_operation_context');
+      }
+      if (needsRunContext) {
+        if (binding.workflowRunId === undefined) {
+          return this.deny(q, 'system_actor_missing_run_binding');
+        }
+        if (q.context.workflowRunId === undefined) {
+          return this.deny(q, 'system_actor_missing_run_context');
+        }
+        if (binding.workflowRunId !== q.context.workflowRunId) {
+          return this.deny(q, 'system_actor_binding_mismatch');
+        }
+      }
+      if (needsApprovalContext) {
+        if (binding.approvalId === undefined) {
+          return this.deny(q, 'system_actor_missing_approval_binding');
+        }
+        if (q.context.approvalId === undefined) {
+          return this.deny(q, 'system_actor_missing_approval_context');
+        }
+        if (binding.approvalId !== q.context.approvalId) {
+          return this.deny(q, 'system_actor_binding_mismatch');
+        }
+      }
     }
     return { effect: 'allow', reasonCode: 'system_actor_scoped' };
   }

@@ -2,12 +2,17 @@
  * C005 — Request context, route metadata, and the TransportKernel.
  *
  * Fixed middleware order (never reorder):
- *   request-id → body limits/raw-body → security headers → authentication →
- *   per-route gates (auth class + rate class) → controller → safe errors.
- * The kernel contains no domain logic; controllers call application ports.
+ *   request-id → top-level error boundary → body limits / bounded raw-body →
+ *   security headers → authentication → per-route gates → controller.
+ *
+ * Security notes:
+ * - Client IP class ignores X-Forwarded-For unless a trusted proxy is
+ *   explicitly configured (C094 hardens further).
+ * - Webhook raw bodies are captured through a bounded streaming reader that
+ *   aborts as soon as the cap is exceeded, independent of Content-Length.
  */
 import { Hono, type Context } from 'hono';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { normalizeError, presentHttpError } from '@devguard/errors';
 import type { Principal } from '@devguard/auth';
 
@@ -15,7 +20,7 @@ export interface RequestContext {
   readonly requestId: string;
   readonly startedAt: number;
   readonly principal?: Principal;
-  /** Coarse client class derived from IP — never raw addresses. */
+  /** Coarse pseudonymous client class — never a raw IP address. */
   readonly ipClass: string;
 }
 
@@ -69,10 +74,67 @@ function readCookie(c: Context<AppEnv>, name: string): string | undefined {
   return undefined;
 }
 
+/** Coarse pseudonymous client class — never a raw IP address. */
+function clientIpClass(headerValue: string | undefined, trustedProxy: boolean): string {
+  if (!trustedProxy || headerValue === undefined || headerValue.length === 0) {
+    // Without a configured trusted proxy every client shares one class:
+    // attacker-controlled headers can neither differentiate nor exhaust keys.
+    return 'direct';
+  }
+  const firstHop = headerValue.split(',')[0]?.trim() ?? '';
+  if (firstHop.length === 0 || firstHop.length > 45) return 'direct';
+  return `proxied:${createHash('sha256').update(firstHop).digest('hex').slice(0, 16)}`;
+}
+
+export class PayloadTooLargeError extends Error {
+  readonly maxBytes: number;
+  constructor(maxBytes: number) {
+    super(`payload exceeds ${maxBytes} bytes`);
+    this.name = 'PayloadTooLargeError';
+    this.maxBytes = maxBytes;
+  }
+}
+
+/**
+ * Bounded streaming capture for webhook raw bytes. Aborts as soon as the cap
+ * is exceeded — independent of Content-Length, which may be absent or lied
+ * about. Never buffers an unbounded request before rejecting it.
+ */
+async function readBoundedRawBody(request: Request, maxBytes: number): Promise<ArrayBuffer> {
+  const body = request.body;
+  if (body === null) return new ArrayBuffer(0);
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value !== undefined) {
+      received += value.byteLength;
+      if (received > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new PayloadTooLargeError(maxBytes);
+      }
+      chunks.push(value);
+    }
+  }
+  const out = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out.buffer;
+}
+
 /** Build the /api/v1 kernel shell. `registerV1Route` is the only way in. */
 export function createTransportKernel(input: {
   readonly rateLimiter: RateLimiterPort;
   readonly authenticate: (sessionToken: string | undefined) => Promise<Principal | undefined>;
+  /** From config (default false): trust X-Forwarded-For for rate-limit keys. */
+  readonly trustedProxy?: boolean | undefined;
+  /** Webhook raw-body cap in bytes (default 1 MiB). */
+  readonly webhookMaxBodyBytes?: number | undefined;
 }): {
   app: Hono<AppEnv>;
   registerV1Route: RegisterV1Route;
@@ -85,17 +147,36 @@ export function createTransportKernel(input: {
   app.use('/api/v1/*', async (c, next) => {
     c.set(
       'requestContext',
-      createRequestContext(c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'local'),
+      createRequestContext(
+        clientIpClass(c.req.header('x-forwarded-for'), input.trustedProxy === true),
+      ),
     );
     await next();
     c.header('x-request-id', c.get('requestContext').requestId);
     return undefined;
   });
 
-  // 2) body limits / raw-body capture
+  // 2) top-level error boundary: any middleware failure (session-store outage,
+  //    rate-limiter crash, bounded-body abort) still yields the stable
+  //    envelope with the request id attached by the outer header hook above.
+  app.use('/api/v1/*', async (c, next) => {
+    try {
+      await next();
+      return undefined;
+    } catch (error) {
+      if (error instanceof PayloadTooLargeError) {
+        return fail(c, 413, 'VALIDATION_FAILED', 'Payload too large.');
+      }
+      const presented = presentHttpError(normalizeError(error), c.get('requestContext').requestId);
+      return c.json(presented.body as unknown as Record<string, unknown>, presented.status as 500);
+    }
+  });
+
+  // 3) body limits / bounded raw-body capture
   app.use('/api/v1/*', async (c, next) => {
     if (c.req.path.startsWith('/api/v1/webhooks/')) {
-      c.set('rawBody', await c.req.raw.arrayBuffer());
+      c.set('rawBody', await readBoundedRawBody(c.req.raw, input.webhookMaxBodyBytes ?? 1_048_576));
+      return next();
     }
     const contentLength = Number.parseInt(c.req.header('content-length') ?? '0', 10);
     if (Number.isFinite(contentLength) && contentLength > 1_048_576) {
@@ -105,7 +186,7 @@ export function createTransportKernel(input: {
     return undefined;
   });
 
-  // 3) security headers
+  // 4) security headers
   app.use('/api/v1/*', async (c, next) => {
     c.header('x-content-type-options', 'nosniff');
     c.header('referrer-policy', 'no-referrer');
@@ -114,7 +195,7 @@ export function createTransportKernel(input: {
     return undefined;
   });
 
-  // 4) authentication before controllers
+  // 5) authentication before controllers
   app.use('/api/v1/*', async (c, next) => {
     const sessionToken = readCookie(c, 'devguard_session');
     const principal = await input.authenticate(sessionToken);
@@ -125,7 +206,7 @@ export function createTransportKernel(input: {
     return undefined;
   });
 
-  // 5) per-route gates + safe error mapping
+  // 6) per-route gates + safe error mapping for controller failures
   const registerV1Route: RegisterV1Route = (method, path, metadata, handler) => {
     const key = `${method.toUpperCase()} ${path}`;
     if (registry.has(key)) {

@@ -25,7 +25,18 @@ export class InMemoryRateLimiter implements RateLimiterPort {
       Math.floor(now / (limits.windowSeconds * 1_000)) * limits.windowSeconds * 1_000;
 
     if (this.buckets.size > this.maxKeys) {
-      this.buckets.clear(); // bounded memory; conservative reset
+      // Expiry-aware eviction: drop buckets from previous windows first
+      // (they are stale by definition), then oldest-inserted. Never blanket-
+      // clear: attacker-controlled key cardinality must not reset the state
+      // of unrelated (including abusive) clients.
+      for (const [key, bucket] of this.buckets) {
+        if (bucket.windowStart < windowStart) this.buckets.delete(key);
+      }
+      while (this.buckets.size > this.maxKeys) {
+        const oldest = this.buckets.keys().next();
+        if (oldest.done === true) break;
+        this.buckets.delete(oldest.value);
+      }
     }
 
     const existing = this.buckets.get(key);
@@ -34,6 +45,7 @@ export class InMemoryRateLimiter implements RateLimiterPort {
         ? existing
         : { windowStart, count: 0 };
     bucket.count += 1;
+    this.buckets.delete(key); // refresh insertion order → LRU-ish eviction
     this.buckets.set(key, bucket);
 
     if (bucket.count > limits.limit) {

@@ -27,6 +27,9 @@ const FRESH_REQUIRED: ReadonlySet<RepositoryCapability> = new Set([
   'approval:resolve',
   'repository:privileged_action',
   'workflow:cancel',
+  // Connect-time authority must always revalidate the provider — a cached
+  // admin allow from earlier must never authorize a new connection.
+  'repository:connect',
 ]);
 
 export function requiresFreshCheck(capability: RepositoryCapability): boolean {

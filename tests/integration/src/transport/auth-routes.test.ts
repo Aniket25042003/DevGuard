@@ -22,8 +22,9 @@ function fakeIdp(): IdentityProviderClient & { exchanged: string[] } {
     buildAuthorizeUrl(input: { state: string }) {
       return `https://github.com/login/oauth/authorize?client_id=Iv1.testclient&state=${input.state}`;
     },
-    async exchangeCode(input: { code: string }) {
+    async exchangeCode(input: { code: string; codeVerifier: string }) {
       this.exchanged.push(input.code);
+      if (input.codeVerifier.length < 43) throw new Error('pkce_verifier_missing');
       if (input.code === 'fail') throw new Error('github_token_exchange_failed:400');
       return { accessToken: `token-for-${input.code}` };
     },
@@ -104,9 +105,48 @@ describe('C005 auth endpoints over the transport kernel', () => {
     const session = await api.app.request('/api/v1/auth/session', {
       headers: { cookie: `devguard_session=${String(sessionToken)}` },
     });
-    const body = (await session.json()) as { authenticated: boolean; user?: { id?: string } };
+    const body = (await session.json()) as {
+      authenticated: boolean;
+      user?: { id?: string; login?: string; displayName?: string };
+    };
     expect(body.authenticated).toBe(true);
-    expect(body.user?.id).toBeDefined();
+    // Presentation values come from the stored provider profile…
+    expect(body.user?.login).toBe('octocat');
+    expect(body.user?.displayName).toBe('Octo Cat');
+  });
+
+  it('marks cookies Secure when the public origin is HTTPS (Qodo fix)', async () => {
+    const httpsEnv = { ...API_ENV, DEVGUARD_PUBLIC_ORIGIN: 'https://devguard.example' };
+    const config = loadConfig('api', { env: { ...httpsEnv } });
+    const container = buildContainer(config, { ...httpsEnv }, { identityProvider: fakeIdp() });
+    validateReadiness(config, container.bindings);
+    const api = Object.assign(container, assembleApi(container));
+
+    const login = await api.app.request('/api/v1/auth/login?returnTo=/x');
+    expect(login.headers.get('set-cookie') ?? '').toContain('Secure');
+
+    const state =
+      extractCookie(login.headers.get('set-cookie') ?? undefined, 'devguard_state') ?? '';
+    const callback = await api.app.request(`/api/v1/auth/callback?code=c9&state=${state}`, {
+      headers: { cookie: `devguard_state=${state}` },
+      redirect: 'manual',
+    });
+    const setCookie: string = callback.headers.get('set-cookie') ?? '';
+    const secureCount = setCookie.split(', ').filter((part) => part.includes('Secure')).length;
+    expect(secureCount).toBeGreaterThanOrEqual(2); // session + csrf cookies
+  });
+
+  it('ignores client-supplied X-Forwarded-For for rate-limit identity by default (Qodo fix)', async () => {
+    const api = boot();
+    let sawLimit = false;
+    for (let index = 0; index < 15 && !sawLimit; index += 1) {
+      // Spoof a DIFFERENT forwarded IP per request — must not create new buckets.
+      const response = await api.app.request('/api/v1/auth/login', {
+        headers: { 'x-forwarded-for': `203.0.113.${index}:1337` },
+      });
+      if (response.status === 429) sawLimit = true;
+    }
+    expect(sawLimit).toBe(true);
   });
 
   it('rejects replayed callbacks with a conflict status', async () => {

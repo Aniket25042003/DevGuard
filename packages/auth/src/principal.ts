@@ -11,6 +11,9 @@ export interface Principal {
   readonly userId: string;
   readonly issuer: string;
   readonly providerSubject: string;
+  /** Stable identity key above; presentation values below. */
+  readonly providerLogin?: string | undefined;
+  readonly providerDisplayName?: string | undefined;
   /** Reference of the hashed session id (never the raw token). */
   readonly sessionIdHash: string;
   readonly authenticatedAt: TimestampIso;
@@ -41,8 +44,13 @@ export interface AuthSessionRecord {
 
 export interface AuthTransactionRecord {
   readonly stateHash: string;
-  readonly pkceVerifierHash?: string | undefined;
-  readonly nonceHash?: string | undefined;
+  /**
+   * PKCE verifier for the S256 challenge. It MUST be presented verbatim at
+   * token exchange, so it is retained in the server-side single-use
+   * transaction (10-minute TTL) rather than hashed. Encryption at rest is
+   * upgraded by C093.
+   */
+  readonly pkceVerifier: string;
   readonly returnToPath: string;
   readonly createdAt: TimestampIso;
   readonly expiresAt: TimestampIso;
@@ -82,12 +90,12 @@ export interface AuthTransactionRepository {
 export interface IdentityProviderClient {
   buildAuthorizeUrl(input: {
     readonly state: string;
-    readonly nonce: string;
     readonly codeChallenge: string;
     readonly redirectUri: string;
   }): string;
   exchangeCode(input: {
     readonly code: string;
+    readonly codeVerifier: string;
     readonly redirectUri: string;
   }): Promise<{ readonly accessToken: string }>;
   fetchIdentity(accessToken: string): Promise<ExternalIdentity>;

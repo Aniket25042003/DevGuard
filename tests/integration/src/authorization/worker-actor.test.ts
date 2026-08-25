@@ -46,7 +46,7 @@ describe('C006 worker composition (system actors only)', () => {
     };
     const result = await container.authorizer.authorize(query);
     expect(result.effect).toBe('deny');
-    expect(result.reasonCode).toBe('system_actor_missing_run_binding');
+    expect(result.reasonCode).toBe('system_actor_missing_operation_context');
   });
 
   it('allows scoped system actors with a matching binding (linkage permitting)', async () => {

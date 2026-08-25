@@ -229,6 +229,14 @@ export const FIELD_INVENTORY: readonly FieldDefinition[] = Object.freeze([
     'info',
   ),
   field(
+    'DEVGUARD_TRUSTED_PROXY_ENABLED',
+    'C094',
+    ['api'],
+    'internal',
+    'Trust X-Forwarded-For from the reverse proxy.',
+    'false',
+  ),
+  field(
     'DEVGUARD_PUBLIC_ORIGIN',
     'C005',
     ['api'],
@@ -458,6 +466,15 @@ export function parseSessionPolicy(parser: ConfigParser, env: EnvRecord): Sessio
 
 export function parsePublicOrigin(parser: ConfigParser, env: EnvRecord): string | undefined {
   return parser.url(env, 'DEVGUARD_PUBLIC_ORIGIN', ['https:', 'http:']);
+}
+
+export function parseTrustedProxy(parser: ConfigParser, env: EnvRecord): boolean {
+  const raw = parser.optionalString(env, 'DEVGUARD_TRUSTED_PROXY_ENABLED');
+  if (raw === undefined || raw === '') return false;
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  parser.addIssue('DEVGUARD_TRUSTED_PROXY_ENABLED', 'must be exactly "true" or "false"');
+  return false;
 }
 
 export interface ArtifactStorageConfig {

@@ -17,6 +17,8 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   const kernel = createTransportKernel({
     rateLimiter: new InMemoryRateLimiter(),
     authenticate: (sessionToken) => container.auth.resolvePrincipal(sessionToken),
+    trustedProxy: container.config.trustedProxyEnabled,
+    webhookMaxBodyBytes: container.config.limits.webhookMaxBodyBytes,
   });
 
   // 4.5) CSRF + same-origin for state-changing requests (after authentication,

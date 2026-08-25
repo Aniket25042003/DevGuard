@@ -31,7 +31,6 @@ export class GitHubOAuthClient implements IdentityProviderClient {
 
   buildAuthorizeUrl(input: {
     readonly state: string;
-    readonly nonce: string;
     readonly codeChallenge: string;
     readonly redirectUri: string;
   }): string {
@@ -40,9 +39,7 @@ export class GitHubOAuthClient implements IdentityProviderClient {
       redirect_uri: input.redirectUri,
       scope: 'read:user',
       state: input.state,
-      // PKCE + nonce travel with the transaction; GitHub echoes state back and
-      // DevGuard binds the code exchange to the stored transaction.
-      nonce: input.nonce,
+      // PKCE S256 challenge; the matching verifier is sent at token exchange.
       code_challenge: input.codeChallenge,
       code_challenge_method: 'S256',
       allow_signup: 'true',
@@ -52,6 +49,7 @@ export class GitHubOAuthClient implements IdentityProviderClient {
 
   async exchangeCode(input: {
     readonly code: string;
+    readonly codeVerifier: string;
     readonly redirectUri: string;
   }): Promise<{ readonly accessToken: string }> {
     const response = await this.fetchImpl(GITHUB_TOKEN_URL, {
@@ -61,6 +59,8 @@ export class GitHubOAuthClient implements IdentityProviderClient {
         client_id: this.options.clientId,
         client_secret: this.options.clientSecret,
         code: input.code,
+        // Required whenever a code_challenge was sent at authorize time.
+        code_verifier: input.codeVerifier,
         redirect_uri: input.redirectUri,
       }),
     });

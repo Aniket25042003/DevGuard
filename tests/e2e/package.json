@@ -13,11 +13,12 @@
   },
   "dependencies": {
     "@devguard/api": "workspace:*",
+    "@devguard/api-contracts": "workspace:*",
+    "@devguard/auth": "workspace:*",
     "@devguard/authorization": "workspace:*",
+    "@devguard/config": "workspace:*",
     "@devguard/contracts": "workspace:*",
     "@devguard/errors": "workspace:*",
-    "@devguard/auth": "workspace:*",
-    "@devguard/config": "workspace:*",
     "@devguard/worker": "workspace:*"
   }
 }

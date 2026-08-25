@@ -23,6 +23,7 @@
     "@devguard/config": "workspace:*",
     "@devguard/contracts": "workspace:*",
     "@devguard/errors": "workspace:*",
+    "@hono/node-server": "^1.14.4",
     "hono": "^4.9.7"
   }
 }

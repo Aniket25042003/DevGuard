@@ -28,14 +28,17 @@ function setCookieValue(
     httpOnly?: boolean;
     path?: string;
     sameSite?: 'Lax' | 'Strict';
+    secure?: boolean;
   },
 ): string {
   const parts = [`${name}=${encodeURIComponent(value)}`, `Path=${options.path ?? '/'}`];
   parts.push(`Max-Age=${options.maxAgeSeconds ?? 600}`);
   parts.push(`SameSite=${options.sameSite ?? 'Lax'}`);
   if (options.httpOnly !== false) parts.push('HttpOnly');
-  // Secure is set by the reverse proxy terminator in production deployments;
-  // local development origins are plain http.
+  // The application owns cookie attributes: Secure whenever the configured
+  // public origin is HTTPS — proxies cannot reliably add attributes to
+  // application-generated Set-Cookie values.
+  if (options.secure === true) parts.push('Secure');
   return parts.join('; ');
 }
 
@@ -48,6 +51,8 @@ export function registerAuthRoutes(
   container: ApiContainer,
 ): void {
   const { config, auth } = container;
+  // Cookie security follows the configured origin scheme.
+  const secureCookies = (config.publicOrigin ?? '').startsWith('https://');
 
   const sessionMeta: RouteMetadata = { rateLimitClass: 'default', authClass: 'optional_session' };
   const loginMeta: RouteMetadata = { rateLimitClass: 'auth_login', authClass: 'public' };
@@ -65,7 +70,13 @@ export function registerAuthRoutes(
     return c.json(
       authSessionResponseSchema.parse({
         authenticated: true,
-        user: { id: principal.userId, login: principal.providerSubject },
+        user: {
+          id: principal.userId,
+          login: principal.providerLogin ?? principal.providerSubject,
+          ...(principal.providerDisplayName !== undefined
+            ? { displayName: principal.providerDisplayName }
+            : {}),
+        },
       }),
     );
   });
@@ -85,7 +96,10 @@ export function registerAuthRoutes(
     const started = await auth.startLogin(startedInput);
     c.header(
       'set-cookie',
-      setCookieValue(STATE_COOKIE, started.stateToken, { maxAgeSeconds: 600 }),
+      setCookieValue(STATE_COOKIE, started.stateToken, {
+        maxAgeSeconds: 600,
+        secure: secureCookies,
+      }),
     );
     return c.redirect(started.authorizeUrl, 302);
   });
@@ -120,6 +134,10 @@ export function registerAuthRoutes(
       stateToken: queryResult.data.state,
     });
 
+    // Session and CSRF cookies share one lifetime: the effective session
+    // expiry (absolute remaining), and rotate together at login.
+    const sessionMaxAgeSeconds =
+      Math.floor(Date.parse(completed.expiresAt) / 1000) - Math.floor(Date.now() / 1000);
     const csrfToken = deriveCsrfToken(
       completed.sessionIdHash,
       completed.sessionIdHash + config.environment,
@@ -128,10 +146,14 @@ export function registerAuthRoutes(
       'set-cookie',
       [
         setCookieValue(SESSION_COOKIE, completed.sessionToken, {
-          maxAgeSeconds:
-            Math.floor(Date.parse(completed.expiresAt) / 1000) - Math.floor(Date.now() / 1000),
+          maxAgeSeconds: sessionMaxAgeSeconds,
+          secure: secureCookies,
         }),
-        setCookieValue(CSRF_COOKIE, csrfToken, { maxAgeSeconds: 86_400, httpOnly: false }),
+        setCookieValue(CSRF_COOKIE, csrfToken, {
+          maxAgeSeconds: sessionMaxAgeSeconds,
+          httpOnly: false,
+          secure: secureCookies,
+        }),
         clearCookie(STATE_COOKIE),
       ].join(', '),
     );

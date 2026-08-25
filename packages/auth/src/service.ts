@@ -27,6 +27,7 @@ import type {
   UserIdentityLinker,
 } from './principal.js';
 import { generateOpaqueToken, hashToken } from './tokens.js';
+import type { AuthSessionRepository as _ASR } from './principal.js';
 
 const LOGIN_TRANSACTION_TTL_MS = 10 * 60_000;
 
@@ -82,12 +83,10 @@ export class AuthenticationService {
     const stateToken = generateOpaqueToken();
     const verifier = randomBytes(48).toString('base64url');
     const challenge = createHash('sha256').update(verifier).digest('base64url');
-    const nonce = generateOpaqueToken();
 
     await this.deps.transactions.insert({
       stateHash: hashToken(stateToken),
-      pkceVerifierHash: sha256Hex(verifier),
-      nonceHash: hashToken(nonce),
+      pkceVerifier: verifier,
       returnToPath: safeReturnTo(input.returnTo),
       createdAt: iso(now),
       expiresAt: iso(new Date(now.getTime() + LOGIN_TRANSACTION_TTL_MS)),
@@ -96,7 +95,6 @@ export class AuthenticationService {
 
     const authorizeUrl = this.deps.identityProvider.buildAuthorizeUrl({
       state: stateToken,
-      nonce,
       codeChallenge: challenge,
       redirectUri: this.deps.redirectUri,
     });
@@ -145,8 +143,10 @@ export class AuthenticationService {
 
     let identity: ExternalIdentity;
     try {
+      // PKCE: the ORIGINAL verifier travels with the exchange (S256 binding).
       const { accessToken } = await this.deps.identityProvider.exchangeCode({
         code: input.code,
+        codeVerifier: transaction.pkceVerifier,
         redirectUri: this.deps.redirectUri,
       });
       identity = await this.deps.identityProvider.fetchIdentity(accessToken);
@@ -226,10 +226,46 @@ export class AuthenticationService {
     ) {
       return undefined;
     }
+    // Throttled sliding-session touch: refresh at most once per half-window
+    // to bound writes; a CAS race loses against logout/expiry, which we then
+    // honor by re-reading once and re-checking before returning the principal.
+    const idleWindowMs = Date.parse(record.idleExpiresAt) - Date.parse(record.lastSeenAt);
+    if (
+      Number.isFinite(idleWindowMs) &&
+      now.getTime() - Date.parse(record.lastSeenAt) > idleWindowMs / 2 &&
+      Date.parse(record.absoluteExpiresAt) - idleWindowMs > now.getTime()
+    ) {
+      try {
+        await this.deps.sessions.touch(
+          sessionIdHash,
+          iso(now),
+          iso(new Date(now.getTime() + idleWindowMs)),
+          record.rowVersion,
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith('VERSION_CONFLICT')) {
+          const latest = await this.deps.sessions.findBySessionIdHash(sessionIdHash);
+          if (
+            latest === undefined ||
+            latest.revokedAt !== undefined ||
+            Date.parse(latest.idleExpiresAt) < now.getTime() ||
+            Date.parse(latest.absoluteExpiresAt) < now.getTime()
+          ) {
+            return undefined;
+          }
+        }
+        // Non-conflict touch failures never fail an otherwise-valid request.
+      }
+    }
+
     return {
       userId: record.userId,
       issuer: record.providerIssuer,
       providerSubject: record.providerSubject,
+      ...(record.providerLogin !== undefined ? { providerLogin: record.providerLogin } : {}),
+      ...(record.providerDisplayName !== undefined
+        ? { providerDisplayName: record.providerDisplayName }
+        : {}),
       sessionIdHash,
       authenticatedAt: record.createdAt,
     };
@@ -253,8 +289,4 @@ export class AuthenticationService {
       throw internalError(error);
     }
   }
-}
-
-function sha256Hex(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
 }

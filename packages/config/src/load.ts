@@ -17,6 +17,7 @@ import {
   parseAuth,
   parseEnvironment,
   parsePublicOrigin,
+  parseTrustedProxy,
   parseServerSections,
   parseSessionPolicy,
   parseWebApiBaseUrl,
@@ -83,6 +84,8 @@ export interface ApiConfigSnapshot extends CoreSnapshotFields {
   readonly sessionPolicy: SessionPolicy;
   /** Browser-facing origin; required with github_oauth auth mode. */
   readonly publicOrigin?: string;
+  /** When false (default), X-Forwarded-For is never trusted for rate limiting. */
+  readonly trustedProxyEnabled: boolean;
   readonly databaseUrlRef: SecretRef;
   readonly redisUrlRef: SecretRef;
   readonly retention: RetentionConfig;
@@ -300,6 +303,15 @@ function buildApiSnapshot(
   const auth = parseAuth(parser, env, environment);
   const sessionPolicy = parseSessionPolicy(parser, env);
   const publicOrigin = parsePublicOrigin(parser, env);
+  const trustedProxyEnabled = parseTrustedProxy(parser, env);
+  // Cookies depend on origin scheme: production must serve HTTPS.
+  if (
+    environment === 'production' &&
+    publicOrigin !== undefined &&
+    !publicOrigin.startsWith('https://')
+  ) {
+    parser.addIssue('DEVGUARD_PUBLIC_ORIGIN', 'must use https:// in production');
+  }
   if (
     auth.mode === 'github_oauth' &&
     publicOrigin === undefined &&
@@ -312,6 +324,7 @@ function buildApiSnapshot(
       ...shared,
       auth,
       sessionPolicy,
+      trustedProxyEnabled,
       loadedAt,
       hash: '',
     } as ApiConfigSnapshot;
@@ -321,6 +334,7 @@ function buildApiSnapshot(
     ...shared,
     auth,
     sessionPolicy,
+    trustedProxyEnabled,
     ...(publicOrigin !== undefined ? { publicOrigin } : {}),
     loadedAt,
     hash: '',

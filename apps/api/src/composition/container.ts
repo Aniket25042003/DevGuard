@@ -221,13 +221,19 @@ export function buildContainer(
     ...overrides,
   };
 
+  // The provider callback URL is explicit configuration (validated with the
+  // auth section); the public browser origin is for cookie/origin checks only.
+  const redirectUri =
+    config.auth.mode === 'github_oauth'
+      ? config.auth.oauthCallbackUrl
+      : `${config.publicOrigin ?? ''}/api/v1/auth/callback`;
   const auth = new AuthenticationService({
     identityProvider: bindings.identityProvider,
     transactions: bindings.transactions,
     sessions: bindings.sessions,
     identities: bindings.identities,
     policy: config.sessionPolicy,
-    redirectUri: `${config.publicOrigin ?? 'http://localhost:3000'}/api/v1/auth/callback`,
+    redirectUri,
     now: () => new Date(),
   });
 

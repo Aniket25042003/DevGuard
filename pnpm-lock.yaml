@@ -35,23 +35,74 @@ importers:
 
   apps/api:
     dependencies:
+      '@devguard/api-contracts':
+        specifier: workspace:*
+        version: link:../../packages/api-contracts
+      '@devguard/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@devguard/authorization':
+        specifier: workspace:*
+        version: link:../../packages/authorization
       '@devguard/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@devguard/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@devguard/errors':
         specifier: workspace:*
         version: link:../../packages/errors
+      '@hono/node-server':
+        specifier: ^1.14.4
+        version: 1.19.17(hono@4.13.4)
+      hono:
+        specifier: ^4.9.7
+        version: 4.13.4
 
   apps/web: {}
 
   apps/worker:
     dependencies:
+      '@devguard/authorization':
+        specifier: workspace:*
+        version: link:../../packages/authorization
       '@devguard/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@devguard/errors':
         specifier: workspace:*
         version: link:../../packages/errors
+
+  packages/api-contracts:
+    dependencies:
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
+
+  packages/auth:
+    dependencies:
+      '@devguard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@devguard/errors':
+        specifier: workspace:*
+        version: link:../errors
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
+
+  packages/authorization:
+    dependencies:
+      '@devguard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@devguard/errors':
+        specifier: workspace:*
+        version: link:../errors
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
 
   packages/config:
     dependencies:
@@ -74,9 +125,59 @@ importers:
         specifier: ^4.1.12
         version: 4.4.3
 
-  tests/e2e: {}
+  tests/e2e:
+    dependencies:
+      '@devguard/api':
+        specifier: workspace:*
+        version: link:../../apps/api
+      '@devguard/api-contracts':
+        specifier: workspace:*
+        version: link:../../packages/api-contracts
+      '@devguard/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@devguard/authorization':
+        specifier: workspace:*
+        version: link:../../packages/authorization
+      '@devguard/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@devguard/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@devguard/errors':
+        specifier: workspace:*
+        version: link:../../packages/errors
+      '@devguard/worker':
+        specifier: workspace:*
+        version: link:../../apps/worker
 
-  tests/integration: {}
+  tests/integration:
+    dependencies:
+      '@devguard/api':
+        specifier: workspace:*
+        version: link:../../apps/api
+      '@devguard/api-contracts':
+        specifier: workspace:*
+        version: link:../../packages/api-contracts
+      '@devguard/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@devguard/authorization':
+        specifier: workspace:*
+        version: link:../../packages/authorization
+      '@devguard/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@devguard/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@devguard/errors':
+        specifier: workspace:*
+        version: link:../../packages/errors
+      '@devguard/worker':
+        specifier: workspace:*
+        version: link:../../apps/worker
 
 packages:
 
@@ -282,6 +383,12 @@ packages:
   '@eslint/plugin-kit@0.4.1':
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@hono/node-server@1.19.17':
+    resolution: {integrity: sha512-dSneS5qhiauZWGDCeK4o695Xd9nUNjviSZCMQrj10eetr8Uln1ucn6bbphOM6UynAMMtNIzZNSpL9vnASJwrPQ==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      hono: ^4
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -791,6 +898,10 @@ packages:
   hasown@2.0.4:
     resolution: {integrity: sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A==}
     engines: {node: '>= 0.4'}
+
+  hono@4.13.4:
+    resolution: {integrity: sha512-AGEwKIyRMHRv1t8Wjwa3LHxQ61X5CqrdFT+4BRNTpqS5aJNnpl5WLjADb7vFlJzI/8uK7T5QLVApCMQKNa3LgQ==}
+    engines: {node: '>=16.9.0'}
 
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
@@ -1349,6 +1460,10 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
+  '@hono/node-server@1.19.17(hono@4.13.4)':
+    dependencies:
+      hono: 4.13.4
+
   '@humanfs/core@0.19.2':
     dependencies:
       '@humanfs/types': 0.15.0
@@ -1876,6 +1991,8 @@ snapshots:
   hasown@2.0.4:
     dependencies:
       function-bind: 1.1.2
+
+  hono@4.13.4: {}
 
   ignore@5.3.2: {}
 

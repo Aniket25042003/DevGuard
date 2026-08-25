@@ -20,8 +20,12 @@ function fakeIdentityProvider(): IdentityProviderClient & {
       this.calls.push(1);
       return `https://github.com/login/oauth/authorize?state=${input.state}&code_challenge=${input.codeChallenge}`;
     },
-    async exchangeCode() {
+    async exchangeCode(input: { code: string; codeVerifier: string }) {
       this.calls.push(2);
+      // PKCE: exchange MUST carry the original verifier (S256 binding).
+      if (input.codeVerifier === undefined || input.codeVerifier.length < 43) {
+        throw new Error('pkce_verifier_missing');
+      }
       if (this.failExchange || this.calls.filter((n) => n === 2).length > 3) {
         throw new Error('github_token_exchange_failed:400');
       }
