@@ -2,15 +2,16 @@
  * C093 — Leak scanning and the digest-bound publication guard.
  *
  * - `scanForLeaks(subject)` computes the subject digest itself and runs the
- *   detector set; findings carry keyed-HMAC fingerprints and bounded ranges,
- *   never raw matches.
+ *   SHARED detector registry plus exact-value matching; findings carry keyed
+ *   HMAC fingerprints and bounded ranges, never raw matches.
  * - `PublicationGuard.assertPublishable(result, expectedDigest)` binds the
  *   scan to the EXACT bytes being published (TOCTOU defense) and fails closed
  *   on findings, scanner unavailability, or digest mismatch.
  */
 import { createHash } from 'node:crypto';
 import { makeError } from '@devguard/errors';
-import { type SensitiveDataGuard } from '../redaction/guard.js';
+import { DETECTOR_REGISTRY } from '../redaction/detectors.js';
+import type { SensitiveDataGuard } from '../redaction/guard.js';
 
 export type ScanStatus = 'clean' | 'findings_present' | 'scanner_unavailable';
 
@@ -33,7 +34,7 @@ export interface LeakScanResult {
   readonly findings: readonly LeakFinding[];
 }
 
-const SCANNER_VERSION = 'dg-leak-1';
+const SCANNER_VERSION = 'dg-leak-2';
 
 export class PublicationGuard {
   private readonly guard: SensitiveDataGuard;
@@ -66,29 +67,52 @@ export class PublicationGuard {
         findings: [],
       };
     }
+
     const text = bytes.toString('utf8');
     const findings: LeakFinding[] = [];
-    for (const [candidate] of text.matchAll(/[A-Za-z0-9_\-./+=]{4,}/g)) {
-      if (this.guard.matchesExactSecret(candidate)) {
-        const index = text.indexOf(candidate);
-        findings.push({
-          detectorClass: 'exact_value',
-          fingerprintHmac: this.guard.fingerprintOf(candidate),
-          rangeStart: Math.max(0, index),
-          rangeEnd: index + candidate.length,
-          confidence: 'high',
-        });
+
+    // Exact registered secrets — full alphabet, allowlist-proof, highest confidence.
+    for (const match of this.guard.findExactMatches(text)) {
+      findings.push({
+        detectorClass: 'exact_value',
+        fingerprintHmac: this.guard.fingerprintOf(match.value),
+        rangeStart: match.start,
+        rangeEnd: match.end,
+        confidence: 'high',
+      });
+      if (findings.length >= 100) break;
+    }
+
+    // Shared detector registry — same classes as redaction.
+    if (findings.length < 100) {
+      for (const detector of DETECTOR_REGISTRY) {
+        for (const match of text.matchAll(detector.pattern)) {
+          const matched = match[0] ?? '';
+          const index = match.index ?? 0;
+          // Skip ranges already covered by exact matches (dedupe by position).
+          if (findings.some((finding) => index >= finding.rangeStart && index < finding.rangeEnd)) {
+            continue;
+          }
+          findings.push({
+            detectorClass: detector.id,
+            fingerprintHmac: this.guard.fingerprintOf(matched),
+            rangeStart: index,
+            rangeEnd: index + matched.length,
+            confidence: detector.confidence,
+          });
+          if (findings.length >= 100) break;
+        }
+        if (findings.length >= 100) break;
       }
     }
-    const patternFindings = collectPatternFindings(text, this.guard);
-    findings.push(...patternFindings);
+
     return {
       subjectType,
       subjectId,
       subjectDigest,
       scannerVersion: SCANNER_VERSION,
       status: findings.length > 0 ? 'findings_present' : 'clean',
-      findings: findings.slice(0, 100),
+      findings,
     };
   }
 
@@ -121,34 +145,4 @@ export class PublicationGuard {
       });
     }
   }
-}
-
-function collectPatternFindings(text: string, guard: SensitiveDataGuard): LeakFinding[] {
-  const detectors: ReadonlyArray<{ id: string; pattern: RegExp; confidence: 'high' | 'medium' }> = [
-    { id: 'github_token', pattern: /\bgh[pousr]_[A-Za-z0-9]{36,255}\b/g, confidence: 'high' },
-    { id: 'aws_access_key', pattern: /\bAKIA[0-9A-Z]{16}\b/g, confidence: 'high' },
-    { id: 'private_key_block', pattern: /-----BEGIN [A-Z ]*PRIVATE KEY-----/g, confidence: 'high' },
-    {
-      id: 'jwt',
-      pattern: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}/g,
-      confidence: 'medium',
-    },
-  ];
-  const findings: LeakFinding[] = [];
-  for (const detector of detectors) {
-    for (const match of text.matchAll(detector.pattern)) {
-      const matched = match[0] ?? '';
-      const index = match.index ?? 0;
-      if (guard.matchesExactSecret(matched)) continue; // already covered by exact_value
-      findings.push({
-        detectorClass: detector.id,
-        fingerprintHmac: guard.fingerprintOf(matched),
-        rangeStart: index,
-        rangeEnd: index + matched.length,
-        confidence: detector.confidence,
-      });
-      if (findings.length >= 50) return findings;
-    }
-  }
-  return findings;
 }

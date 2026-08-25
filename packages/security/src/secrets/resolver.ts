@@ -34,7 +34,7 @@ function scopeMatches(ref: SecretRefShape, auth: AuthorizationContext): boolean 
 }
 
 export class SecretService {
-  private readonly singleFlight = new Map<string, Promise<ResolvedSecretLease>>();
+  private readonly singleFlight = new Map<string, Promise<string>>();
   private readonly now: () => Date;
   private readonly leaseTtlMs: number;
 
@@ -67,32 +67,34 @@ export class SecretService {
       throw makeError('SECRET_ACCESS_DENIED', { cause: new Error('scope mismatch') });
     }
 
-    // Single-flight per name+version so concurrent callers share one lease.
+    // Single-flight ONLY the backend fetch; every caller receives its own
+    // independent lease so one release() can never clear another's access.
     const key = `${ref.name}@${ref.version}`;
-    const inflight = this.singleFlight.get(key);
-    if (inflight !== undefined) return inflight;
-
-    const flight = (async (): Promise<ResolvedSecretLease> => {
-      let raw: string | undefined;
-      try {
-        raw = await this.options.backend.get(ref.name);
-      } catch (error) {
-        throw makeError('SECRET_UNAVAILABLE', { cause: error });
-      }
-      if (raw === undefined || raw.length < 8) {
-        throw makeError('SECRET_UNAVAILABLE', {
-          cause: new Error('backend returned no usable secret'),
+    let flight = this.singleFlight.get(key);
+    if (flight === undefined) {
+      flight = this.options.backend
+        .get(ref.name)
+        .then((raw) => {
+          if (raw === undefined || raw.length < 8) {
+            throw makeError('SECRET_UNAVAILABLE', {
+              cause: new Error('backend returned no usable secret'),
+            });
+          }
+          return raw;
+        })
+        .catch((error: unknown) => {
+          if (error instanceof Error && error.name === 'DevGuardError') throw error;
+          throw makeError('SECRET_UNAVAILABLE', { cause: error });
         });
-      }
-      const expiresAtMs = this.now().getTime() + this.leaseTtlMs;
-      return new ResolvedSecretLease(ref.name, ref.version, expiresAtMs, raw);
-    })();
-    this.singleFlight.set(key, flight);
-    try {
-      return await flight;
-    } finally {
-      this.singleFlight.delete(key);
+      this.singleFlight.set(key, flight);
+      void flight.catch(() => undefined).finally(() => this.singleFlight.delete(key));
     }
+
+    const rawValue = await flight;
+    const expiresAtMs = this.now().getTime() + this.leaseTtlMs;
+    return new ResolvedSecretLease(ref.name, ref.version, expiresAtMs, rawValue, undefined, () =>
+      this.now().getTime(),
+    );
   }
 
   /**

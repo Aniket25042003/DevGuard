@@ -317,3 +317,74 @@ describe('C092 model proposal validation', () => {
     expect(() => trust.assertTrustedControlField(policy.id)).not.toThrowError();
   });
 });
+
+describe('C092 Qodo round-2 hardening', () => {
+  it('content binding is digest-verified and sealed after evaluation', async () => {
+    const trust = service();
+    const envelope = trust.registerSource({ sourceKind: 'issue', content: 'body text here' });
+
+    // Digest mismatch on attach fails closed with PROVENANCE_INVALID.
+    let digestCode = '';
+    try {
+      trust.attachContent(envelope.id, 'tampered body');
+    } catch (error) {
+      digestCode = (error as { code?: string }).code ?? '';
+    }
+    expect(digestCode).toBe('PROVENANCE_INVALID');
+    // Double-attach is rejected (PROVENANCE_INVALID).
+    trust.attachContent(envelope.id, 'body text here');
+    let sealedCode = '';
+    try {
+      trust.attachContent(envelope.id, 'body text here');
+    } catch (error) {
+      sealedCode = (error as { code?: string }).code ?? '';
+    }
+    expect(sealedCode).toBe('PROVENANCE_INVALID');
+
+    trust.evaluateTrust(envelope.id);
+    // Post-evaluation content swap is impossible.
+    let postEvalCode = '';
+    try {
+      trust.attachContent(envelope.id, 'body text here');
+    } catch (error) {
+      postEvalCode = (error as { code?: string }).code ?? '';
+    }
+    expect(postEvalCode).toBe('PROVENANCE_INVALID');
+
+    // Evaluating an item with NO attached content fails closed.
+    const orphan = trust.registerSource({ sourceKind: 'comment', content: 'orphan bytes' });
+    await expect(trust.evaluateTrust(orphan.id)).rejects.toMatchObject({
+      code: 'PROVENANCE_INVALID',
+    });
+  });
+
+  it('validates proposals against the canonical action taxonomy and target shape', () => {
+    const trust = service();
+    const trustedState = {
+      runId: crypto.randomUUID(),
+      workflowId: 'implement_issue',
+      policyVersionRef: 'policy-v1',
+      repositoryId: crypto.randomUUID(),
+    };
+    // Unknown action type → rejected by the closed taxonomy.
+    let unknownActionCode = '';
+    try {
+      trust.validateModelProposal(
+        { actionType: 'deploy.to.production', targetRef: { branchName: 'main' } },
+        trustedState,
+      );
+    } catch (error) {
+      unknownActionCode = (error as { code?: string }).code ?? '';
+    }
+    expect(unknownActionCode).toBe('UNTRUSTED_PROPOSAL_REJECTED');
+
+    const ok = trust.validateModelProposal(
+      {
+        actionType: 'commit.push',
+        targetRef: { branchName: 'devguard/fix', headSha: 'a'.repeat(40) },
+      },
+      trustedState,
+    );
+    expect(ok.actionType).toBe('commit.push');
+  });
+});

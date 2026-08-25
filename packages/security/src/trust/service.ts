@@ -8,7 +8,12 @@
  * authorization fields are stripped and the proposal is reconstructed from
  * trusted workflow state before it can become a typed C039 proposal.
  */
-import { makeEvent } from '@devguard/contracts';
+import {
+  actionProposal,
+  makeEvent,
+  riskClassForAction,
+  type ActionType,
+} from '@devguard/contracts';
 import { makeError } from '@devguard/errors';
 import { encodeUntrustedSection, openBoundary, closeBoundary } from './boundary.js';
 import type { ProvenanceEnvelopeShape } from './provenance.js';
@@ -129,6 +134,12 @@ export class AgentTrustService {
       });
     }
 
+    if (!this.sealedIds.has(envelopeId)) {
+      throw makeError('PROVENANCE_INVALID', {
+        details: { field: 'content' },
+        cause: new Error('evaluate requires sealed content'),
+      });
+    }
     const text = this.contentOf(item.envelope);
     const resolution = resolveInstructionConflicts([{ envelope: item.envelope, text }]);
     const signals = resolution.signals[item.envelope.id] ?? [];
@@ -296,17 +307,34 @@ export class AgentTrustService {
     // Action/target must survive cleaning, else nothing trustworthy to propose.
     if (
       typeof cleaned['actionType'] !== 'string' ||
+      Array.isArray(cleaned['targetRef']) ||
       typeof cleaned['targetRef'] !== 'object' ||
       cleaned['targetRef'] === null
     ) {
       throw makeError('UNTRUSTED_PROPOSAL_REJECTED', {
         details: { strippedFields },
-        cause: new Error('missing actionType or targetRef after stripping'),
+        cause: new Error('missing/invalid actionType or targetRef after stripping'),
       });
     }
+
+    // Canonical validation: closed action taxonomy + derived risk + target shape.
+    const candidate = actionProposal.safeParse({
+      actionType: cleaned['actionType'],
+      riskClass: riskClassForAction(cleaned['actionType'] as ActionType),
+      actorKind: 'agent',
+      targetRef: cleaned['targetRef'],
+      proposedAt: this.now().toISOString(),
+    });
+    if (!candidate.success) {
+      throw makeError('UNTRUSTED_PROPOSAL_REJECTED', {
+        details: { strippedFields },
+        cause: new Error(`canonical validation failed: ${candidate.error.issues.length} issue(s)`),
+      });
+    }
+
     return {
-      actionType: cleaned['actionType'] as string,
-      targetRef: cleaned['targetRef'] as Record<string, unknown>,
+      actionType: candidate.data.actionType,
+      targetRef: candidate.data.targetRef ?? {},
       justificationSummary:
         typeof cleaned['justificationSummary'] === 'string'
           ? (cleaned['justificationSummary'] as string).slice(0, 2000)
@@ -389,19 +417,53 @@ export class AgentTrustService {
     );
   }
 
-  /** Pluggable content lookup keyed by envelope id (set alongside registration). */
+  /** Content is bound ONCE, verified against the envelope digest, then sealed. */
   private contents = new Map<string, string>();
+  private sealedIds = new Set<string>();
 
   attachContent(envelopeId: string, content: string): void {
-    this.contents.set(envelopeId, content);
+    const item = this.items.get(envelopeId);
+    if (item === undefined) {
+      throw makeError('PROVENANCE_INVALID', {
+        details: { field: 'id' },
+        cause: new Error(`unknown ${envelopeId}`),
+      });
+    }
+    if (this.sealedIds.has(envelopeId)) {
+      throw makeError('PROVENANCE_INVALID', {
+        details: { field: 'content' },
+        cause: new Error('content already sealed'),
+      });
+    }
+    if (this.evaluations.has(envelopeId)) {
+      // Unscanned bytes must never enter context after evaluation.
+      throw makeError('PROVENANCE_INVALID', {
+        details: { field: 'content' },
+        cause: new Error('content changed after evaluation'),
+      });
+    }
+    if (sha256Hex(content) !== item.envelope.digest) {
+      throw makeError('PROVENANCE_INVALID', {
+        details: { field: 'content' },
+        cause: new Error('digest mismatch on attach'),
+      });
+    }
+    this.contents.set(envelopeId, Object.freeze(content) as string);
+    this.sealedIds.add(envelopeId);
   }
 
   private contentOf(envelope: ProvenanceEnvelopeShape): string {
     const stored = this.contents.get(envelope.id);
-    return stored ?? `<digest:${envelope.digest}>`;
+    if (stored === undefined) {
+      throw makeError('PROVENANCE_INVALID', {
+        details: { field: 'content' },
+        cause: new Error(`no sealed content for ${envelope.id}`),
+      });
+    }
+    return stored;
   }
 
-  /** Convenience: register + attach in one call. */
+  /** Convenience: register + attach (digest-verified) in one call. */
   registerWithContent(
     input: Parameters<typeof registerSource>[0],
     content: string,
@@ -413,7 +475,7 @@ export class AgentTrustService {
 }
 
 export interface ValidatedActionProposal {
-  readonly actionType: string;
+  readonly actionType: ActionType;
   readonly targetRef: Record<string, unknown>;
   readonly justificationSummary: string;
   readonly workflowRunId: string;

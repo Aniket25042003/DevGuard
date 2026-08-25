@@ -11,6 +11,7 @@
  *   fallback. Repeated redaction is stable. Work is length-bounded.
  */
 import { createHmac, createHash } from 'node:crypto';
+import { DETECTOR_REGISTRY, type ExactMatch } from './detectors.js';
 
 export type SinkType =
   'log' | 'error' | 'event' | 'model_context' | 'artifact' | 'api' | 'provider';
@@ -21,35 +22,6 @@ const MAX_DEPTH = 8;
 
 const SENSITIVE_KEY_PATTERN =
   /(pass(word|wd)?|secret|token|api[-_]?key|authorization|auth|cookie|session|private[-_]?key|client[-_]?secret|credential)/i;
-
-interface Detector {
-  readonly id: string;
-  readonly pattern: RegExp;
-}
-
-/** Token-format detectors (synthetic-safe; production adds provider rules). */
-const DETECTORS: readonly Detector[] = [
-  { id: 'github_token', pattern: /\bgh[pousr]_[A-Za-z0-9]{36,255}\b/g },
-  { id: 'github_pat', pattern: /\bgithub_pat_[A-Za-z0-9_]{22,255}\b/g },
-  { id: 'aws_access_key', pattern: /\bAKIA[0-9A-Z]{16}\b/g },
-  { id: 'jwt', pattern: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}/g },
-  { id: 'slack_token', pattern: /\bxox[abpos]--[A-Za-z0-9-]{10,}\b/g },
-  {
-    id: 'private_key_block',
-    pattern: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
-  },
-  { id: 'url_userinfo', pattern: /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/\s:@]+:[^@\s/]+@/g },
-  {
-    id: 'dsn_credentials',
-    pattern: /(?:postgres(?:ql)?|mysql|redis|mongodb(?:\+srv)?):\/\/[^:\s]+:[^@\s]+@/g,
-  },
-  { id: 'bearer_header', pattern: /\bBearer\s+[A-Za-z0-9._~+/=-]{10,}/gi },
-  {
-    id: 'assigned_secret',
-    pattern:
-      /\b(api[_-]?key|apikey|secret|password|passwd|pwd|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key|auth[_-]?token|token)\b\s*[:=]\s*['"]?[^\s'"<>]{6,}['"]?/gi,
-  },
-];
 
 export interface RedactionResult<T> {
   readonly value: T;
@@ -62,6 +34,7 @@ export interface RedactionResult<T> {
 }
 
 export class SensitiveDataGuard {
+  /** fingerprint -> raw value. Values NEVER leave this class. */
   private readonly exactFingerprints = new Map<string, string>();
   private readonly hmacKey: Buffer;
   private readonly hmacKeyId: string;
@@ -69,7 +42,15 @@ export class SensitiveDataGuard {
   constructor(options: { hmacKeyHex?: string | undefined } = {}) {
     // Keyed HMAC fingerprints avoid creating a token oracle from scan output.
     const keyMaterial =
-      options.hmacKeyHex ?? process.env['DEVGUARD_REDACTION_HMAC_KEY'] ?? 'devguard-dev-hmac-key';
+      options.hmacKeyHex ??
+      process.env['DEVGUARD_REDACTION_HMAC_KEY'] ??
+      (() => {
+        // Fail closed: the development fallback must never reach production.
+        if (process.env['NODE_ENV'] === 'production' || process.env['DEVGUARD_ENV'] === 'production') {
+          throw new Error('redaction HMAC key required outside development');
+        }
+        return 'devguard-dev-hmac-key';
+      })();
     this.hmacKey = createHash('sha256').update(`devguard.redaction.v1:${keyMaterial}`).digest();
     this.hmacKeyId = createHash('sha256').update(this.hmacKey).digest('hex').slice(0, 12);
   }
@@ -85,8 +66,28 @@ export class SensitiveDataGuard {
   registerExactSecret(value: string): string {
     if (value.length < 4) return '';
     const fingerprint = this.fingerprintOf(value);
-    this.exactFingerprints.set(fingerprint, fingerprint);
+    this.exactFingerprints.set(fingerprint, value);
     return fingerprint;
+  }
+
+  /**
+   * Bounded literal search across the FULL registered alphabet (spaces and
+   * symbols included) — no character-class blind spots. Used identically by
+   * redaction and publication scanning. Matches are position-sorted.
+   */
+  findExactMatches(text: string): ExactMatch[] {
+    const matches: ExactMatch[] = [];
+    for (const value of this.exactFingerprints.values()) {
+      let searchFrom = 0;
+      for (;;) {
+        const index = text.indexOf(value, searchFrom);
+        if (index === -1) break;
+        matches.push({ value, start: index, end: index + value.length });
+        if (matches.length >= 500) return matches.sort((a, b) => a.start - b.start);
+        searchFrom = index + Math.max(1, value.length);
+      }
+    }
+    return matches.sort((a, b) => a.start - b.start || b.end - a.start);
   }
 
   fingerprintOf(value: string): string {
@@ -168,38 +169,25 @@ export class SensitiveDataGuard {
   }
 
   private redactString(text: string, counter: { count(): number }, classes: Set<string>): string {
-    let bounded = text.length > MAX_INPUT_CHARS ? text.slice(0, MAX_INPUT_CHARS) : text;
+    let working = text.length > MAX_INPUT_CHARS ? text.slice(0, MAX_INPUT_CHARS) : text;
 
-    // 1) Exact registered secrets first — allowlists can never suppress them.
-    // Candidates may carry a key-assignment prefix ('token=<value>'), so the
-    // value after the FIRST '=' is also fingerprint-checked.
-    bounded = bounded.replace(/[A-Za-z0-9_\-./+=]{4,}/g, (candidate) => {
-      const eq = candidate.indexOf('=');
-      const valuePart = eq >= 0 ? candidate.slice(eq + 1) : '';
-      if (
-        this.matchesExactSecret(candidate) ||
-        (valuePart.length >= 4 && this.matchesExactSecret(valuePart))
-      ) {
-        counter.count();
-        classes.add('exact_value');
-        return REDACTED;
-      }
-      return candidate;
-    });
+    // 1) Exact registered secrets first (full alphabet, allowlist-proof).
+    const exactMatches = this.findExactMatches(working);
+    for (let index = exactMatches.length - 1; index >= 0; index -= 1) {
+      const match = exactMatches[index]!;
+      classes.add('exact_value');
+      counter.count();
+      working = working.slice(0, match.start) + REDACTED + working.slice(match.end);
+    }
 
-    // 2) Pattern detectors.
-    for (const detector of DETECTORS) {
-      bounded = bounded.replace(detector.pattern, (matchValue) => {
-        if (this.matchesExactSecret(matchValue)) {
-          counter.count();
-          classes.add(`${detector.id}+exact`);
-          return REDACTED;
-        }
+    // 2) Shared detector registry — identical classes to leak scanning.
+    for (const detector of DETECTOR_REGISTRY) {
+      working = working.replace(detector.pattern, () => {
         counter.count();
         classes.add(detector.id);
         return REDACTED;
       });
     }
-    return bounded;
+    return working;
   }
 }

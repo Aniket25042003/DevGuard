@@ -9,6 +9,7 @@
  *   ROTATING → AVAILABLE; REVOKED and UNAVAILABLE are handled explicitly.
  */
 import { z } from 'zod';
+import { makeError } from '@devguard/errors';
 
 export const SECRET_STATUSES = [
   'CONFIGURED',
@@ -72,12 +73,18 @@ export class ResolvedSecretLease {
     readonly leaseExpiresAtMs: number,
     value: string,
     private readonly onRelease?: ((value: string) => void) | undefined,
+    /** Injectable clock so TTL is testable and enforced at ACCESS time. */
+    private readonly clock: () => number = () => Date.now(),
   ) {
     this.value = value;
   }
 
-  /** Single authorized accessor; the callback receives the raw value. */
+  /** Single authorized accessor; rejects once the lease has expired. */
   use<T>(callback: (value: string) => T): T {
+    if (this.clock() >= this.leaseExpiresAtMs) {
+      this.release();
+      throw makeError('SECRET_UNAVAILABLE', { cause: new Error('lease expired') });
+    }
     return callback(this.value ?? '');
   }
 

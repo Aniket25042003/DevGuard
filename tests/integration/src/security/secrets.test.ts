@@ -97,7 +97,7 @@ describe('C093 secret resolution', () => {
     });
   });
 
-  it('single-flights concurrent resolutions per reference/version', async () => {
+  it('single-flights the fetch but issues independent per-caller leases (Qodo fix)', async () => {
     let backendCalls = 0;
     const service = new SecretService({
       backend: {
@@ -112,8 +112,38 @@ describe('C093 secret resolution', () => {
       service.resolveSecret(ref(), CALLER),
       service.resolveSecret(ref(), CALLER),
     ]);
-    expect(a).toBe(b); // same shared flight
-    expect(backendCalls).toBe(1);
+    expect(a).not.toBe(b); // distinct mutable leases
+    expect(backendCalls).toBe(1); // one shared backend fetch
+
+    // Releasing caller A must not clear caller B's value.
+    let bLength = 0;
+    a.release();
+    b.use((value) => {
+      bLength = value.length;
+    });
+    expect(bLength).toBe('concurrent-secret-value'.length);
+  });
+
+  it('enforces lease expiry at ACCESS time, not just in withSecret (Qodo fix)', async () => {
+    const nowMs = 5_000_000;
+    const service = new SecretService({
+      backend: { get: async () => 'ttl-secret-value' },
+      now: () => new Date(nowMs),
+      leaseTtlMs: 1_000,
+    });
+    const lease = await service.resolveSecret(ref(), CALLER);
+    void nowMs;
+    // Within TTL.
+    let okLength = 0;
+    lease.use((value) => {
+      okLength = value.length;
+    });
+    expect(okLength).toBeGreaterThan(0);
+
+    // Advance past TTL via the lease's own clock — direct use() must reject.
+    const expiredLease = new ResolvedSecretLease('X', 'v1', 1_000, 'value', undefined, () => 2_000);
+    expect(() => expiredLease.use(() => 'x')).toThrowError(/SECRET_UNAVAILABLE|expired/i);
+    void lease;
   });
 
   it('withSecret scopes the callback and releases afterwards', async () => {
@@ -275,5 +305,79 @@ describe('C093 leak scanning and publication guard', () => {
     const scan = await localPublication.scanForLeaks('pr_body', 'run-4', body);
     expect(scan.status).toBe('findings_present');
     expect(scan.findings[0]?.detectorClass).toBe('exact_value');
+  });
+});
+
+describe('C093 Qodo round-2 hardening', () => {
+  it('matches exact secrets across the FULL alphabet including spaces and symbols', async () => {
+    const localGuard = new SensitiveDataGuard({ hmacKeyHex: 'full-alphabet' });
+    const localPublication = new PublicationGuard(localGuard);
+    const spacedSecret = 'sk live KEY == "with spaces" and symbols!##';
+    localGuard.registerExactSecret(spacedSecret);
+
+    const body = `config contains [${spacedSecret}] inside`;
+    const scan = await localPublication.scanForLeaks('artifact', 'run-x', body);
+    expect(scan.status).toBe('findings_present');
+    expect(scan.findings[0]?.detectorClass).toBe('exact_value');
+
+    const redactedResult = localGuard.redact(body, 'log') as unknown as { value: string };
+    void redactedResult;
+    const redactOutput = JSON.stringify(localGuard.redact(body, 'log').value);
+    expect(redactOutput).not.toContain('with spaces');
+  });
+
+  it('uses the SHARED detector registry for publication scanning — every class covered', async () => {
+    const localPublication = new PublicationGuard(
+      new SensitiveDataGuard({ hmacKeyHex: 'registry' }),
+    );
+    const cases: Array<{
+      readonly name: string;
+      readonly body: string;
+      readonly detector: string;
+    }> = [
+      {
+        name: 'github_pat',
+        body: 'pat=github_pat_11ABCDEFG0aaaaaaaaaaaaaaaaaaaaaaaaaaaaa1',
+        detector: 'github_pat',
+      },
+      { name: 'slack_token', body: 'slack=xoxb--123456789012-abcdef', detector: 'slack_token' },
+      {
+        name: 'dsn_credentials',
+        body: 'DATABASE_URL=postgres://admin:p4ssw0rd@db:5432/app',
+        detector: 'dsn_credentials',
+      },
+      {
+        name: 'bearer_header',
+        body: 'Authorization: Bearer abcdef1234567890abcdef',
+        detector: 'bearer_header',
+      },
+      {
+        name: 'assigned_secret',
+        body: 'client_secret=supersecretvalue123',
+        detector: 'assigned_secret',
+      },
+    ];
+    for (const testCase of cases) {
+      const scan = await localPublication.scanForLeaks(
+        'pr_body',
+        `run-${testCase.name}`,
+        testCase.body,
+      );
+      const detectorsFound = scan.findings.map((finding) => finding.detectorClass);
+      expect(
+        detectorsFound,
+        `${testCase.name} should be detected; got ${JSON.stringify(detectorsFound)} for ${testCase.body}`,
+      ).toContain(testCase.detector);
+    }
+  });
+
+  it('AAD encoding is unambiguous under field-content collisions', async () => {
+    const keys = staticKeyProvider({ v1: 'aad-master' });
+    const encryptor = new EnvelopeEncryptor(keys, 'v1');
+    const aadA = { scopeType: 'repository|workflow', scopeId: 'x', purpose: 'p1', refVersion: 'v' };
+    const aadB = { scopeType: 'repository', scopeId: 'workflow|x', purpose: 'p1', refVersion: 'v' };
+    const record = await encryptor.encrypt('material', aadA);
+    // Delimiter injection across fields must not decrypt.
+    await expect(encryptor.decrypt(record, aadB)).rejects.toThrowError(/aad_mismatch/);
   });
 });
