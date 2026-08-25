@@ -1,9 +1,9 @@
 {
-  "name": "@devguard/shared",
+  "name": "@devguard/contracts",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Versioned provider-neutral domain contracts and event schemas (C004).",
+  "description": "Canonical provider-neutral domain contracts and versioned event schemas (C004).",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

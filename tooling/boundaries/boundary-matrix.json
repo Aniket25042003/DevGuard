@@ -11,7 +11,7 @@
     "test": ["application", "domain", "port", "adapter", "persistence", "ui", "app"]
   },
   "packages": {
-    "packages/shared": "domain",
+    "packages/contracts": "domain",
     "packages/errors": "domain",
     "packages/config": "domain",
     "apps/api": "app",

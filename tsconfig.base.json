@@ -26,7 +26,7 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@devguard/shared": ["packages/shared/src/index.ts"],
+      "@devguard/contracts": ["packages/contracts/src/index.ts"],
       "@devguard/errors": ["packages/errors/src/index.ts"],
       "@devguard/config": ["packages/config/src/index.ts"]
     },
