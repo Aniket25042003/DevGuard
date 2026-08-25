@@ -17,7 +17,12 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@devguard/api-contracts": "workspace:*",
+    "@devguard/auth": "workspace:*",
+    "@devguard/authorization": "workspace:*",
     "@devguard/config": "workspace:*",
-    "@devguard/errors": "workspace:*"
+    "@devguard/contracts": "workspace:*",
+    "@devguard/errors": "workspace:*",
+    "hono": "^4.9.7"
   }
 }

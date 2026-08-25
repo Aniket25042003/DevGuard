@@ -16,7 +16,9 @@ import {
   ConfigParser,
   parseAuth,
   parseEnvironment,
+  parsePublicOrigin,
   parseServerSections,
+  parseSessionPolicy,
   parseWebApiBaseUrl,
   scanForUnknownVariables,
 } from './schema.js';
@@ -70,9 +72,17 @@ interface CoreSnapshotFields {
   readonly features: FeatureDecisionSet;
 }
 
+export interface SessionPolicy {
+  readonly idleMinutes: number;
+  readonly absoluteHours: number;
+}
+
 export interface ApiConfigSnapshot extends CoreSnapshotFields {
   readonly processKind: 'api';
   readonly auth: AuthConfig;
+  readonly sessionPolicy: SessionPolicy;
+  /** Browser-facing origin; required with github_oauth auth mode. */
+  readonly publicOrigin?: string;
   readonly databaseUrlRef: SecretRef;
   readonly redisUrlRef: SecretRef;
   readonly retention: RetentionConfig;
@@ -234,13 +244,7 @@ export function loadConfig<K extends ProcessKind>(
       };
       snapshot =
         processKind === 'api'
-          ? {
-              processKind: 'api',
-              ...shared,
-              auth: parseAuth(parser, env, environment),
-              loadedAt,
-              hash: '',
-            }
+          ? buildApiSnapshot(parser, env, environment, shared, loadedAt)
           : { processKind: 'worker', ...shared, loadedAt, hash: '' };
       break;
     }
@@ -272,6 +276,55 @@ export function loadConfig<K extends ProcessKind>(
   }
 
   return deepFreeze({ ...snapshot, hash: stableHash(hashable) }) as SnapshotFor<K>;
+}
+
+function buildApiSnapshot(
+  parser: ConfigParser,
+  env: EnvRecord,
+  environment: Environment,
+  shared: {
+    readonly environment: Environment;
+    readonly features: FeatureDecisionSet;
+    readonly warnings: string[];
+    readonly databaseUrlRef: SecretRef;
+    readonly redisUrlRef: SecretRef;
+    readonly retention: RetentionConfig;
+    readonly limits: LimitsConfig;
+    readonly observability: ObservabilityConfig;
+    readonly github?: GithubAppConfig;
+    readonly trueforge?: TrueForgeConfig;
+    readonly artifacts: ArtifactStorageConfig;
+  },
+  loadedAt: string,
+): ApiConfigSnapshot {
+  const auth = parseAuth(parser, env, environment);
+  const sessionPolicy = parseSessionPolicy(parser, env);
+  const publicOrigin = parsePublicOrigin(parser, env);
+  if (
+    auth.mode === 'github_oauth' &&
+    publicOrigin === undefined &&
+    !parser.hasIssueFor('DEVGUARD_PUBLIC_ORIGIN')
+  ) {
+    parser.addIssue('DEVGUARD_PUBLIC_ORIGIN', 'required when AUTH_MODE=github_oauth');
+    // Fail closed placeholder; loader throws before use.
+    return {
+      processKind: 'api',
+      ...shared,
+      auth,
+      sessionPolicy,
+      loadedAt,
+      hash: '',
+    } as ApiConfigSnapshot;
+  }
+  return {
+    processKind: 'api',
+    ...shared,
+    auth,
+    sessionPolicy,
+    ...(publicOrigin !== undefined ? { publicOrigin } : {}),
+    loadedAt,
+    hash: '',
+  };
 }
 
 function finalizeWeb(

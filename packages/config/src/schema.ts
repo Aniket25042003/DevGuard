@@ -229,6 +229,30 @@ export const FIELD_INVENTORY: readonly FieldDefinition[] = Object.freeze([
     'info',
   ),
   field(
+    'DEVGUARD_PUBLIC_ORIGIN',
+    'C005',
+    ['api'],
+    'internal',
+    'Browser-facing DevGuard origin for CSRF/origin checks.',
+    'http://localhost:3000',
+  ),
+  field(
+    'DEVGUARD_SESSION_IDLE_MINUTES',
+    'C005',
+    ['api'],
+    'internal',
+    'Idle session expiry in minutes.',
+    '60',
+  ),
+  field(
+    'DEVGUARD_SESSION_ABSOLUTE_HOURS',
+    'C005',
+    ['api'],
+    'internal',
+    'Absolute session lifetime in hours.',
+    '24',
+  ),
+  field(
     'PUBLIC_API_BASE_URL',
     'C076',
     ['web'],
@@ -420,6 +444,22 @@ export interface TrueForgeConfig {
   readonly timeoutMs: number;
 }
 
+export interface SessionPolicy {
+  readonly idleMinutes: number;
+  readonly absoluteHours: number;
+}
+
+export function parseSessionPolicy(parser: ConfigParser, env: EnvRecord): SessionPolicy {
+  return {
+    idleMinutes: parser.intInRange(env, 'DEVGUARD_SESSION_IDLE_MINUTES', 5, 10_080, 60),
+    absoluteHours: parser.intInRange(env, 'DEVGUARD_SESSION_ABSOLUTE_HOURS', 1, 720, 24),
+  };
+}
+
+export function parsePublicOrigin(parser: ConfigParser, env: EnvRecord): string | undefined {
+  return parser.url(env, 'DEVGUARD_PUBLIC_ORIGIN', ['https:', 'http:']);
+}
+
 export interface ArtifactStorageConfig {
   readonly driver: 'local' | 's3';
   readonly localDir?: string;
@@ -528,10 +568,15 @@ export function parseAuth(
     }
     return { mode: 'none', devOnlyReason: 'development_or_test' };
   }
-  const sessionSecretRef = parser.optionalString(env, 'AUTH_SESSION_SECRET');
+  // Secret fields carry NAMES (references), never values. Presence of a
+  // non-empty value under the well-known variable name is what we verify.
+  const sessionSecretValue = parser.optionalString(env, 'AUTH_SESSION_SECRET');
   const oauthClientId = parser.optionalString(env, 'AUTH_GITHUB_OAUTH_CLIENT_ID');
-  const oauthClientSecretRef = parser.optionalString(env, 'AUTH_GITHUB_OAUTH_CLIENT_SECRET');
+  const oauthClientSecretValue = parser.optionalString(env, 'AUTH_GITHUB_OAUTH_CLIENT_SECRET');
   const callbackUrl = parser.url(env, 'AUTH_GITHUB_OAUTH_CALLBACK_URL', ['https:', 'http:']);
+  const sessionSecretRef = sessionSecretValue !== undefined ? 'AUTH_SESSION_SECRET' : undefined;
+  const oauthClientSecretRef =
+    oauthClientSecretValue !== undefined ? 'AUTH_GITHUB_OAUTH_CLIENT_SECRET' : undefined;
   if (
     sessionSecretRef === undefined ||
     oauthClientId === undefined ||

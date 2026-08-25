@@ -10,5 +10,14 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/api": "workspace:*",
+    "@devguard/authorization": "workspace:*",
+    "@devguard/contracts": "workspace:*",
+    "@devguard/errors": "workspace:*",
+    "@devguard/auth": "workspace:*",
+    "@devguard/config": "workspace:*",
+    "@devguard/worker": "workspace:*"
   }
 }

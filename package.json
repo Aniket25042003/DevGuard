@@ -14,9 +14,9 @@
     "lint": "eslint . && node scripts/check-boundaries.mjs",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
-    "test": "vitest run --project unit",
+    "test": "tsc -b tsconfig.json && vitest run --project unit",
     "test:watch": "vitest --project unit",
-    "test:e2e": "vitest run --project e2e",
+    "test:e2e": "tsc -b tsconfig.json && vitest run --project e2e",
     "clean": "node scripts/clean.mjs"
   },
   "devDependencies": {
