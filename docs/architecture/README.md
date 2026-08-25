@@ -15,8 +15,8 @@ apps/
   api/      HTTP transport composition root (routes arrive with C005+)
   worker/   Background job runtime composition root (C057+)
 packages/
-  shared/   Versioned domain contracts and event schemas (C004)
-  errors/   Provider-neutral typed error taxonomy (C003)
+  contracts/ Canonical provider-neutral domain contracts and event schemas (C004)
+  errors/    Provider-neutral typed error taxonomy (C003)
   config/   Startup-validated runtime configuration and feature flags (C002)
 tests/
   integration/  In-process suites: use cases with fakes, contract checks, architecture gates

@@ -1,0 +1,55 @@
+{
+  "$comment": "C004 golden fixtures (schemaVersion 1). These MUST keep parsing after additive contract changes; breaking changes require schemaVersion 2 per ADR-0007.",
+  "golden": [
+    {
+      "id": "018f6d2e-7c1a-7000-8000-000000000001",
+      "schemaVersion": 1,
+      "type": "workflow.state.changed",
+      "aggregate": { "type": "workflow_run", "id": "018f6d2e-7c1a-7000-8000-000000000010" },
+      "sequence": 3,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": { "runId": "018f6d2e-7c1a-7000-8000-000000000010" },
+      "actor": { "kind": "system" },
+      "payload": {
+        "from": "running",
+        "to": "waiting_for_approval",
+        "reasonCode": "sensitive_write_requires_approval"
+      }
+    },
+    {
+      "id": "018f6d2e-7c1a-7000-8000-000000000002",
+      "schemaVersion": 1,
+      "type": "approval.approved",
+      "aggregate": { "type": "approval", "id": "018f6d2e-7c1a-7000-8000-000000000020" },
+      "occurredAt": "2026-08-25T12:05:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "user",
+        "id": "018f6d2e-7c1a-7000-8000-000000000030",
+        "displayName": "maintainer"
+      },
+      "payload": { "resolvedByUserId": "018f6d2e-7c1a-7000-8000-000000000030" }
+    },
+    {
+      "id": "018f6d2e-7c1a-7000-8000-000000000003",
+      "schemaVersion": 1,
+      "type": "validation.completed",
+      "aggregate": { "type": "validation_result", "id": "018f6d2e-7c1a-7000-8000-000000000040" },
+      "occurredAt": "2026-08-25T12:10:00.000Z",
+      "correlation": { "runId": "018f6d2e-7c1a-7000-8000-000000000010" },
+      "actor": { "kind": "agent" },
+      "payload": {
+        "validator": "unit_tests",
+        "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "status": "passed"
+      }
+    }
+  ],
+  "legacyMustQuarantine": [
+    {
+      "$comment": "Pre-v1 envelope shape: must fail closed (invalid_envelope), never parse best-effort.",
+      "version": 0,
+      "kind": "workflow.state.changed"
+    }
+  ]
+}
