@@ -55,6 +55,15 @@ function flagEnvName(key: FeatureKey): string {
   return FLAG_ENV_PREFIX + key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase();
 }
 
+/** Closed set of valid FLAG_* environment names — anything else fails the scan. */
+export const KNOWN_FLAG_ENV_NAMES: ReadonlySet<string> = new Set(
+  FEATURE_KEYS.map((key) => flagEnvName(key)),
+);
+
+export function isKnownFlagEnvName(name: string): boolean {
+  return KNOWN_FLAG_ENV_NAMES.has(name);
+}
+
 function parseStrictBoolean(raw: string): boolean | undefined {
   if (raw === 'true') return true;
   if (raw === 'false') return false;

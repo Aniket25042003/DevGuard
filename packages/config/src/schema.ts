@@ -9,6 +9,7 @@
  * - public-projection allow-listing.
  */
 import { z } from 'zod';
+import { isKnownFlagEnvName } from './features.js';
 
 export type ProcessKind = 'api' | 'worker' | 'web';
 export const PROCESS_KINDS = ['api', 'worker', 'web'] as const satisfies readonly ProcessKind[];
@@ -265,10 +266,15 @@ export function scanForUnknownVariables(
   const unknown: string[] = [];
   for (const name of Object.keys(env)) {
     if (!isOwnedNamespace(name)) continue;
-    if (!INVENTORY_BY_NAME.has(name) && !name.startsWith('FLAG_')) {
+    if (name.startsWith('FLAG_')) {
+      // Fail closed on misspelled flags (e.g. FLAG_GITHUB_WRITE_ENABLED):
+      // only the closed typed registry is acceptable.
+      if (!isKnownFlagEnvName(name)) unknown.push(name);
+      continue;
+    }
+    if (!INVENTORY_BY_NAME.has(name)) {
       unknown.push(name);
     }
-    // FLAG_* keys are validated by evaluateFeatures against the typed registry.
   }
   return { unknown };
 }

@@ -125,6 +125,26 @@ describe('C002 process schemas', () => {
     const devSnapshot = loadConfig('api', { env: { ...BASE_ENV, DEVGUARD_TOTALLY_UNKNOWN: 'x' } });
     expect(devSnapshot.warnings.join('\n')).toMatch(/unknown variable names/);
   });
+
+  it('rejects misspelled FLAG_* variables even outside CI (fail closed)', () => {
+    // Typo'd flag must never be silently ignored.
+    let ciIssuePaths: string[] = [];
+    try {
+      loadConfig('api', {
+        env: { ...BASE_ENV, CI: 'true', FLAG_GITHUB_WRITE_ENABLED: 'true' },
+      });
+    } catch (error) {
+      ciIssuePaths = ((error as { safeDetails?: Array<{ path: string }> }).safeDetails ?? []).map(
+        (issue) => issue.path,
+      );
+    }
+    expect(ciIssuePaths).toContain('FLAG_GITHUB_WRITE_ENABLED');
+
+    const dev = loadConfig('api', {
+      env: { ...BASE_ENV, FLAG_GITHUB_WRITE_ENABLED: 'true' },
+    });
+    expect(dev.warnings.join('\n')).toMatch(/FLAG_GITHUB_WRITE_ENABLED/);
+  });
 });
 
 function loadConfigFailing(

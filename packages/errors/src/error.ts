@@ -31,7 +31,7 @@ export class DevGuardError extends Error {
     this.category = descriptor.category;
     this.retryClass = descriptor.retryClass;
     if (options.details !== undefined) {
-      this.safeDetails = validateDetails(descriptor, options.details);
+      this.safeDetails = deepFreezeDetails(validateDetails(descriptor, options.details));
     }
     // Keep the prototype chain intact when targeting ES2023 output.
     Object.setPrototypeOf(this, new.target.prototype);
@@ -64,6 +64,25 @@ export class DevGuardError extends Error {
     if (this.safeDetails !== undefined) json['details'] = this.safeDetails;
     return json;
   }
+}
+
+/**
+ * Defensive immutability: readonly type annotations do not protect nested
+ * arrays/objects at runtime. Frozen details cannot be mutated between
+ * construction and public serialization.
+ */
+function deepFreezeDetails(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    value.forEach((element) => deepFreezeDetails(element));
+    return Object.freeze(value);
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const nested of Object.values(value as Record<string, unknown>)) {
+      deepFreezeDetails(nested);
+    }
+    return Object.freeze(value);
+  }
+  return value;
 }
 
 function validateDetails(descriptor: ErrorDescriptor, details: unknown): unknown {

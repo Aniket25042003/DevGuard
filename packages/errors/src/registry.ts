@@ -36,7 +36,10 @@ export function registerError(descriptor: ErrorDescriptor): RegisterResult {
       existing.category === descriptor.category &&
       existing.httpStatus === descriptor.httpStatus &&
       existing.retryClass === descriptor.retryClass &&
-      existing.safeMessage === descriptor.safeMessage
+      existing.safeMessage === descriptor.safeMessage &&
+      // Schema identity participates in equality: a different instance may
+      // accept different payloads, which would silently change the contract.
+      existing.detailSchema === descriptor.detailSchema
     ) {
       return { code: descriptor.code, created: false };
     }

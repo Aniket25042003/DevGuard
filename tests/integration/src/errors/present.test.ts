@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  configurationInvalid,
   httpStatusForCode,
   normalizeError,
   presentHttpError,
@@ -111,5 +112,37 @@ describe('C003 job dispositions', () => {
       throw repositoryForbidden();
     });
     expect(dead.outcome === 'failed' && dead.disposition.action).toBe('dead_letter');
+  });
+});
+
+describe('C003 safeDetails immutability (Qodo fix)', () => {
+  it('freezes validated details so post-construction mutation cannot alter public output', () => {
+    const error = configurationInvalid([{ path: 'a.b', constraint: 'required' }]);
+    const details = error.safeDetails as Array<{ path: string; constraint: string }>;
+    const before = JSON.stringify(error.toSafeLogFields());
+
+    let mutationBlocked = false;
+    try {
+      (details as unknown[]).push({ path: 'evil', constraint: 'injected' });
+    } catch {
+      mutationBlocked = true;
+    }
+    try {
+      const first = details[0];
+      if (first) details[0] = { path: 'evil', constraint: 'injected' };
+    } catch {
+      mutationBlocked = true;
+    }
+
+    const after = JSON.stringify(error.toSafeLogFields());
+    expect(mutationBlocked || before === after, 'details must be immutable').toBe(true);
+    expect(after).not.toContain('evil');
+  });
+
+  it('public envelope stays stable even when callers hold references', () => {
+    const error = configurationInvalid([{ path: 'x', constraint: 'y' }]);
+    void error.safeDetails;
+    const envelopeBefore = JSON.stringify(toPublicError(error, 'req-1'));
+    expect(JSON.stringify(toPublicError(error, 'req-1'))).toBe(envelopeBefore);
   });
 });

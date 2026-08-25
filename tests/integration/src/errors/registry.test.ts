@@ -114,3 +114,20 @@ describe('C003 DevGuardError behavior', () => {
     });
   });
 });
+
+describe('C003 registry schema identity (Qodo fix)', () => {
+  it('treats a different detailSchema instance as a conflicting redefinition', async () => {
+    const { z } = await import('zod');
+    const base = getErrorDescriptor('CONFIGURATION_INVALID');
+    if (!base) throw new Error('missing descriptor');
+
+    const structurallyEqualButNewInstance = {
+      ...base,
+      detailSchema: z.array(z.object({ path: z.string(), constraint: z.string() })),
+    };
+    expect(() => registerError(structurallyEqualButNewInstance)).toThrowError(/already registered/);
+
+    const schemaRemoved = { ...base, detailSchema: undefined };
+    expect(() => registerError(schemaRemoved)).toThrowError(/already registered/);
+  });
+});
