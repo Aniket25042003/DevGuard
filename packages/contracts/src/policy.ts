@@ -127,6 +127,37 @@ export interface ActionProposalShape {
   readonly proposedAt: string;
 }
 
+/**
+ * Canonical action→risk assignment (PRD POL-01). Callers may not label an
+ * action with an arbitrary risk class: proposals, tool bindings, events and
+ * projections must agree with this table.
+ */
+export const RISK_FOR_ACTION: Readonly<Record<ActionType, RiskClass>> = Object.freeze({
+  'repository.read': 'read',
+  'issue.read': 'read',
+  'file.read': 'read',
+  'check.read': 'read',
+  'review.read': 'read',
+  'session.stream.read': 'read',
+  'branch.create': 'reversible_write',
+  'commit.push': 'reversible_write',
+  'pull_request.create': 'reversible_write',
+  'pull_request.update': 'reversible_write',
+  'comment.create': 'reversible_write',
+  'pull_request.merge': 'sensitive_write',
+  'workflow_file.write': 'sensitive_write',
+  'branch.delete': 'destructive',
+  'repository.file.delete': 'destructive',
+  'sandbox.command': 'external_side_effect',
+  'artifact.store': 'external_side_effect',
+  'notification.send': 'external_side_effect',
+} as const);
+
+/** Derived canonical risk class for an action. */
+export function riskClassForAction(actionType: ActionType): RiskClass {
+  return RISK_FOR_ACTION[actionType];
+}
+
 const shaPattern = /^[0-9a-f]{40}$/;
 
 export const actionProposal: z.ZodType<ActionProposalShape> = z
@@ -146,7 +177,11 @@ export const actionProposal: z.ZodType<ActionProposalShape> = z
       .optional(),
     proposedAt: timestampIso,
   })
-  .strip();
+  .strip()
+  .refine((value) => value.riskClass === riskClassForAction(value.actionType), {
+    message: 'riskClass must match the canonical risk of the actionType',
+    path: ['riskClass'],
+  });
 
 /** Registry entry binding one tool to one action (C024 owns persistence). */
 export interface ToolBindingShape {
@@ -165,4 +200,8 @@ export const toolBinding: z.ZodType<ToolBindingShape> = z
     riskClass: RiskClass,
     enabled: z.boolean(),
   })
-  .strip();
+  .strip()
+  .refine((value) => value.riskClass === riskClassForAction(value.actionType), {
+    message: 'riskClass must match the canonical risk of the actionType',
+    path: ['riskClass'],
+  });

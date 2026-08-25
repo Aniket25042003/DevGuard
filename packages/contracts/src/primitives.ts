@@ -37,9 +37,9 @@ export type OperationKey = Brand<string, 'OperationKey'>;
  * Generation prefers UUIDv7 for sortability; ordering authority always lives
  * with explicit sequences, never with ID sort order.
  */
-const UUID_PATTERN =
-  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
-const ULID_PATTERN = /^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/;
+// Single canonical casing per ADR-0007: UUIDs lowercase, ULIDs uppercase.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const ULID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 
 const ID_SCHEMA = z
   .string()

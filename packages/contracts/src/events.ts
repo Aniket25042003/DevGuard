@@ -364,17 +364,24 @@ export function makeEvent(input: MakeEventInput): EventEnvelopeShape {
     throw new TypeError(`Cannot build unregistered event '${input.type}'.`);
   }
   const payload = registered.payload.parse(input.payload);
-  return {
+  const envelope = {
     id: schemas.eventId.parse(crypto.randomUUID()),
     schemaVersion: EVENT_SCHEMA_VERSION,
-    type: input.type,
     aggregate: input.aggregate,
     sequence: input.sequence,
     occurredAt: timestampIso.parse(input.occurredAt),
     correlation: input.correlation ?? {},
-    actor: actorRef.parse(input.actor),
-    payload,
-  };
+    actor: input.actor,
+  } satisfies Record<string, unknown>;
+  // Builders must satisfy exactly the same envelope contract as parsers:
+  // aggregate/sequence/correlation/actor go through the envelope schemas.
+  const checked = eventEnvelopeBase.safeParse(envelope);
+  if (!checked.success) {
+    throw new TypeError(
+      `Invalid event envelope for '${input.type}': ${JSON.stringify(checked.error.issues)}`,
+    );
+  }
+  return { ...checked.data, type: input.type, payload };
 }
 
 export { boundedText };

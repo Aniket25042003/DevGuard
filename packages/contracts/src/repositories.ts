@@ -40,7 +40,8 @@ export const connectedRepository: z.ZodType<ConnectedRepositoryShape> = z
     fullName: z.string().max(201),
     defaultBranch: z.string().max(256).optional(),
     status: RepositoryLifecycleStatus,
-    externalRef: externalRefSchema,
+    // Narrowed discriminator: a connected repository references a repository.
+    externalRef: externalRefSchema.extend({ type: z.literal('repository') }).strict(),
     metadataProvenance: provenance.optional(),
     createdAt: timestampIso,
     updatedAt: timestampIso,

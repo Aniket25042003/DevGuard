@@ -48,6 +48,25 @@ export interface ApprovalFingerprintInputShape {
   readonly validationSnapshotDigest: string;
 }
 
+/**
+ * Per-action target requirements (IF-3): an approval binds ONE exact
+ * operation, so each sensitive/destructive action demands the concrete fields
+ * that identify its target. Reads/reversible writes need no extra binding.
+ */
+const REQUIRED_TARGET_FIELDS: Partial<
+  Record<
+    z.infer<typeof ActionType>,
+    readonly ('pullRequestNumber' | 'branchName' | 'headSha' | 'baseSha')[]
+  >
+> = {
+  'pull_request.merge': ['pullRequestNumber', 'headSha'],
+  'workflow_file.write': ['branchName', 'headSha'],
+  'commit.push': ['branchName', 'headSha'],
+  'branch.create': ['branchName'],
+  'branch.delete': ['branchName'],
+  'repository.file.delete': ['branchName', 'headSha'],
+};
+
 export const approvalFingerprintInput: z.ZodType<ApprovalFingerprintInputShape> = z
   .object({
     installationRef: z.string().min(1).max(128),
@@ -61,7 +80,19 @@ export const approvalFingerprintInput: z.ZodType<ApprovalFingerprintInputShape> 
     policyVersionRef: z.string().min(1).max(128),
     validationSnapshotDigest: z.string().regex(/^[0-9a-f]{64}$/),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const required = REQUIRED_TARGET_FIELDS[value.actionType] ?? [];
+    for (const field of required) {
+      if (value[field] === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [field],
+          message: `${field} is required to bind a ${value.actionType} approval to one exact operation`,
+        });
+      }
+    }
+  });
 
 export interface ApprovalRequestShape {
   readonly id: string;

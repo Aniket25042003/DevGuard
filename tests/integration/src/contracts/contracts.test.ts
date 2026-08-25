@@ -394,3 +394,167 @@ describe('C004 policy decisions bind approvals explicitly', () => {
     expect(bad.success).toBe(false);
   });
 });
+
+describe('C004 Qodo round-2 hardening', () => {
+  const NOW = '2026-08-25T12:00:00.000Z';
+
+  it('rejects spoofed risk classes on action proposals and tool bindings', async () => {
+    const { actionProposal, riskClassForAction, toolBinding } = await import('@devguard/contracts');
+    expect(riskClassForAction('pull_request.merge')).toBe('sensitive_write');
+
+    const spoof = actionProposal.safeParse({
+      actionType: 'pull_request.merge',
+      riskClass: 'read',
+      actorKind: 'agent',
+      proposedAt: NOW,
+    });
+    expect(spoof.success).toBe(false);
+
+    const honest = actionProposal.safeParse({
+      actionType: 'pull_request.merge',
+      riskClass: 'sensitive_write',
+      actorKind: 'agent',
+      proposedAt: NOW,
+    });
+    expect(honest.success).toBe(true);
+
+    const bindingSpoof = toolBinding.safeParse({
+      toolName: 'github_merge',
+      provider: 'github_adapter',
+      actionType: 'pull_request.merge',
+      riskClass: 'read',
+      enabled: true,
+    });
+    expect(bindingSpoof.success).toBe(false);
+  });
+
+  it('requires exact target fields for sensitive/destructive approvals', async () => {
+    const { approvalFingerprintInput } = await import('@devguard/contracts');
+    const baseTarget = {
+      installationRef: 'inst-1',
+      repositoryFullName: 'octo/repo',
+      policyVersionRef: 'pv-1',
+      validationSnapshotDigest: 'c'.repeat(64),
+    };
+
+    const unboundMerge = approvalFingerprintInput.safeParse({
+      ...baseTarget,
+      actionType: 'pull_request.merge',
+      riskClass: 'sensitive_write',
+    });
+    expect(unboundMerge.success).toBe(false);
+    if (!unboundMerge.success) {
+      const paths = unboundMerge.error.issues.map((issue) => issue.path.join('.'));
+      expect(paths).toContain('pullRequestNumber');
+      expect(paths).toContain('headSha');
+    }
+
+    const boundMerge = approvalFingerprintInput.safeParse({
+      ...baseTarget,
+      actionType: 'pull_request.merge',
+      riskClass: 'sensitive_write',
+      pullRequestNumber: 42,
+      headSha: 'a'.repeat(40),
+    });
+    expect(boundMerge.success).toBe(true);
+
+    const unboundPush = approvalFingerprintInput.safeParse({
+      ...baseTarget,
+      actionType: 'commit.push',
+      riskClass: 'reversible_write',
+    });
+    expect(unboundPush.success).toBe(false);
+  });
+
+  it('makeEvent validates aggregate/sequence/correlation against the envelope schemas', async () => {
+    const { makeEvent } = await import('@devguard/contracts');
+    const base = {
+      type: 'workflow.state.changed',
+      occurredAt: NOW,
+      actor: { kind: 'system' as const },
+      payload: { from: 'queued' as const, to: 'running' as const },
+    };
+    expect(() =>
+      makeEvent({ ...base, aggregate: { type: '', id: 'x' }, payload: base.payload }),
+    ).toThrowError(/Invalid event envelope/);
+    expect(() =>
+      makeEvent({
+        ...base,
+        aggregate: { type: 'workflow_run', id: crypto.randomUUID() },
+        sequence: -5,
+        payload: base.payload,
+      }),
+    ).toThrowError(/Invalid event envelope/);
+  });
+
+  it('enforces single canonical ID casing', async () => {
+    const { idSchemas } = await import('@devguard/contracts');
+    expect(idSchemas.workflowRunId.safeParse(crypto.randomUUID().toUpperCase()).success).toBe(
+      false,
+    );
+    expect(idSchemas.workflowRunId.safeParse('01arz3ndektsv4rrffq69g5fav').success).toBe(false); // lowercase ULID
+    expect(idSchemas.workflowRunId.safeParse(crypto.randomUUID()).success).toBe(true); // lowercase UUID
+    expect(idSchemas.workflowRunId.safeParse('01ARZ3NDEKTSV4RRFFQ69G5FAV').success).toBe(true); // uppercase ULID
+  });
+
+  it('public DTOs use canonical enums and strict UTC timestamps', async () => {
+    const { publicWorkflowRunSummary } = await import('@devguard/contracts');
+    const base = {
+      id: crypto.randomUUID(),
+      status: 'queued',
+      repositoryId: crypto.randomUUID(),
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    expect(
+      publicWorkflowRunSummary.safeParse({ ...base, workflowKind: 'implement_issue' }).success,
+    ).toBe(true);
+    expect(
+      publicWorkflowRunSummary.safeParse({ ...base, workflowKind: 'dependency_upgrade' }).success,
+    ).toBe(false);
+    expect(
+      publicWorkflowRunSummary.safeParse({
+        ...base,
+        workflowKind: 'implement_issue',
+        createdAt: '2026-08-25',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('narrows entity-specific external references', async () => {
+    const { connectedRepository, workflowCompletion, validationResult } =
+      await import('@devguard/contracts');
+    void validationResult;
+    const repoBad = connectedRepository.safeParse({
+      id: crypto.randomUUID(),
+      installationRef: 'inst',
+      owner: 'octo',
+      name: 'repo',
+      fullName: 'octo/repo',
+      status: 'active',
+      externalRef: { provider: 'github', type: 'issue', id: '7' },
+      createdAt: NOW,
+      updatedAt: NOW,
+      rowVersion: 1,
+    });
+    expect(repoBad.success).toBe(false);
+
+    const prBad = workflowCompletion.safeParse({
+      status: 'success',
+      summary: 'done',
+      artifactIds: [],
+      validations: [],
+      pullRequest: { provider: 'github', type: 'repository', id: '9' },
+    });
+    expect(prBad.success).toBe(false);
+
+    const prGood = workflowCompletion.safeParse({
+      status: 'success',
+      summary: 'done',
+      artifactIds: [],
+      validations: [],
+      pullRequest: { provider: 'github', type: 'pull_request', id: '9' },
+    });
+    expect(prGood.success).toBe(true);
+  });
+});

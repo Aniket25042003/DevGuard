@@ -6,7 +6,7 @@
  * a workflow status (PRD review A-22).
  */
 import { z } from 'zod';
-import { externalRef } from './context.js';
+import { externalRefSchema } from './context.js';
 import type { ActorKind } from './context.js';
 import type { ExternalRefShape } from './context.js';
 import { rowVersion, schemas, timestampIso } from './primitives.js';
@@ -116,7 +116,7 @@ export interface WorkflowCompletionShape {
   readonly summary: string;
   readonly artifactIds: readonly string[];
   readonly validations: readonly ValidationResultShape[];
-  readonly pullRequest?: ExternalRefShape | undefined;
+  readonly pullRequest?: (ExternalRefShape & { readonly type: 'pull_request' }) | undefined;
   readonly pendingApprovalId?: string | undefined;
 }
 
@@ -126,7 +126,11 @@ export const workflowCompletion: z.ZodType<WorkflowCompletionShape> = z
     summary: z.string().min(1).max(4_000),
     artifactIds: z.array(schemas.artifactId).max(256),
     validations: z.array(z.lazy(() => validationResult)).max(256),
-    pullRequest: externalRef.optional(),
+    // Narrowed discriminator: this field names one specific provider entity.
+    pullRequest: externalRefSchema
+      .extend({ type: z.literal('pull_request') })
+      .strict()
+      .optional(),
     pendingApprovalId: schemas.approvalId.optional(),
   })
   .strip();

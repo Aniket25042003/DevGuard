@@ -7,17 +7,19 @@
  */
 import { z } from 'zod';
 import { ActionType } from './policy.js';
+import { WorkflowKind } from './workflows.js';
+import { timestampIso } from './primitives.js';
 import { WorkflowStatus } from './workflows.js';
 import { ApprovalStatus } from './approvals.js';
 
 export const publicWorkflowRunSummary = z
   .object({
     id: z.string().min(1).max(128),
-    workflowKind: z.string().min(1).max(64),
+    workflowKind: WorkflowKind,
     status: WorkflowStatus,
     repositoryId: z.string().min(1).max(128),
-    createdAt: z.string(),
-    updatedAt: z.string(),
+    createdAt: timestampIso,
+    updatedAt: timestampIso,
   })
   .strict();
 export type PublicWorkflowRunSummary = z.infer<typeof publicWorkflowRunSummary>;
@@ -37,7 +39,7 @@ export const publicApprovalView = z
       'external_side_effect',
     ]),
     rationaleSummary: z.string().max(2_000),
-    expiresAt: z.string(),
+    expiresAt: timestampIso,
   })
   .strict();
 export type PublicApprovalView = z.infer<typeof publicApprovalView>;

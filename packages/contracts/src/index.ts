@@ -42,6 +42,7 @@ export type {
 // Context
 export {
   actorRef,
+  externalRefSchema,
   correlation,
   DataClassification,
   externalRef,
@@ -69,6 +70,8 @@ export {
   Obligation,
   PolicyEffect,
   policyDecisionShape,
+  riskClassForAction,
+  RISK_FOR_ACTION,
   RiskClass,
   toolBinding,
 } from './policy.js';
