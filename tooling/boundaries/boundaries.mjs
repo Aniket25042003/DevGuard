@@ -59,13 +59,20 @@ export function buildCruiseRules(matrix) {
   }
 
   if (matrix.rules.forbidDeepImports) {
-    // Cross-package imports must go through the package entry point, never /src/… internals.
-    rules.push({
-      name: 'no-deep-cross-package-imports',
-      severity: 'error',
-      from: { path: '^packages/' },
-      to: { path: String.raw`^(?!packages/[^/]+/src/index\.ts$)packages/[^/]+/src/.+` },
-    });
+    // Cross-package imports must go through the package entry point, never /src/…
+    // internals. Generated per-target so only *foreign* importers are matched.
+    for (const targetPath of Object.keys(packages)) {
+      const internalRegex = `^${escapeRegex(targetPath)}/src/.+`;
+      rules.push({
+        name: `no-deep-imports-into-${targetPath.replace(/\//g, '-')}`,
+        severity: 'error',
+        from: {
+          path: '^(apps|packages|tests)/',
+          pathNot: `^${escapeRegex(targetPath)}(/|$)`,
+        },
+        to: { path: internalRegex },
+      });
+    }
   }
 
   if (matrix.rules.forbidImportingApps) {
@@ -78,7 +85,10 @@ export function buildCruiseRules(matrix) {
   }
 
   // Domain-layer packages stay provider-free: npm dependencies are limited to the allowlist.
-  const allow = (matrix.domainExternalAllowlist ?? []).map((name) => `^${escapeRegex(name)}$`);
+  // Resolved externals appear as store paths, so allow by path segment.
+  const allow = (matrix.domainExternalAllowlist ?? []).map(
+    (name) => `(^|/)${escapeRegex(name)}($|/)`,
+  );
   if (Object.values(packages).includes('domain')) {
     rules.push({
       name: 'domain-packages-provider-free',
