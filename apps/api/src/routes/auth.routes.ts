@@ -13,7 +13,7 @@ import {
   loginQuerySchema,
 } from '@devguard/api-contracts';
 import { constantTimeEquals, deriveCsrfToken } from '@devguard/auth';
-import { validationFailed } from '@devguard/errors';
+import { unauthenticated, validationFailed } from '@devguard/errors';
 import type { AppEnv, RegisterV1Route, RouteMetadata } from '../transport/kernel.js';
 
 const SESSION_COOKIE = 'devguard_session';
@@ -59,7 +59,9 @@ export function registerAuthRoutes(
   const callbackMeta: RouteMetadata = { rateLimitClass: 'auth_callback', authClass: 'public' };
   const logoutMeta: RouteMetadata = {
     rateLimitClass: 'auth_logout',
-    authClass: 'required_session',
+    // optional_session so a PRESENTED but already-revoked token still reaches
+    // the handler (idempotent 204); unknown tokens still fail 401 in-handler.
+    authClass: 'optional_session',
   };
 
   kernel.registerV1Route('get', '/api/v1/auth/session', sessionMeta, async (c) => {
@@ -142,31 +144,38 @@ export function registerAuthRoutes(
       completed.sessionIdHash,
       completed.sessionIdHash + config.environment,
     );
+    // Set-Cookie values cannot be comma-folded: emit each as its own header.
     c.header(
       'set-cookie',
-      [
-        setCookieValue(SESSION_COOKIE, completed.sessionToken, {
-          maxAgeSeconds: sessionMaxAgeSeconds,
-          secure: secureCookies,
-        }),
-        setCookieValue(CSRF_COOKIE, csrfToken, {
-          maxAgeSeconds: sessionMaxAgeSeconds,
-          httpOnly: false,
-          secure: secureCookies,
-        }),
-        clearCookie(STATE_COOKIE),
-      ].join(', '),
+      setCookieValue(SESSION_COOKIE, completed.sessionToken, {
+        maxAgeSeconds: sessionMaxAgeSeconds,
+        secure: secureCookies,
+      }),
+      { append: true },
     );
+    // CSRF proof lives exactly as long as its session and rotates with it.
+    c.header(
+      'set-cookie',
+      setCookieValue(CSRF_COOKIE, csrfToken, {
+        maxAgeSeconds: sessionMaxAgeSeconds,
+        httpOnly: false,
+        secure: secureCookies,
+      }),
+      { append: true },
+    );
+    c.header('set-cookie', clearCookie(STATE_COOKIE), { append: true });
     return c.redirect(completed.returnToPath, 302);
   });
 
   kernel.registerV1Route('post', '/api/v1/auth/logout', logoutMeta, async (c) => {
     const sessionToken = readCookie(c, SESSION_COOKIE);
     if (sessionToken === undefined) {
-      throw validationFailed([{ path: 'session', constraint: 'no session presented' }]);
+      throw unauthenticated(new Error('no_session_presented'));
     }
+    // Idempotent: an already-revoked token maps to the same record → 204 again.
     await auth.revokeIfExists(sessionToken);
-    c.header('set-cookie', `${clearCookie(SESSION_COOKIE)}, ${clearCookie(CSRF_COOKIE)}`);
+    c.header('set-cookie', clearCookie(SESSION_COOKIE), { append: true });
+    c.header('set-cookie', clearCookie(CSRF_COOKIE), { append: true });
     return c.body(null, 204);
   });
 }

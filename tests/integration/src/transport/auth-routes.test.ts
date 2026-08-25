@@ -219,6 +219,50 @@ describe('C005 auth endpoints over the transport kernel', () => {
     expect(body.authenticated).toBe(false);
   });
 
+  it('emits each Set-Cookie as a separate header, never comma-folded (Qodo fix)', async () => {
+    const api = boot();
+    const login = await api.app.request('/api/v1/auth/login');
+    const state =
+      extractCookie(login.headers.get('set-cookie') ?? undefined, 'devguard_state') ?? '';
+    const callback = await api.app.request(`/api/v1/auth/callback?code=c1&state=${state}`, {
+      headers: { cookie: `devguard_state=${state}` },
+      redirect: 'manual',
+    });
+    // getSetCookie() exposes individually-parsed cookie headers.
+    const cookies = callback.headers.getSetCookie();
+    expect(cookies.length).toBeGreaterThanOrEqual(3); // session + csrf + state-clear
+    for (const cookie of cookies) {
+      expect(cookie.includes(', devguard_'), `comma-folded cookie detected: ${cookie}`).toBe(false);
+    }
+  });
+
+  it('logout is idempotent end-to-end for the same presented token (Qodo fix)', async () => {
+    const api = boot();
+    const login = await api.app.request('/api/v1/auth/login');
+    const state =
+      extractCookie(login.headers.get('set-cookie') ?? undefined, 'devguard_state') ?? '';
+    const callback = await api.app.request(`/api/v1/auth/callback?code=c1&state=${state}`, {
+      headers: { cookie: `devguard_state=${state}` },
+      redirect: 'manual',
+    });
+    const setCookie: string = callback.headers.get('set-cookie') ?? '';
+    const sessionToken = extractCookie(setCookie, 'devguard_session') ?? '';
+    const csrfCookie = extractCookie(setCookie, 'devguard_csrf') ?? '';
+    const cookieHeader = `devguard_session=${sessionToken}; devguard_csrf=${csrfCookie}`;
+    const headers = {
+      cookie: cookieHeader,
+      'x-csrf-token': csrfCookie,
+      origin: 'http://localhost:3000',
+    };
+
+    const first = await api.app.request('/api/v1/auth/logout', { method: 'POST', headers });
+    expect(first.status).toBe(204);
+
+    // Same presented token again → still 204 (revoked record, not unknown).
+    const second = await api.app.request('/api/v1/auth/logout', { method: 'POST', headers });
+    expect(second.status).toBe(204);
+  });
+
   it('returns stable envelopes on protected routes without sessions', async () => {
     const api = boot();
     const response = await api.app.request('/api/v1/auth/logout', { method: 'POST' });

@@ -84,7 +84,8 @@ export const idempotencyKeySchema = z
 
 /** SSE reconnect contract: opaque durable cursor from Last-Event-ID. */
 export const LAST_EVENT_ID_HEADER = 'last-event-id';
-export const sseCursorSchema = z.string().min(1).max(256);
+// Same single-line safe charset as the SSE writer's event-id framing guard.
+export const sseCursorSchema = z.string().regex(/^[A-Za-z0-9._:-]{1,256}$/);
 
 /** Auth endpoint payload schemas (C005 §11). */
 export const authSessionResponseSchema = z

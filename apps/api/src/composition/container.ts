@@ -152,72 +152,30 @@ export function buildContainer(
   env: Readonly<Record<string, string | undefined>> = globalThis.process?.env ?? {},
   overrides: Partial<CompositionBindings> = {},
 ): ApiContainer {
-  // Auth mode must be resolvable before building provider clients.
-  if (config.auth.mode !== 'github_oauth') {
-    // none-mode still needs functional ports to keep types honest.
-    const sessions = new InMemoryAuthSessionRepository();
-    const transactions = new InMemoryAuthTransactionRepository();
-    const identities = new VolatileIdentityLinker();
-    const identityProvider: IdentityProviderClient = new GitHubOAuthClient({
-      clientId: 'disabled',
-      clientSecret: 'disabled',
-    });
-    const localAccess = new EmptyLocalRepositoryAccessPort();
-    const githubPermissions = new UnavailableGitHubPermissionPort();
-    const evidence = new InMemoryAuthorizationEvidenceStore();
-    const bindings: CompositionBindings = {
-      sessions,
-      transactions,
-      identities,
-      identityProvider,
-      localAccess,
-      githubPermissions,
-      evidence,
-      ...overrides,
-    };
-    const auth = new AuthenticationService({
-      identityProvider,
-      transactions,
-      sessions,
-      identities,
-      policy: config.sessionPolicy,
-      redirectUri: `${config.publicOrigin ?? ''}/api/v1/auth/callback`,
-      now: () => new Date(),
-    });
-    const authorizer = new RepositoryAuthorizationService({
-      local: localAccess,
-      github: githubPermissions,
-      evidence,
-      readCacheTtlSeconds: 60,
-      now: () => new Date(),
-    });
-    return { config, bindings, auth, authorizer };
-  }
-
   const secretProvider = new EnvironmentSecretProvider(env);
 
-  const clientId = config.auth.mode === 'github_oauth' ? config.auth.oauthClientId : 'disabled';
-  const identityProvider = new GitHubOAuthClient({
-    clientId,
+  // Default adapters per auth mode. Both branches converge on ONE binding +
+  // service-construction path so injected overrides always take effect.
+  let identityProvider: IdentityProviderClient;
+  if (config.auth.mode === 'github_oauth') {
     // The secret VALUE is resolved from its reference only here, at composition.
-    clientSecret: resolveSecret(config, secretProvider),
-  });
-
-  const sessions = new InMemoryAuthSessionRepository();
-  const transactions = new InMemoryAuthTransactionRepository();
-  const identities = new VolatileIdentityLinker();
-  const localAccess = new EmptyLocalRepositoryAccessPort();
-  const githubPermissions = new UnavailableGitHubPermissionPort();
-  const evidence = new InMemoryAuthorizationEvidenceStore();
+    identityProvider = new GitHubOAuthClient({
+      clientId: config.auth.oauthClientId,
+      clientSecret: resolveSecret(config, secretProvider),
+    });
+  } else {
+    // None-mode never contacts an identity provider.
+    identityProvider = new GitHubOAuthClient({ clientId: 'disabled', clientSecret: 'disabled' });
+  }
 
   const bindings: CompositionBindings = {
-    sessions,
-    transactions,
-    identities,
+    sessions: new InMemoryAuthSessionRepository(),
+    transactions: new InMemoryAuthTransactionRepository(),
+    identities: new VolatileIdentityLinker(),
     identityProvider,
-    localAccess,
-    githubPermissions,
-    evidence,
+    localAccess: new EmptyLocalRepositoryAccessPort(),
+    githubPermissions: new UnavailableGitHubPermissionPort(),
+    evidence: new InMemoryAuthorizationEvidenceStore(),
     ...overrides,
   };
 
@@ -227,6 +185,7 @@ export function buildContainer(
     config.auth.mode === 'github_oauth'
       ? config.auth.oauthCallbackUrl
       : `${config.publicOrigin ?? ''}/api/v1/auth/callback`;
+
   const auth = new AuthenticationService({
     identityProvider: bindings.identityProvider,
     transactions: bindings.transactions,
@@ -248,18 +207,9 @@ export function buildContainer(
   return { config, bindings, auth, authorizer };
 }
 
-async function resolveSecretAsync(
-  config: ApiConfigSnapshot,
-  provider: EnvironmentSecretProvider,
-): Promise<string> {
-  if (config.auth.mode !== 'github_oauth') return 'disabled';
-  return provider.get({ name: config.auth.oauthClientSecretRef });
-}
-
 /** Synchronous resolution from the same env snapshot given to loadConfig. */
 function resolveSecret(config: ApiConfigSnapshot, provider: EnvironmentSecretProvider): string {
   if (config.auth.mode !== 'github_oauth') return 'disabled';
-  void resolveSecretAsync;
   const value = provider.peek({ name: config.auth.oauthClientSecretRef });
   if (value === undefined || value.length < 8) {
     throw configurationInvalid([

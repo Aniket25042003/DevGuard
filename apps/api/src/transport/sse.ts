@@ -81,7 +81,13 @@ export function createSseResponse(input: {
           return closed;
         },
         send(id, type, data) {
-          if (data === undefined || typeof id !== 'string' || id.length === 0 || id.length > 256) {
+          // IDs are interpolated into wire framing: reject anything outside
+          // the safe single-line charset so CR/LF cannot inject frames.
+          if (
+            data === undefined ||
+            typeof id !== 'string' ||
+            !/^[A-Za-z0-9._:-]{1,256}$/.test(id)
+          ) {
             return false;
           }
           return write(
