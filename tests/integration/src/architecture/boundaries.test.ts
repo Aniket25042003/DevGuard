@@ -48,7 +48,7 @@ describe('C001 boundary matrix integrity', () => {
   });
 
   it('keeps domain layers free of downstream dependencies', () => {
-    expect(matrix.layers['domain']).toEqual([]);
+    expect(matrix.layers['domain']).toEqual(['domain']);
   });
 
   it('never allows depending on app/ui composition shells from below', () => {

@@ -43,16 +43,16 @@ HTTP/SSE route  →  application use case  →  domain service  →  repository/
 Layers (fixed): `app | application | domain | port | adapter | persistence | ui`
 plus a tooling-only `test` pseudo-layer used by verification suites.
 
-| Layer            | May depend on                                       |
-| ---------------- | --------------------------------------------------- |
-| `app`            | application, domain, port, adapter, persistence, ui |
-| `ui`             | application, domain, port                           |
-| `application`    | domain, port                                        |
-| `domain`         | —                                                   |
-| `port`           | domain                                              |
-| `adapter`        | port, domain                                        |
-| `persistence`    | port, domain                                        |
-| `test` (tooling) | everything (never shipped)                          |
+| Layer            | May depend on                                             |
+| ---------------- | --------------------------------------------------------- |
+| `app`            | application, domain, port, adapter, persistence, ui       |
+| `ui`             | application, domain, port                                 |
+| `application`    | domain, port                                              |
+| `domain`         | domain (sibling pure packages only, e.g. config → errors) |
+| `port`           | domain                                                    |
+| `adapter`        | port, domain                                              |
+| `persistence`    | port, domain                                              |
+| `test` (tooling) | everything (never shipped)                                |
 
 The authoritative machine-readable declaration is
 [`tooling/boundaries/boundary-matrix.json`](../../tooling/boundaries/boundary-matrix.json).

@@ -4,7 +4,7 @@
     "app": ["application", "domain", "port", "adapter", "persistence", "ui"],
     "ui": ["application", "domain", "port"],
     "application": ["domain", "port"],
-    "domain": [],
+    "domain": ["domain"],
     "port": ["domain"],
     "adapter": ["port", "domain"],
     "persistence": ["port", "domain"],
