@@ -12,8 +12,11 @@
   },
   "packages": {
     "packages/contracts": "domain",
+    "packages/api-contracts": "domain",
     "packages/errors": "domain",
     "packages/config": "domain",
+    "packages/auth": "application",
+    "packages/authorization": "application",
     "apps/api": "app",
     "apps/worker": "app",
     "apps/web": "ui",

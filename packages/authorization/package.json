@@ -1,0 +1,23 @@
+{
+  "name": "@devguard/authorization",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Repository-scoped authorization capability matrix, decision service, and evidence ports.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/errors": "workspace:*",
+    "@devguard/contracts": "workspace:*",
+    "zod": "^4.1.12"
+  }
+}

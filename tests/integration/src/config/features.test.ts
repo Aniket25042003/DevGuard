@@ -126,3 +126,32 @@ describe('C002 public projection allow-list', () => {
     expect(() => toPublicConfig(api)).toThrowError(/web process/);
   });
 });
+
+describe('C005/C002 none-mode composition honors overrides (Qodo fix)', () => {
+  it('buildContainer applies injected bindings before constructing services', async () => {
+    const { buildContainer } = await import('@devguard/api');
+    const { loadConfig } = await import('@devguard/config');
+    const config = loadConfig('api', {
+      env: {
+        DEVGUARD_ENV: 'test',
+        DATABASE_URL: 'x',
+        REDIS_URL: 'y',
+        AUTH_MODE: 'none',
+      },
+    });
+    const fakeIdentityProvider = {
+      buildAuthorizeUrl: (): string => 'https://fake.example/authorize',
+      exchangeCode: async (): Promise<{ accessToken: string }> => ({ accessToken: 't' }),
+      fetchIdentity: async () => ({ issuer: 'https://fake', providerSubject: '9', login: 'fake' }),
+    };
+    const container = buildContainer(
+      config,
+      { DEVGUARD_ENV: 'test' },
+      { identityProvider: fakeIdentityProvider },
+    );
+    // The injected adapter must be BOTH visible in bindings AND wired into the service.
+    expect(container.bindings.identityProvider).toBe(fakeIdentityProvider);
+    const started = await container.auth.startLogin({});
+    expect(started.authorizeUrl).toContain('https://fake.example');
+  });
+});

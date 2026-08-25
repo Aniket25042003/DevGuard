@@ -1,25 +1,39 @@
-#!/usr/bin/env node
 /**
- * DevGuard API bootstrap.
+ * DevGuard API bootstrap (C005).
  *
- * Startup contract (C002): configuration is validated before the process can
- * become ready. The real HTTP server arrives with C005; until then this entry
- * proves the composition path (load → validate → safe summary).
+ * Startup contract: configuration validated → composition bound → readiness
+ * validated → transport assembled. The HTTP listener starts only when
+ * RUN_SERVER=1 so CI and tests drive `assembleApi` in-process.
  */
-import { EnvironmentSecretProvider, loadConfig, safeSummary } from '@devguard/config';
+import { loadConfig, safeSummary } from '@devguard/config';
 import { toErrorEnvelope } from '@devguard/errors';
+import { buildContainer, validateReadiness } from './composition/container.js';
+import { assembleApi } from './app.js';
 
 const bootstrap = async (): Promise<void> => {
-  // Fail fast before binding anything: invalid configuration never serves.
   const config = await Promise.resolve(loadConfig('api'));
-  const secrets = new EnvironmentSecretProvider();
+  const container = buildContainer(config);
+  validateReadiness(config, container.bindings);
+  const api = assembleApi(container);
+  console.info(
+    JSON.stringify({
+      msg: 'configuration.validated',
+      ...safeSummary(config),
+      routeCount: api.routeMetadata.size,
+    }),
+  );
 
-  // Prove the resolution port works without exposing values (C093 hardens this).
-  await secrets.get({ name: 'DEVGUARD_ENV' }).catch(() => undefined);
-
-  // Safe summary only: presence/health metadata, never secret values.
-  console.info(JSON.stringify({ msg: 'configuration.validated', ...safeSummary(config) }));
-  // TODO(C005): bind the versioned /api/v1 transport here.
+  if (globalThis.process?.env?.['RUN_SERVER'] === '1') {
+    const { serve } = await import('@hono/node-server');
+    const port = Number.parseInt(globalThis.process?.env?.['PORT'] ?? '4000', 10);
+    const server = serve({ fetch: api.app.fetch, port });
+    console.info(JSON.stringify({ msg: 'http.listening', port }));
+    const shutdown = (): void => {
+      server.close(() => globalThis.process?.exit(0));
+    };
+    globalThis.process?.once('SIGTERM', shutdown);
+    globalThis.process?.once('SIGINT', shutdown);
+  }
 };
 
 bootstrap().catch((error: unknown) => {

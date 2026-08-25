@@ -1,0 +1,196 @@
+/**
+ * C005 — The four auth endpoints (§11), thin over AuthenticationService.
+ *
+ * GET  /api/v1/auth/session   optional cookie → safe summary
+ * GET  /api/v1/auth/login     starts OAuth+PKCE; sets one-time state cookie
+ * GET  /api/v1/auth/callback  single-use transaction → rotated session cookie
+ * POST /api/v1/auth/logout    CSRF-protected idempotent revocation
+ */
+import type { ApiContainer } from '../composition/container.js';
+import {
+  authCallbackQuerySchema,
+  authSessionResponseSchema,
+  loginQuerySchema,
+} from '@devguard/api-contracts';
+import { constantTimeEquals, deriveCsrfToken } from '@devguard/auth';
+import { unauthenticated, validationFailed } from '@devguard/errors';
+import type { AppEnv, RegisterV1Route, RouteMetadata } from '../transport/kernel.js';
+
+const SESSION_COOKIE = 'devguard_session';
+const STATE_COOKIE = 'devguard_state';
+const CSRF_COOKIE = 'devguard_csrf';
+
+function setCookieValue(
+  name: string,
+  value: string,
+  options: {
+    maxAgeSeconds?: number;
+    httpOnly?: boolean;
+    path?: string;
+    sameSite?: 'Lax' | 'Strict';
+    secure?: boolean;
+  },
+): string {
+  const parts = [`${name}=${encodeURIComponent(value)}`, `Path=${options.path ?? '/'}`];
+  parts.push(`Max-Age=${options.maxAgeSeconds ?? 600}`);
+  parts.push(`SameSite=${options.sameSite ?? 'Lax'}`);
+  if (options.httpOnly !== false) parts.push('HttpOnly');
+  // The application owns cookie attributes: Secure whenever the configured
+  // public origin is HTTPS — proxies cannot reliably add attributes to
+  // application-generated Set-Cookie values.
+  if (options.secure === true) parts.push('Secure');
+  return parts.join('; ');
+}
+
+function clearCookie(name: string): string {
+  return `${name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`;
+}
+
+export function registerAuthRoutes(
+  kernel: { registerV1Route: RegisterV1Route },
+  container: ApiContainer,
+): void {
+  const { config, auth } = container;
+  // Cookie security follows the configured origin scheme.
+  const secureCookies = (config.publicOrigin ?? '').startsWith('https://');
+
+  const sessionMeta: RouteMetadata = { rateLimitClass: 'default', authClass: 'optional_session' };
+  const loginMeta: RouteMetadata = { rateLimitClass: 'auth_login', authClass: 'public' };
+  const callbackMeta: RouteMetadata = { rateLimitClass: 'auth_callback', authClass: 'public' };
+  const logoutMeta: RouteMetadata = {
+    rateLimitClass: 'auth_logout',
+    // optional_session so a PRESENTED but already-revoked token still reaches
+    // the handler (idempotent 204); unknown tokens still fail 401 in-handler.
+    authClass: 'optional_session',
+  };
+
+  kernel.registerV1Route('get', '/api/v1/auth/session', sessionMeta, async (c) => {
+    const principal = c.get('requestContext').principal;
+    if (principal === undefined) {
+      return c.json(authSessionResponseSchema.parse({ authenticated: false }));
+    }
+    return c.json(
+      authSessionResponseSchema.parse({
+        authenticated: true,
+        user: {
+          id: principal.userId,
+          login: principal.providerLogin ?? principal.providerSubject,
+          ...(principal.providerDisplayName !== undefined
+            ? { displayName: principal.providerDisplayName }
+            : {}),
+        },
+      }),
+    );
+  });
+
+  kernel.registerV1Route('get', '/api/v1/auth/login', loginMeta, async (c) => {
+    const rawReturnTo: string | undefined = c.req.query('returnTo');
+    const queryInput: { returnTo?: string } = {};
+    if (rawReturnTo !== undefined) queryInput['returnTo'] = rawReturnTo;
+    const query = loginQuerySchema.safeParse(queryInput);
+    if (!query.success) {
+      throw validationFailed([
+        { path: 'returnTo', constraint: 'must be a same-site relative path' },
+      ]);
+    }
+    const startedInput: { returnTo?: string } = {};
+    if (query.data.returnTo !== undefined) startedInput['returnTo'] = query.data.returnTo;
+    const started = await auth.startLogin(startedInput);
+    c.header(
+      'set-cookie',
+      setCookieValue(STATE_COOKIE, started.stateToken, {
+        maxAgeSeconds: 600,
+        secure: secureCookies,
+      }),
+    );
+    return c.redirect(started.authorizeUrl, 302);
+  });
+
+  kernel.registerV1Route('get', '/api/v1/auth/callback', callbackMeta, async (c) => {
+    const queryResult = authCallbackQuerySchema.safeParse({
+      ...(c.req.query('code') !== undefined ? { code: c.req.query('code') } : {}),
+      ...(c.req.query('state') !== undefined ? { state: c.req.query('state') } : {}),
+      ...(c.req.query('error') !== undefined ? { error: c.req.query('error') } : {}),
+      ...(c.req.query('error_description') !== undefined
+        ? { error_description: c.req.query('error_description') }
+        : {}),
+    });
+    if (!queryResult.success) {
+      throw validationFailed([{ path: 'callback', constraint: 'invalid callback parameters' }]);
+    }
+
+    // Bind the presented state to the one-time cookie value.
+    const cookieState = readCookie(c, STATE_COOKIE);
+    if (
+      queryResult.data.error !== undefined ||
+      queryResult.data.code === undefined ||
+      queryResult.data.state === undefined ||
+      cookieState === undefined ||
+      !constantTimeEquals(cookieState, queryResult.data.state)
+    ) {
+      throw validationFailed([{ path: 'state', constraint: 'state mismatch or provider error' }]);
+    }
+
+    const completed = await auth.completeLogin({
+      code: queryResult.data.code,
+      stateToken: queryResult.data.state,
+    });
+
+    // Session and CSRF cookies share one lifetime: the effective session
+    // expiry (absolute remaining), and rotate together at login.
+    const sessionMaxAgeSeconds =
+      Math.floor(Date.parse(completed.expiresAt) / 1000) - Math.floor(Date.now() / 1000);
+    const csrfToken = deriveCsrfToken(
+      completed.sessionIdHash,
+      completed.sessionIdHash + config.environment,
+    );
+    // Set-Cookie values cannot be comma-folded: emit each as its own header.
+    c.header(
+      'set-cookie',
+      setCookieValue(SESSION_COOKIE, completed.sessionToken, {
+        maxAgeSeconds: sessionMaxAgeSeconds,
+        secure: secureCookies,
+      }),
+      { append: true },
+    );
+    // CSRF proof lives exactly as long as its session and rotates with it.
+    c.header(
+      'set-cookie',
+      setCookieValue(CSRF_COOKIE, csrfToken, {
+        maxAgeSeconds: sessionMaxAgeSeconds,
+        httpOnly: false,
+        secure: secureCookies,
+      }),
+      { append: true },
+    );
+    c.header('set-cookie', clearCookie(STATE_COOKIE), { append: true });
+    return c.redirect(completed.returnToPath, 302);
+  });
+
+  kernel.registerV1Route('post', '/api/v1/auth/logout', logoutMeta, async (c) => {
+    const sessionToken = readCookie(c, SESSION_COOKIE);
+    if (sessionToken === undefined) {
+      throw unauthenticated(new Error('no_session_presented'));
+    }
+    // Idempotent: an already-revoked token maps to the same record → 204 again.
+    await auth.revokeIfExists(sessionToken);
+    c.header('set-cookie', clearCookie(SESSION_COOKIE), { append: true });
+    c.header('set-cookie', clearCookie(CSRF_COOKIE), { append: true });
+    return c.body(null, 204);
+  });
+}
+
+function readCookie(
+  c: { req: { header(name: string): string | undefined } },
+  name: string,
+): string | undefined {
+  const header = c.req.header('cookie');
+  if (header === undefined) return undefined;
+  for (const part of header.split(';')) {
+    const [key, ...rest] = part.trim().split('=');
+    if (key === name) return decodeURIComponent(rest.join('='));
+  }
+  return undefined;
+}
+
+export type AuthRouteEnv = AppEnv;

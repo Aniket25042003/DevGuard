@@ -11,6 +11,7 @@ const BASE_ENV = {
   AUTH_GITHUB_OAUTH_CLIENT_ID: 'client-id-123',
   AUTH_GITHUB_OAUTH_CLIENT_SECRET: 'client-secret-value',
   AUTH_GITHUB_OAUTH_CALLBACK_URL: 'http://localhost:3000/callback',
+  DEVGUARD_PUBLIC_ORIGIN: 'http://localhost:3000',
 } as const;
 
 describe('C002 process schemas', () => {

@@ -5,5 +5,12 @@
     "rootDir": "src"
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../../packages/errors" }, { "path": "../../packages/config" }]
+  "references": [
+    { "path": "../../packages/errors" },
+    { "path": "../../packages/contracts" },
+    { "path": "../../packages/api-contracts" },
+    { "path": "../../packages/auth" },
+    { "path": "../../packages/authorization" },
+    { "path": "../../packages/config" }
+  ]
 }

@@ -28,6 +28,9 @@
     "paths": {
       "@devguard/contracts": ["packages/contracts/src/index.ts"],
       "@devguard/errors": ["packages/errors/src/index.ts"],
+      "@devguard/api-contracts": ["packages/api-contracts/src/index.ts"],
+      "@devguard/auth": ["packages/auth/src/index.ts"],
+      "@devguard/authorization": ["packages/authorization/src/index.ts"],
       "@devguard/config": ["packages/config/src/index.ts"]
     },
     "plugins": []

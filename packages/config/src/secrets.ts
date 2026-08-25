@@ -42,6 +42,15 @@ export class EnvironmentSecretProvider implements SecretProvider {
     }
     return value;
   }
+
+  /** Synchronous variant for composition-time wiring; same fail-closed rules. */
+  peek(ref: SecretRef): string {
+    const value = this.source[ref.name];
+    if (value === undefined || value.length === 0) {
+      throw configurationInvalidForSecret(ref);
+    }
+    return value;
+  }
 }
 
 import { configurationInvalid } from '@devguard/errors';
