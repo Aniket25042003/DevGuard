@@ -1,0 +1,23 @@
+{
+  "name": "@devguard/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DevGuard worker composition root for durable background jobs (jobs land with C057).",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/main.js",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/config": "workspace:*",
+    "@devguard/errors": "workspace:*"
+  }
+}

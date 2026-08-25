@@ -1,0 +1,18 @@
+{
+  "name": "@devguard/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DevGuard web application shell (UI feature work is out of scope until C076+).",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  }
+}

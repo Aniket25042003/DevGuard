@@ -1,0 +1,31 @@
+{
+  "$comment": "DevGuard package boundary matrix (C001 §10). Layers follow the fixed vocabulary: app | application | domain | port | adapter | persistence | ui. A 'test' pseudo-layer exists solely for verification suites and never ships.",
+  "layers": {
+    "app": ["application", "domain", "port", "adapter", "persistence", "ui"],
+    "ui": ["application", "domain", "port"],
+    "application": ["domain", "port"],
+    "domain": ["domain"],
+    "port": ["domain"],
+    "adapter": ["port", "domain"],
+    "persistence": ["port", "domain"],
+    "test": ["application", "domain", "port", "adapter", "persistence", "ui", "app"]
+  },
+  "packages": {
+    "packages/shared": "domain",
+    "packages/errors": "domain",
+    "packages/config": "domain",
+    "apps/api": "app",
+    "apps/worker": "app",
+    "apps/web": "ui",
+    "tests/integration": "test",
+    "tests/e2e": "test"
+  },
+  "packageScope": "@devguard",
+  "domainExternalAllowlist": ["zod"],
+  "rules": {
+    "forbidImportingApps": true,
+    "forbidDeepImports": true,
+    "forbidCircular": true,
+    "failClosedUnregisteredPackages": true
+  }
+}

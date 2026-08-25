@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/errors" },
+    { "path": "packages/config" },
+    { "path": "packages/shared" },
+    { "path": "apps/api" },
+    { "path": "apps/worker" },
+    { "path": "apps/web" },
+    { "path": "tests/integration" },
+    { "path": "tests/e2e" }
+  ]
+}

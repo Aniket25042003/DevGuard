@@ -1,0 +1,21 @@
+{
+  "$comment": "Fixture matrix proving the boundary gate detects layer violations.",
+  "layers": {
+    "application": ["domain"],
+    "domain": [],
+    "adapter": ["domain"]
+  },
+  "packages": {
+    "src/domain": "domain",
+    "src/application": "application",
+    "src/adapter": "adapter"
+  },
+  "packageScope": "@devguard",
+  "domainExternalAllowlist": [],
+  "rules": {
+    "forbidImportingApps": true,
+    "forbidDeepImports": false,
+    "forbidCircular": true,
+    "failClosedUnregisteredPackages": false
+  }
+}
