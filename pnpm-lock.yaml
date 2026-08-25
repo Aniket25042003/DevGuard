@@ -62,13 +62,13 @@ importers:
         specifier: ^4.1.12
         version: 4.4.3
 
-  packages/errors:
+  packages/contracts:
     dependencies:
       zod:
         specifier: ^4.1.12
         version: 4.4.3
 
-  packages/shared:
+  packages/errors:
     dependencies:
       zod:
         specifier: ^4.1.12

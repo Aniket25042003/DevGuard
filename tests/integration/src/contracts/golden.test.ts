@@ -15,10 +15,25 @@ const fixtures = JSON.parse(
   legacyMustQuarantine: Array<Record<string, unknown>>;
 };
 
+const fixtureTypes = new Set(fixtures.golden.map((envelope) => envelope['type']));
+
 describe('C004 golden fixture compatibility', () => {
-  it('every registered event type has stable registry coverage', () => {
-    const types = listRegisteredEventTypes();
-    expect(types.length).toBeGreaterThanOrEqual(20);
+  it('golden fixtures cover the registry EXACTLY — set equality both directions', () => {
+    const registered = listRegisteredEventTypes();
+    expect(registered.length).toBeGreaterThanOrEqual(20);
+
+    // Every registered type has a golden envelope…
+    for (const type of registered) {
+      expect(fixtureTypes.has(type), `${type} missing from golden fixtures`).toBe(true);
+    }
+    // …and no fixture references an unregistered type.
+    for (const present of fixtureTypes) {
+      expect(
+        registered.includes(String(present)),
+        `fixture type ${String(present)} is not registered`,
+      ).toBe(true);
+    }
+
     // Families required by M0/M1 consumers:
     for (const required of [
       'configuration.validated',
@@ -33,7 +48,7 @@ describe('C004 golden fixture compatibility', () => {
       'webhook.accepted',
       'outbox.recorded',
     ]) {
-      expect(types, `${required} must stay registered`).toContain(required);
+      expect(registered, `${required} must stay registered`).toContain(required);
     }
   });
 
@@ -48,7 +63,8 @@ describe('C004 golden fixture compatibility', () => {
     for (const legacy of fixtures.legacyMustQuarantine) {
       const parsed = parseEvent(legacy);
       expect(parsed.ok).toBe(false);
-      if (!parsed.ok) expect(['invalid_envelope', 'unknown_type']).toContain(parsed.reason);
+      if (!parsed.ok)
+        expect(['invalid_envelope', 'unknown_type', 'unknown_version']).toContain(parsed.reason);
     }
   });
 });

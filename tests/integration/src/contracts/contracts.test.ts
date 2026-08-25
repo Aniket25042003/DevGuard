@@ -98,10 +98,33 @@ describe('C004 primitives', () => {
     expect(idSchemas.workflowRunId.safeParse(crypto.randomUUID()).success).toBe(true);
   });
 
-  it('validates ISO-8601 timestamps', () => {
+  it('validates ISO-8601 UTC timestamps strictly', () => {
     expect(timestampIso.safeParse('2026-08-25T12:00:00Z').success).toBe(true);
+    expect(timestampIso.safeParse('2026-08-25T12:00:00.123456Z').success).toBe(true);
+  });
+
+  it('rejects date-only values and non-UTC offsets (Qodo fix)', () => {
+    expect(timestampIso.safeParse('2026-08-25').success).toBe(false);
+    expect(timestampIso.safeParse('2026-08-25T12:00:00+02:00').success).toBe(false);
+    expect(timestampIso.safeParse('2026-08-25T14:00:00-0200').success).toBe(false);
     expect(timestampIso.safeParse('yesterday').success).toBe(false);
     expect(timestampIso.safeParse(123).success).toBe(false);
+  });
+
+  it('rejects malformed UUID-shaped identifiers (Qodo fix)', () => {
+    const malformedIds = [
+      'a-----------------------------------', // 36 chars of dashes after hex head
+      'g18f6d2e-7c1a-7000-8000-000000000001', // non-hex leading char
+      '018f6d2e7c1a70008000000000000 01', // whitespace
+      'not-a-uuid',
+      '', // too short
+    ];
+    for (const candidate of malformedIds) {
+      expect(idSchemas.workflowRunId.safeParse(candidate).success, candidate).toBe(false);
+    }
+    // Valid shapes still accepted.
+    expect(idSchemas.workflowRunId.safeParse(crypto.randomUUID()).success).toBe(true);
+    expect(idSchemas.workflowRunId.safeParse('01ARZ3NDEKTSV4RRFFQ69G5FAV').success).toBe(true); // canonical ULID
   });
 });
 
@@ -194,6 +217,29 @@ describe('C004 event envelope and registry', () => {
     }
   });
 
+  it('rejects unknown action types inside action.proposed payloads (Qodo fix)', () => {
+    const raw = baseEnvelope() as Record<string, unknown>;
+    raw['type'] = 'action.proposed';
+    raw['payload'] = { actionType: 'qodo.auto_merge_everything', riskClass: 'read' };
+    const parsed = parseEvent(raw);
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.reason).toBe('invalid_payload');
+  });
+
+  it('public approval DTO rejects unknown action types (Qodo fix)', () => {
+    const result = publicApprovalView.safeParse({
+      id: crypto.randomUUID(),
+      runId: crypto.randomUUID(),
+      status: 'pending',
+      repositoryFullName: 'octo/repo',
+      actionType: 'qodo.auto_merge_everything',
+      riskClass: 'read',
+      rationaleSummary: 'x',
+      expiresAt: NOW,
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('fails closed on unknown event types without executing anything', () => {
     const raw = { ...baseEnvelope(), type: 'qodo.finding.created' };
     const parsed = parseEvent(raw);
@@ -201,11 +247,19 @@ describe('C004 event envelope and registry', () => {
     if (!parsed.ok) expect(parsed.reason).toBe('unknown_type');
   });
 
-  it('quarantines unknown schema versions instead of best-effort parsing', () => {
+  it('quarantines unknown schema versions with the distinct unknown_version reason', () => {
     const raw = { ...baseEnvelope(), schemaVersion: 99 };
     const parsed = parseEvent(raw);
     expect(parsed.ok).toBe(false);
-    if (!parsed.ok) expect(parsed.reason).toBe('invalid_envelope');
+    if (!parsed.ok) expect(parsed.reason).toBe('unknown_version');
+  });
+
+  it('reports missing versions as unknown_version (never best-effort v1)', () => {
+    const raw = baseEnvelope();
+    delete raw['schemaVersion'];
+    const parsed = parseEvent(raw);
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.reason).toBe('unknown_version');
   });
 
   it('reports invalid payloads distinctly so producers can be migrated', () => {

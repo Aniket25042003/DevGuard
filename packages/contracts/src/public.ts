@@ -6,6 +6,7 @@
  * These are the ONLY shapes the web package consumes for these entities.
  */
 import { z } from 'zod';
+import { ActionType } from './policy.js';
 import { WorkflowStatus } from './workflows.js';
 import { ApprovalStatus } from './approvals.js';
 
@@ -27,7 +28,7 @@ export const publicApprovalView = z
     runId: z.string().min(1).max(128),
     status: ApprovalStatus,
     repositoryFullName: z.string().min(3).max(201),
-    actionType: z.string().min(1).max(64),
+    actionType: ActionType,
     riskClass: z.enum([
       'read',
       'reversible_write',

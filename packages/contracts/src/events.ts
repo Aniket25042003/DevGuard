@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { correlation } from './context.js';
 import type { CorrelationShape, ActorRefShape } from './context.js';
 import { boundedText, schemas, sequence, timestampIso } from './primitives.js';
+import { ActionType, RiskClass } from './policy.js';
 import { StepStatus, WorkflowStatus } from './workflows.js';
 import { actorRef } from './context.js';
 
@@ -192,14 +193,9 @@ registerEvent('action.proposed', {
   description: 'An agent or user proposed an operation; awaiting governance.',
   payload: z
     .object({
-      actionType: z.string().min(1).max(64),
-      riskClass: z.enum([
-        'read',
-        'reversible_write',
-        'sensitive_write',
-        'destructive',
-        'external_side_effect',
-      ]),
+      // Canonical closed taxonomy — unknown actions fail validation here too.
+      actionType: ActionType,
+      riskClass: RiskClass,
       toolName: z.string().max(128).optional(),
     })
     .strip(),
@@ -319,6 +315,11 @@ export function parseEvent(input: unknown): ParsedEvent {
     return { ok: false, reason: 'invalid_envelope' };
   }
   const candidate = input as Record<string, unknown>;
+  // Version gate FIRST so unsupported versions quarantine distinctly instead
+  // of surfacing as generic envelope errors.
+  if (candidate['schemaVersion'] !== EVENT_SCHEMA_VERSION) {
+    return { ok: false, reason: 'unknown_version' };
+  }
   const baseResult = eventEnvelopeBase.safeParse(candidate);
   if (!baseResult.success) {
     return { ok: false, reason: 'invalid_envelope', issues: baseResult.error.issues };

@@ -30,12 +30,25 @@ export type DeliveryId = Brand<string, 'DeliveryId'>;
 export type AuditRecordId = Brand<string, 'AuditRecordId'>;
 export type OperationKey = Brand<string, 'OperationKey'>;
 
-/** Canonical ID shape: lowercase UUID. Generation prefers UUIDv7 for sortability; ordering authority stays with explicit sequences. */
+/**
+ * Canonical ID shapes, validated independently and strictly:
+ * - UUID v1–v8 (lowercase or uppercase hex, correct variant nibble)
+ * - ULID (26 Crockford base32 characters)
+ * Generation prefers UUIDv7 for sortability; ordering authority always lives
+ * with explicit sequences, never with ID sort order.
+ */
+const UUID_PATTERN =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+const ULID_PATTERN = /^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/;
+
 const ID_SCHEMA = z
   .string()
-  .min(1)
-  .max(128)
-  .regex(/^[0-9a-f][0-9a-f-]{35}$|^[A-Za-z0-9]{26}$/, 'expected UUID or ULID shape');
+  .min(26)
+  .max(36)
+  .refine(
+    (value) => UUID_PATTERN.test(value) || ULID_PATTERN.test(value),
+    'expected a well-formed UUID v1-v8 or ULID',
+  );
 
 function brandedSchema<B extends string>(): z.ZodType<Brand<string, B>> {
   return ID_SCHEMA.transform((value) => value as Brand<string, B>);
@@ -63,13 +76,19 @@ export const schemas = {
   operationKey: brandedSchema<'OperationKey'>(),
 } as const;
 
-/** ISO-8601 UTC timestamp string. */
+/**
+ * Strict ISO-8601 UTC timestamp wire format:
+ * `YYYY-MM-DDTHH:MM:SS[.fraction]Z` — date-only values and non-UTC offsets are
+ * rejected so persisted/approval evidence cannot drift across timezones.
+ */
 export type TimestampIso = Brand<string, 'TimestampIso'>;
+const TIMESTAMP_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/;
+
 export const timestampIso: z.ZodType<TimestampIso> = z
   .string()
   .refine(
-    (value) => !Number.isNaN(Date.parse(value)) && /T|Z|\+|-/.test(value),
-    'expected ISO-8601 timestamp',
+    (value) => TIMESTAMP_UTC_PATTERN.test(value) && !Number.isNaN(Date.parse(value)),
+    'expected ISO-8601 UTC timestamp with Z suffix',
   )
   .transform((value) => value as TimestampIso);
 

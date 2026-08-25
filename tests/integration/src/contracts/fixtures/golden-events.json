@@ -1,55 +1,465 @@
 {
-  "$comment": "C004 golden fixtures (schemaVersion 1). These MUST keep parsing after additive contract changes; breaking changes require schemaVersion 2 per ADR-0007.",
   "golden": [
     {
-      "id": "018f6d2e-7c1a-7000-8000-000000000001",
+      "id": "37307903-da1d-476e-89b3-49e515cd336e",
       "schemaVersion": 1,
-      "type": "workflow.state.changed",
-      "aggregate": { "type": "workflow_run", "id": "018f6d2e-7c1a-7000-8000-000000000010" },
-      "sequence": 3,
+      "type": "action.proposed",
+      "aggregate": {
+        "type": "action",
+        "id": "018f6d2e-0000-7000-8000-000000000001"
+      },
+      "sequence": 1,
       "occurredAt": "2026-08-25T12:00:00.000Z",
-      "correlation": { "runId": "018f6d2e-7c1a-7000-8000-000000000010" },
-      "actor": { "kind": "system" },
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
       "payload": {
-        "from": "running",
-        "to": "waiting_for_approval",
-        "reasonCode": "sensitive_write_requires_approval"
+        "actionType": "pull_request.merge",
+        "riskClass": "sensitive_write",
+        "toolName": "github_merge"
       }
     },
     {
-      "id": "018f6d2e-7c1a-7000-8000-000000000002",
+      "id": "961b34b4-faca-4916-b0e5-a306c9dd6817",
       "schemaVersion": 1,
       "type": "approval.approved",
-      "aggregate": { "type": "approval", "id": "018f6d2e-7c1a-7000-8000-000000000020" },
-      "occurredAt": "2026-08-25T12:05:00.000Z",
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000002"
+      },
+      "sequence": 2,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
-        "kind": "user",
-        "id": "018f6d2e-7c1a-7000-8000-000000000030",
-        "displayName": "maintainer"
+        "kind": "system"
       },
-      "payload": { "resolvedByUserId": "018f6d2e-7c1a-7000-8000-000000000030" }
+      "payload": {
+        "resolvedByUserId": "018f6d2e-7c1a-7000-8000-0000000000b1"
+      }
     },
     {
-      "id": "018f6d2e-7c1a-7000-8000-000000000003",
+      "id": "60331faa-ffcd-49b0-bdce-c98b4bb6c4b0",
+      "schemaVersion": 1,
+      "type": "approval.expired",
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000003"
+      },
+      "sequence": 3,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "reasonCode": "ttl_elapsed"
+      }
+    },
+    {
+      "id": "116c7651-0804-4bef-bc5a-86674c0e223f",
+      "schemaVersion": 1,
+      "type": "approval.rejected",
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000004"
+      },
+      "sequence": 4,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "resolvedByUserId": "018f6d2e-7c1a-7000-8000-0000000000b1"
+      }
+    },
+    {
+      "id": "77ccb45c-3d8e-4138-bac7-53f93a10779c",
+      "schemaVersion": 1,
+      "type": "approval.requested",
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000005"
+      },
+      "sequence": 5,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {}
+    },
+    {
+      "id": "5b0141ec-bed8-4750-b432-407b4893e6d6",
+      "schemaVersion": 1,
+      "type": "approval.required",
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000006"
+      },
+      "sequence": 6,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {}
+    },
+    {
+      "id": "1747193c-d375-4681-b598-c8adcb5eeb25",
+      "schemaVersion": 1,
+      "type": "approval.stale",
+      "aggregate": {
+        "type": "approval",
+        "id": "018f6d2e-0000-7000-8000-000000000007"
+      },
+      "sequence": 7,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "reasonCode": "head_sha_changed"
+      }
+    },
+    {
+      "id": "898ffee7-b9cc-4ead-a732-c3c4fc5c7bf4",
+      "schemaVersion": 1,
+      "type": "artifact.created",
+      "aggregate": {
+        "type": "artifact",
+        "id": "018f6d2e-0000-7000-8000-000000000008"
+      },
+      "sequence": 8,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "classification": "internal",
+        "checksumSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "contentType": "text/plain"
+      }
+    },
+    {
+      "id": "a00757a2-473d-4a8a-a73d-689591638cea",
+      "schemaVersion": 1,
+      "type": "authorization.allowed",
+      "aggregate": {
+        "type": "authorization_check",
+        "id": "018f6d2e-0000-7000-8000-000000000009"
+      },
+      "sequence": 9,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "repositoryId": "018f6d2e-7c1a-7000-8000-0000000000a1",
+        "permission": "repository:read",
+        "userId": "018f6d2e-7c1a-7000-8000-0000000000b1"
+      }
+    },
+    {
+      "id": "0caf35e0-c401-48ce-9271-be9895dc9482",
+      "schemaVersion": 1,
+      "type": "authorization.denied",
+      "aggregate": {
+        "type": "authorization_check",
+        "id": "018f6d2e-0000-7000-8000-000000000010"
+      },
+      "sequence": 10,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "repositoryId": "018f6d2e-7c1a-7000-8000-0000000000a1",
+        "permission": "approval:resolve",
+        "reasonCode": "role_below_floor"
+      }
+    },
+    {
+      "id": "108d4113-3d32-437a-b16d-b0b9a44c0169",
+      "schemaVersion": 1,
+      "type": "configuration.validated",
+      "aggregate": {
+        "type": "process",
+        "id": "018f6d2e-0000-7000-8000-000000000011"
+      },
+      "sequence": 11,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "processKind": "api",
+        "environment": "test",
+        "configHash": "abc123"
+      }
+    },
+    {
+      "id": "d3ea23d8-6921-4022-95d2-f0d67910b300",
+      "schemaVersion": 1,
+      "type": "feature_flag.changed",
+      "aggregate": {
+        "type": "process",
+        "id": "018f6d2e-0000-7000-8000-000000000012"
+      },
+      "sequence": 12,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "key": "webhookIngressEnabled",
+        "value": false
+      }
+    },
+    {
+      "id": "3472a95b-9832-44dd-97bc-3f8d41ea7b63",
+      "schemaVersion": 1,
+      "type": "outbox.recorded",
+      "aggregate": {
+        "type": "outbox_row",
+        "id": "018f6d2e-0000-7000-8000-000000000013"
+      },
+      "sequence": 13,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "eventType": "workflow.queued",
+        "destination": "queue"
+      }
+    },
+    {
+      "id": "889e79b3-1f9e-4235-a9b1-251de79f8cea",
+      "schemaVersion": 1,
+      "type": "policy.decision.recorded",
+      "aggregate": {
+        "type": "policy_decision",
+        "id": "018f6d2e-0000-7000-8000-000000000014"
+      },
+      "sequence": 14,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "effect": "REQUIRE_APPROVAL",
+        "reasonCode": "sensitive_write_requires_approval",
+        "policyVersionRef": "pv-1"
+      }
+    },
+    {
+      "id": "f72f7b89-6eb2-4aa3-a1fb-fac8d2b21779",
+      "schemaVersion": 1,
+      "type": "repository.connected",
+      "aggregate": {
+        "type": "repository",
+        "id": "018f6d2e-0000-7000-8000-000000000015"
+      },
+      "sequence": 15,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "fullName": "octo/repo",
+        "status": "active"
+      }
+    },
+    {
+      "id": "d9c42b4a-ba74-49aa-b54e-1b5e315e8e7d",
+      "schemaVersion": 1,
+      "type": "repository.disconnected",
+      "aggregate": {
+        "type": "repository",
+        "id": "018f6d2e-0000-7000-8000-000000000016"
+      },
+      "sequence": 16,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "reasonCode": "installation_removed"
+      }
+    },
+    {
+      "id": "d536fa76-18a3-411a-9154-c66ebdfe6bfa",
+      "schemaVersion": 1,
+      "type": "step.state.changed",
+      "aggregate": {
+        "type": "workflow_step",
+        "id": "018f6d2e-0000-7000-8000-000000000017"
+      },
+      "sequence": 17,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "from": "pending",
+        "to": "running",
+        "attempt": 1
+      }
+    },
+    {
+      "id": "b2fc849d-ee65-470f-abee-b677890926c5",
       "schemaVersion": 1,
       "type": "validation.completed",
-      "aggregate": { "type": "validation_result", "id": "018f6d2e-7c1a-7000-8000-000000000040" },
-      "occurredAt": "2026-08-25T12:10:00.000Z",
-      "correlation": { "runId": "018f6d2e-7c1a-7000-8000-000000000010" },
-      "actor": { "kind": "agent" },
+      "aggregate": {
+        "type": "validation_result",
+        "id": "018f6d2e-0000-7000-8000-000000000018"
+      },
+      "sequence": 18,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
       "payload": {
         "validator": "unit_tests",
         "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "status": "passed"
       }
+    },
+    {
+      "id": "a06f5664-6943-41bb-9ab9-19027cdbd38f",
+      "schemaVersion": 1,
+      "type": "webhook.accepted",
+      "aggregate": {
+        "type": "webhook_delivery",
+        "id": "018f6d2e-0000-7000-8000-000000000019"
+      },
+      "sequence": 19,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "deliveryExternalId": "d-1",
+        "eventFamily": "pull_request"
+      }
+    },
+    {
+      "id": "4c1b6735-d57d-4fee-9b68-54507a2da017",
+      "schemaVersion": 1,
+      "type": "webhook.rejected",
+      "aggregate": {
+        "type": "webhook_delivery",
+        "id": "018f6d2e-0000-7000-8000-000000000020"
+      },
+      "sequence": 20,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "deliveryExternalId": "d-bad",
+        "reasonCode": "invalid_signature"
+      }
+    },
+    {
+      "id": "8e2a2441-f2c1-4f52-a3e9-314a8723c6a2",
+      "schemaVersion": 1,
+      "type": "webhook.routed",
+      "aggregate": {
+        "type": "webhook_delivery",
+        "id": "018f6d2e-0000-7000-8000-000000000021"
+      },
+      "sequence": 21,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "deliveryExternalId": "d-1",
+        "eventFamily": "pull_request"
+      }
+    },
+    {
+      "id": "82bd57e0-591e-4b51-8d88-cf70281482c7",
+      "schemaVersion": 1,
+      "type": "workflow.queued",
+      "aggregate": {
+        "type": "workflow_run",
+        "id": "018f6d2e-0000-7000-8000-000000000022"
+      },
+      "sequence": 22,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "repositoryId": "018f6d2e-7c1a-7000-8000-0000000000a1",
+        "trigger": "manual",
+        "requestedBy": "maintainer"
+      }
+    },
+    {
+      "id": "48650fd3-c567-455e-b1d3-ff0410335f53",
+      "schemaVersion": 1,
+      "type": "workflow.state.changed",
+      "aggregate": {
+        "type": "workflow_run",
+        "id": "018f6d2e-0000-7000-8000-000000000023"
+      },
+      "sequence": 23,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "from": "queued",
+        "to": "running"
+      }
     }
   ],
   "legacyMustQuarantine": [
     {
-      "$comment": "Pre-v1 envelope shape: must fail closed (invalid_envelope), never parse best-effort.",
+      "$comment": "Pre-v1 envelope shape: must fail closed (unknown_version), never parse best-effort.",
       "version": 0,
       "kind": "workflow.state.changed"
+    },
+    {
+      "$comment": "Future v2 envelope: quarantined until a compatible consumer ships.",
+      "id": "018f6d2e-0000-7000-8000-0000000000f1",
+      "schemaVersion": 2,
+      "type": "workflow.state.changed",
+      "aggregate": {
+        "type": "workflow_run",
+        "id": "018f6d2e-0000-7000-8000-000000000010"
+      },
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "payload": {
+        "from": "queued",
+        "to": "running"
+      }
     }
   ]
 }
