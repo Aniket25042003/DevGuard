@@ -1,9 +1,9 @@
 {
-  "name": "@devguard/worker",
+  "name": "@devguard/authorization",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "DevGuard worker composition root for durable background jobs (jobs land with C057).",
+  "description": "Repository-scoped authorization capability matrix, decision service, and evidence ports.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -13,12 +13,11 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "start": "node dist/main.js",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@devguard/authorization": "workspace:*",
-    "@devguard/config": "workspace:*",
-    "@devguard/errors": "workspace:*"
+    "@devguard/errors": "workspace:*",
+    "@devguard/contracts": "workspace:*",
+    "zod": "^4.1.12"
   }
 }
