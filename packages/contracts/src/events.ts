@@ -367,6 +367,74 @@ registerEvent('secret.rotation.required', {
     .strip(),
 });
 
+registerEvent('security.request_blocked', {
+  family: 'audit',
+  description: 'Perimeter blocked a request before it reached a route handler.',
+  payload: z
+    .object({
+      blocker: z.enum(['csrf', 'origin', 'cors', 'signature', 'schema', 'session']),
+      requestId: z.string().min(1).max(128).optional(),
+    })
+    .strip(),
+});
+
+registerEvent('rate_limit.exceeded', {
+  family: 'configuration',
+  description: 'A rate-limit class rejected a request.',
+  payload: z
+    .object({
+      policyClass: z.string().min(1).max(64),
+      retryAfterSeconds: z.number().int().nonnegative(),
+    })
+    .strip(),
+});
+
+registerEvent('session.revoked', {
+  family: 'configuration',
+  description: 'A server-side session was revoked.',
+  payload: z
+    .object({
+      sessionIdHash: z.string().min(1).max(128),
+      reasonCode: z.enum(['logout', 'admin', 'rotation', 'expiry']),
+    })
+    .strip(),
+});
+
+registerEvent('path_access.blocked', {
+  family: 'audit',
+  description: 'Path policy blocked access outside an authorized root.',
+  payload: z.object({ reasonCode: z.string().min(1).max(64) }).strip(),
+});
+
+registerEvent('artifact.quarantined', {
+  family: 'audit',
+  description: 'Collected content was quarantined by the safety pipeline.',
+  payload: z
+    .object({
+      contentDigest: z.string().regex(/^[0-9a-f]{64}$/),
+      reasonCode: z.string().min(1).max(64),
+    })
+    .strip(),
+});
+
+registerEvent('patch.rejected', {
+  family: 'workflow',
+  description: 'A generated patch failed safety validation.',
+  payload: z.object({ reasonCode: z.string().min(1).max(64) }).strip(),
+});
+
+registerEvent('output.truncated', {
+  family: 'workflow',
+  description: 'Command output was truncated by its configured budget.',
+  payload: z.object({ limitKind: z.enum(['bytes', 'lines']) }).strip(),
+});
+
+registerEvent('artifact.access.denied', {
+  family: 'audit',
+  description: 'An artifact read/download was denied by authorization or lifecycle.',
+  payload: z.object({ reasonCode: z.enum(['not_safe', 'expired', 'forbidden']) }).strip(),
+});
+
 registerEvent('outbox.recorded', {
   family: 'outbox',
   description: 'Publishable intent committed atomically with a domain transition.',

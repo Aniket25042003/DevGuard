@@ -92,3 +92,69 @@ export type { LeakFinding, LeakScanResult, ScanStatus } from './leak-scan/public
 export function createPublicationGuard(hmacKeyHex?: string): PublicationGuard {
   return new PublicationGuard(new SensitiveDataGuard({ hmacKeyHex }));
 }
+
+// ---- C094 perimeter ----
+export {
+  FailClosedRateLimiter,
+  OriginPolicy,
+  RATE_POLICIES,
+  fetchMetadataSite,
+  hierarchicalRateKey,
+  verifyCsrf,
+} from './api/perimeter.js';
+export type {
+  CorsDecision,
+  CsrfDecision,
+  CsrfVerificationInput,
+  DistributedRateLimiterPort,
+  FetchMetadataSite,
+  RateLimitDecision,
+  RatePolicy,
+  RatePolicyClass,
+} from './api/perimeter.js';
+
+export { WebhookAcceptanceService, WebhookSecurityService } from './api/webhooks.js';
+export type {
+  AcceptanceOutcome,
+  VerifiedWebhookEnvelope,
+  WebhookAcceptance,
+  WebhookDeliveryRecord,
+  WebhookDeliveryStatus,
+  WebhookDeliveryStore,
+  WebhookSecretProvider,
+} from './api/webhooks.js';
+
+// ---- C095 content safety ----
+export {
+  contentBudget,
+  normalizeRelativePath,
+  resolveWorkspacePath,
+  DEFAULT_BUDGET,
+} from './content/paths.js';
+export type { ContentBudget, SafePathShape } from './content/paths.js';
+
+export { ArchiveRejectedError, inspectTarArchive } from './content/archives.js';
+export type { ArchiveEntry, ArchiveManifest } from './content/archives.js';
+
+export { validatePatch } from './content/patches.js';
+export type {
+  PatchOperation,
+  PatchOperationKind,
+  PatchValidationContext,
+  PatchValidationShape,
+  PathDecision,
+} from './content/patches.js';
+
+export {
+  ArtifactPromotionService,
+  authorizeArtifactRead,
+  collectOutput,
+  sanitizeTerminal,
+} from './content/artifacts.js';
+export type {
+  ArtifactCandidate,
+  ArtifactRecordShape,
+  ArtifactScanState,
+  BoundedOutput,
+  ContentScannerPort,
+} from './content/artifacts.js';

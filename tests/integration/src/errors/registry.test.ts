@@ -52,7 +52,9 @@ describe('C003 descriptor structure rules', () => {
   it('uses SCREAMING_SNAKE_CASE codes with mapped HTTP statuses and fixed messages', () => {
     for (const descriptor of listErrorDescriptors()) {
       expect(descriptor.code).toMatch(/^[A-Z][A-Z0-9_]*$/);
-      expect([400, 401, 403, 404, 409, 422, 429, 500, 501, 503]).toContain(descriptor.httpStatus);
+      expect([400, 401, 403, 404, 409, 410, 413, 422, 429, 500, 501, 503]).toContain(
+        descriptor.httpStatus,
+      );
       expect(descriptor.safeMessage.length).toBeGreaterThanOrEqual(8);
       // Fixed messages never embed dynamic input.
       expect(descriptor.safeMessage).not.toMatch(/\{|\}/);

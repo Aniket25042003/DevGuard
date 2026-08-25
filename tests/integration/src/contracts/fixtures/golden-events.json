@@ -27,7 +27,7 @@
   ],
   "golden": [
     {
-      "id": "6ab2f54e-876e-4d71-871b-a0f1fa35b38e",
+      "id": "0b1db705-3cce-42ba-997e-87742301d5bf",
       "schemaVersion": 1,
       "aggregate": {
         "type": "action",
@@ -47,7 +47,7 @@
       }
     },
     {
-      "id": "86e6b800-62dc-4e96-b06b-922ade13b9ea",
+      "id": "d8c057f2-6377-4daf-8efa-2bae6f649e8e",
       "schemaVersion": 1,
       "aggregate": {
         "type": "approval",
@@ -65,7 +65,7 @@
       }
     },
     {
-      "id": "3f131a4f-fb03-4a61-945f-370c529ba28a",
+      "id": "e782ffde-fc99-4979-ac37-d0e01ae28590",
       "schemaVersion": 1,
       "aggregate": {
         "type": "approval",
@@ -83,7 +83,7 @@
       }
     },
     {
-      "id": "01518a83-e6c9-4f13-93a6-2057ba9fed2a",
+      "id": "d323e2f2-1733-419f-b2c0-563192f73ef8",
       "schemaVersion": 1,
       "aggregate": {
         "type": "approval",
@@ -101,7 +101,7 @@
       }
     },
     {
-      "id": "473f487a-9c64-46f4-987c-3fd5e0bb496c",
+      "id": "5525f521-3b52-41e0-9d05-ecd736074173",
       "schemaVersion": 1,
       "aggregate": {
         "type": "approval",
@@ -117,7 +117,7 @@
       "payload": {}
     },
     {
-      "id": "959f23bb-6b9a-4dc7-a4bf-0cc2ffe28f8c",
+      "id": "12ec0bbe-1957-4ec1-a245-a43b9dd62859",
       "schemaVersion": 1,
       "aggregate": {
         "type": "approval",
@@ -133,7 +133,7 @@
       "payload": {}
     },
     {
-      "id": "d7fa4807-3c92-4ff6-9de3-2d51d48099fd",
+      "id": "60f1c66c-a8b0-4923-8c92-926fa13c0099",
       "schemaVersion": 1,
       "aggregate": {
         "type": "approval",
@@ -151,13 +151,31 @@
       }
     },
     {
-      "id": "43504c37-d030-411d-9d37-e4260d15dcf0",
+      "id": "8d0259cd-940c-43e5-8df0-1d09d79fc031",
       "schemaVersion": 1,
       "aggregate": {
         "type": "artifact",
         "id": "018f6d2e-0000-7000-8000-000000000008"
       },
       "sequence": 8,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "artifact.access.denied",
+      "payload": {
+        "reasonCode": "not_safe"
+      }
+    },
+    {
+      "id": "de94e098-fce2-470e-bd24-7090bd21df3e",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "artifact",
+        "id": "018f6d2e-0000-7000-8000-000000000009"
+      },
+      "sequence": 9,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -171,13 +189,32 @@
       }
     },
     {
-      "id": "4e5fb748-b97f-4a7c-9704-4e475b3bfb4e",
+      "id": "f8f4cc68-897e-4519-a556-17f8d8bc5261",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "artifact",
+        "id": "018f6d2e-0000-7000-8000-000000000010"
+      },
+      "sequence": 10,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "artifact.quarantined",
+      "payload": {
+        "contentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reasonCode": "leak_findings"
+      }
+    },
+    {
+      "id": "082fdd94-db07-4139-af87-83e38ec2c83e",
       "schemaVersion": 1,
       "aggregate": {
         "type": "authorization_check",
-        "id": "018f6d2e-0000-7000-8000-000000000009"
+        "id": "018f6d2e-0000-7000-8000-000000000011"
       },
-      "sequence": 9,
+      "sequence": 11,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -191,13 +228,13 @@
       }
     },
     {
-      "id": "6b715096-e681-4c8d-9e90-7fa44da7ad60",
+      "id": "9dcf0058-268c-4a7c-9762-51cb0653f71f",
       "schemaVersion": 1,
       "aggregate": {
         "type": "authorization_check",
-        "id": "018f6d2e-0000-7000-8000-000000000010"
+        "id": "018f6d2e-0000-7000-8000-000000000012"
       },
-      "sequence": 10,
+      "sequence": 12,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -211,13 +248,13 @@
       }
     },
     {
-      "id": "9b2cd0ef-cdf4-42af-bda1-fe389b65f5da",
+      "id": "89e217a6-7896-4940-bc5a-9ec8d159e078",
       "schemaVersion": 1,
       "aggregate": {
         "type": "process",
-        "id": "018f6d2e-0000-7000-8000-000000000011"
+        "id": "018f6d2e-0000-7000-8000-000000000013"
       },
-      "sequence": 11,
+      "sequence": 13,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -231,13 +268,13 @@
       }
     },
     {
-      "id": "2cfd14b6-8f84-4fd4-9aa7-c944aa8f3a78",
+      "id": "f5951542-8f94-4fa5-b286-c2e7c05aac95",
       "schemaVersion": 1,
       "aggregate": {
         "type": "provenance",
-        "id": "018f6d2e-0000-7000-8000-000000000012"
+        "id": "018f6d2e-0000-7000-8000-000000000014"
       },
-      "sequence": 12,
+      "sequence": 14,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -252,13 +289,13 @@
       }
     },
     {
-      "id": "1c009872-9d4b-4b5c-803d-1cebc70b5057",
+      "id": "0e7a8bba-e955-486b-b19e-5e80066c2022",
       "schemaVersion": 1,
       "aggregate": {
         "type": "process",
-        "id": "018f6d2e-0000-7000-8000-000000000013"
+        "id": "018f6d2e-0000-7000-8000-000000000015"
       },
-      "sequence": 13,
+      "sequence": 15,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -271,13 +308,13 @@
       }
     },
     {
-      "id": "b203fd7b-81f3-4a47-8ca0-83f17ff5fefc",
+      "id": "a7853148-d9ab-4867-ab13-91a9476472ce",
       "schemaVersion": 1,
       "aggregate": {
         "type": "instruction",
-        "id": "018f6d2e-0000-7000-8000-000000000014"
+        "id": "018f6d2e-0000-7000-8000-000000000016"
       },
-      "sequence": 14,
+      "sequence": 16,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -290,13 +327,13 @@
       }
     },
     {
-      "id": "216bca08-65de-4bab-b848-8d9715ab5310",
+      "id": "772ca00c-e512-48db-9f2c-2ccc2cbd24d2",
       "schemaVersion": 1,
       "aggregate": {
         "type": "outbox_row",
-        "id": "018f6d2e-0000-7000-8000-000000000015"
+        "id": "018f6d2e-0000-7000-8000-000000000017"
       },
-      "sequence": 15,
+      "sequence": 17,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -309,13 +346,67 @@
       }
     },
     {
-      "id": "436406cd-900d-4e6d-aeca-3db9b6cd21f4",
+      "id": "4b0c2bb9-9f55-4725-aaa3-196dda8ed9a6",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "workflow_step",
+        "id": "018f6d2e-0000-7000-8000-000000000018"
+      },
+      "sequence": 18,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "output.truncated",
+      "payload": {
+        "limitKind": "bytes"
+      }
+    },
+    {
+      "id": "9fa19bc0-ca65-40da-a184-3de603849dad",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "workflow_step",
+        "id": "018f6d2e-0000-7000-8000-000000000019"
+      },
+      "sequence": 19,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "patch.rejected",
+      "payload": {
+        "reasonCode": "protected_path"
+      }
+    },
+    {
+      "id": "e7a8c224-e5ac-4873-a34f-ac9a9b995947",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "workflow_step",
+        "id": "018f6d2e-0000-7000-8000-000000000020"
+      },
+      "sequence": 20,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "path_access.blocked",
+      "payload": {
+        "reasonCode": "traversal_detected"
+      }
+    },
+    {
+      "id": "cac50fbb-56b5-42b2-97c8-566af6426796",
       "schemaVersion": 1,
       "aggregate": {
         "type": "policy_decision",
-        "id": "018f6d2e-0000-7000-8000-000000000016"
+        "id": "018f6d2e-0000-7000-8000-000000000021"
       },
-      "sequence": 16,
+      "sequence": 21,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -329,13 +420,32 @@
       }
     },
     {
-      "id": "78f8e554-c699-49bc-8892-d94d46361ce0",
+      "id": "7188baa3-24ca-47f1-8fff-534fbd9861e3",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "process",
+        "id": "018f6d2e-0000-7000-8000-000000000022"
+      },
+      "sequence": 22,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "rate_limit.exceeded",
+      "payload": {
+        "policyClass": "auth_login",
+        "retryAfterSeconds": 42
+      }
+    },
+    {
+      "id": "d2f4c6fd-0c82-4cb3-82b8-075bb26f074c",
       "schemaVersion": 1,
       "aggregate": {
         "type": "repository",
-        "id": "018f6d2e-0000-7000-8000-000000000017"
+        "id": "018f6d2e-0000-7000-8000-000000000023"
       },
-      "sequence": 17,
+      "sequence": 23,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -348,13 +458,13 @@
       }
     },
     {
-      "id": "776e39ef-d202-4d06-ae35-6496f64e603f",
+      "id": "425700d2-e965-4870-bd59-9a19b0658ca2",
       "schemaVersion": 1,
       "aggregate": {
         "type": "repository",
-        "id": "018f6d2e-0000-7000-8000-000000000018"
+        "id": "018f6d2e-0000-7000-8000-000000000024"
       },
-      "sequence": 18,
+      "sequence": 24,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -366,13 +476,13 @@
       }
     },
     {
-      "id": "e5c509a3-43c9-4f13-8f18-c2c2158ad25d",
+      "id": "18b75902-3ea8-4095-9198-a6c56e7b3973",
       "schemaVersion": 1,
       "aggregate": {
         "type": "secret_reference",
-        "id": "018f6d2e-0000-7000-8000-000000000019"
+        "id": "018f6d2e-0000-7000-8000-000000000025"
       },
-      "sequence": 19,
+      "sequence": 25,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -385,13 +495,13 @@
       }
     },
     {
-      "id": "4a4d4601-105a-4a70-ae86-59860b8e0572",
+      "id": "e34906ee-db3b-4236-90de-0b0d5a3af31a",
       "schemaVersion": 1,
       "aggregate": {
         "type": "secret_reference",
-        "id": "018f6d2e-0000-7000-8000-000000000020"
+        "id": "018f6d2e-0000-7000-8000-000000000026"
       },
-      "sequence": 20,
+      "sequence": 26,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -405,13 +515,13 @@
       }
     },
     {
-      "id": "3518f2c3-d49b-42e5-9103-46478e626f3b",
+      "id": "7335ea7e-6cf1-4d46-bc58-0f0dfd767d59",
       "schemaVersion": 1,
       "aggregate": {
         "type": "secret_reference",
-        "id": "018f6d2e-0000-7000-8000-000000000021"
+        "id": "018f6d2e-0000-7000-8000-000000000027"
       },
-      "sequence": 21,
+      "sequence": 27,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -424,13 +534,13 @@
       }
     },
     {
-      "id": "653cc0f3-4eca-427d-9f96-855f52680432",
+      "id": "61f8a793-c74e-4db5-a5a0-2e3d4e0d0e07",
       "schemaVersion": 1,
       "aggregate": {
         "type": "secret_reference",
-        "id": "018f6d2e-0000-7000-8000-000000000022"
+        "id": "018f6d2e-0000-7000-8000-000000000028"
       },
-      "sequence": 22,
+      "sequence": 28,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -443,13 +553,32 @@
       }
     },
     {
-      "id": "65008e05-3d10-43d7-b2d6-bcc1cae61282",
+      "id": "a2b68a90-3fbc-47fd-becd-bd663fc2f5c7",
       "schemaVersion": 1,
       "aggregate": {
         "type": "security_evidence",
-        "id": "018f6d2e-0000-7000-8000-000000000023"
+        "id": "018f6d2e-0000-7000-8000-000000000029"
       },
-      "sequence": 23,
+      "sequence": 29,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "security.request_blocked",
+      "payload": {
+        "blocker": "csrf",
+        "requestId": "018f6d2e-0000-7000-8000-0000000000c1"
+      }
+    },
+    {
+      "id": "5bd5ddba-3861-4384-a938-8c33f6294c57",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "security_evidence",
+        "id": "018f6d2e-0000-7000-8000-000000000030"
+      },
+      "sequence": 30,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -462,13 +591,13 @@
       }
     },
     {
-      "id": "1f6682c3-6f91-4703-b60e-bd74cfb279f2",
+      "id": "2ba6b1f5-3528-4ae0-86ee-7968908850a0",
       "schemaVersion": 1,
       "aggregate": {
         "type": "security_evidence",
-        "id": "018f6d2e-0000-7000-8000-000000000024"
+        "id": "018f6d2e-0000-7000-8000-000000000031"
       },
-      "sequence": 24,
+      "sequence": 31,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -481,13 +610,32 @@
       }
     },
     {
-      "id": "ff9b7eab-5809-42db-8899-bafddbc3645e",
+      "id": "a5349819-829e-4591-808e-205154fc9655",
+      "schemaVersion": 1,
+      "aggregate": {
+        "type": "process",
+        "id": "018f6d2e-0000-7000-8000-000000000032"
+      },
+      "sequence": 32,
+      "occurredAt": "2026-08-25T12:00:00.000Z",
+      "correlation": {},
+      "actor": {
+        "kind": "system"
+      },
+      "type": "session.revoked",
+      "payload": {
+        "sessionIdHash": "hash-abc123",
+        "reasonCode": "logout"
+      }
+    },
+    {
+      "id": "27c55e99-0701-4d6f-82d3-fc817ed3bce2",
       "schemaVersion": 1,
       "aggregate": {
         "type": "workflow_step",
-        "id": "018f6d2e-0000-7000-8000-000000000025"
+        "id": "018f6d2e-0000-7000-8000-000000000033"
       },
-      "sequence": 25,
+      "sequence": 33,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -501,13 +649,13 @@
       }
     },
     {
-      "id": "d51c2015-9ab5-47f8-8a2b-69b9cfa0a6f5",
+      "id": "ac8ff0c3-4bd8-4714-ac65-193eedd80acc",
       "schemaVersion": 1,
       "aggregate": {
         "type": "validation_result",
-        "id": "018f6d2e-0000-7000-8000-000000000026"
+        "id": "018f6d2e-0000-7000-8000-000000000034"
       },
-      "sequence": 26,
+      "sequence": 34,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -521,13 +669,13 @@
       }
     },
     {
-      "id": "e683bfc2-48ef-4a6a-a776-b4d61747e4a9",
+      "id": "c096aa8b-a1cc-4a9a-96c8-2f7f57d7c847",
       "schemaVersion": 1,
       "aggregate": {
         "type": "webhook_delivery",
-        "id": "018f6d2e-0000-7000-8000-000000000027"
+        "id": "018f6d2e-0000-7000-8000-000000000035"
       },
-      "sequence": 27,
+      "sequence": 35,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -540,13 +688,13 @@
       }
     },
     {
-      "id": "39e1fc50-16f5-4141-a6d4-18061bd13fa1",
+      "id": "d722ec3b-25da-430f-8ff5-a82ac2495171",
       "schemaVersion": 1,
       "aggregate": {
         "type": "webhook_delivery",
-        "id": "018f6d2e-0000-7000-8000-000000000028"
+        "id": "018f6d2e-0000-7000-8000-000000000036"
       },
-      "sequence": 28,
+      "sequence": 36,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -559,13 +707,13 @@
       }
     },
     {
-      "id": "ee7a91c7-4a68-4468-89fa-b43f38245171",
+      "id": "a8a852f2-0a67-4760-ab62-d475077b4b71",
       "schemaVersion": 1,
       "aggregate": {
         "type": "webhook_delivery",
-        "id": "018f6d2e-0000-7000-8000-000000000029"
+        "id": "018f6d2e-0000-7000-8000-000000000037"
       },
-      "sequence": 29,
+      "sequence": 37,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -578,13 +726,13 @@
       }
     },
     {
-      "id": "55377402-9319-4d95-935b-5751105027eb",
+      "id": "f5317274-e61f-4850-b9a4-396615819898",
       "schemaVersion": 1,
       "aggregate": {
         "type": "workflow_run",
-        "id": "018f6d2e-0000-7000-8000-000000000030"
+        "id": "018f6d2e-0000-7000-8000-000000000038"
       },
-      "sequence": 30,
+      "sequence": 38,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {
@@ -598,13 +746,13 @@
       }
     },
     {
-      "id": "460d053c-f8eb-47fc-a034-fd55eda18742",
+      "id": "cb939458-14ee-4493-b2d2-f151ebe8c26e",
       "schemaVersion": 1,
       "aggregate": {
         "type": "workflow_run",
-        "id": "018f6d2e-0000-7000-8000-000000000031"
+        "id": "018f6d2e-0000-7000-8000-000000000039"
       },
-      "sequence": 31,
+      "sequence": 39,
       "occurredAt": "2026-08-25T12:00:00.000Z",
       "correlation": {},
       "actor": {

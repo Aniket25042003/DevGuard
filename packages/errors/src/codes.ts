@@ -42,7 +42,7 @@ export interface ErrorDescriptor {
   readonly detailSchema?: DetailSchema;
 }
 
-const HTTP_STATUSES = [400, 401, 403, 404, 409, 422, 429, 500, 501, 503] as const;
+const HTTP_STATUSES = [400, 401, 403, 404, 409, 410, 413, 422, 429, 500, 501, 503] as const;
 
 /** Structural validation shared with the registry's fail-fast registration path. */
 export function assertDescriptor(descriptor: ErrorDescriptor): void {
@@ -229,6 +229,92 @@ export const FOUNDATION_ERROR_DESCRIPTORS = [
       reasonCode: z.enum(['findings_present', 'scanner_unavailable', 'digest_mismatch']),
       findingCount: z.number().int().nonnegative(),
     }),
+  },
+  // ---- Perimeter codes (C094) ----
+  {
+    code: 'WEBHOOK_SIGNATURE_INVALID',
+    category: 'security',
+    httpStatus: 401,
+    retryClass: 'no_retry',
+    safeMessage: 'Webhook signature verification failed.',
+  },
+  {
+    code: 'WEBHOOK_DELIVERY_CONFLICT',
+    category: 'concurrency',
+    httpStatus: 409,
+    retryClass: 'no_retry',
+    safeMessage: 'Delivery ID was reused with different content.',
+    detailSchema: z.object({
+      deliveryId: z.string().min(1).max(128),
+    }),
+  },
+  {
+    code: 'CSRF_VALIDATION_FAILED',
+    category: 'security',
+    httpStatus: 403,
+    retryClass: 'no_retry',
+    safeMessage: 'Request failed CSRF or origin validation.',
+  },
+  {
+    code: 'RATE_LIMITER_UNAVAILABLE',
+    category: 'integration',
+    httpStatus: 503,
+    retryClass: 'safe_retry',
+    safeMessage: 'Rate limiting is unavailable; request refused.',
+  },
+  // ---- Content-safety codes (C095) ----
+  {
+    code: 'PATH_ACCESS_BLOCKED',
+    category: 'security',
+    httpStatus: 400,
+    retryClass: 'no_retry',
+    safeMessage: 'The requested path was blocked by path policy.',
+    detailSchema: z.object({ reasonCode: z.string().min(1).max(64) }),
+  },
+  {
+    code: 'ARCHIVE_REJECTED',
+    category: 'security',
+    httpStatus: 422,
+    retryClass: 'no_retry',
+    safeMessage: 'Archive was rejected by extraction safety rules.',
+    detailSchema: z.object({ reasonCode: z.string().min(1).max(64) }),
+  },
+  {
+    code: 'PATCH_REJECTED',
+    category: 'security',
+    httpStatus: 422,
+    retryClass: 'no_retry',
+    safeMessage: 'Patch was rejected by safety validation.',
+    detailSchema: z.object({ reasonCode: z.string().min(1).max(64) }),
+  },
+  {
+    code: 'OUTPUT_BUDGET_EXCEEDED',
+    category: 'domain',
+    httpStatus: 422,
+    retryClass: 'no_retry',
+    safeMessage: 'Output exceeded its configured budget.',
+    detailSchema: z.object({ limitKind: z.string().min(1).max(32) }),
+  },
+  {
+    code: 'ARTIFACT_NOT_SAFE',
+    category: 'security',
+    httpStatus: 409,
+    retryClass: 'no_retry',
+    safeMessage: 'Artifact is not in a safe state.',
+  },
+  {
+    code: 'ARTIFACT_EXPIRED',
+    category: 'domain',
+    httpStatus: 410,
+    retryClass: 'no_retry',
+    safeMessage: 'Artifact has expired.',
+  },
+  {
+    code: 'ARTIFACT_ACCESS_DENIED',
+    category: 'authorization',
+    httpStatus: 403,
+    retryClass: 'no_retry',
+    safeMessage: 'Access to this artifact is not permitted.',
   },
 ] as const satisfies readonly ErrorDescriptor[];
 
