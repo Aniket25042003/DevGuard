@@ -43,10 +43,11 @@ export class EvidenceWriter {
     private readonly redactionScan: (...surfaces: ReadonlyArray<string | undefined>) => string[],
   ) {}
 
-  record(evidence: TestCaseEvidence): { accepted: true; scanHits: string[] } {
+  record(evidence: TestCaseEvidence): { accepted: boolean; scanHits: string[] } {
     // Serialized surface must be scanned before it may ever leave the process.
     const serialized = JSON.stringify(evidence);
     const hits = this.redactionScan(serialized);
+    if (hits.length > 0) return { accepted: false, scanHits: hits };
     this.#lines.push(serialized);
     return { accepted: true, scanHits: hits };
   }
