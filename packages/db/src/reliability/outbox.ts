@@ -111,11 +111,13 @@ const CLAIM_SQL = `
 UPDATE outbox_events
 SET status = 'publishing',
     lease_owner = $1,
-    lease_expires_at = now() + $2::double precision * interval '1 second',
-    updated_at = now()
+    lease_expires_at = now() + ($2::double precision / 1000) * interval '1 second',
+    updated_at = now(),
+    row_version = row_version + 1
 WHERE id IN (
   SELECT id FROM outbox_events
-  WHERE status = 'pending' OR (status = 'publishing' AND lease_expires_at < now())
+  WHERE (status = 'pending' AND available_at <= now())
+     OR (status = 'publishing' AND lease_expires_at < now())
   ORDER BY available_at, id
   LIMIT $3
   FOR UPDATE SKIP LOCKED
@@ -131,7 +133,7 @@ SET status = 'published',
     lease_expires_at = NULL,
     updated_at = now(),
     row_version = row_version + 1
-WHERE id = $1 AND row_version = $2 AND status IN ('pending', 'publishing')
+WHERE id = $1 AND row_version = $2 AND status = 'publishing'
 RETURNING row_version::text AS row_version`;
 
 /** One statement handles reschedule-vs-dead-letter after the attempt increment. */
@@ -156,7 +158,7 @@ SET status = 'dead_lettered',
     lease_expires_at = NULL,
     updated_at = now(),
     row_version = row_version + 1
-WHERE id = $1 AND row_version = $2 AND status IN ('pending', 'publishing')
+WHERE id = $1 AND row_version = $2 AND status = 'publishing'
 RETURNING row_version::text AS row_version`;
 
 function toRecord(row: OutboxRow): OutboxRecord {

@@ -65,7 +65,7 @@ interface IdempotencyRow {
 const INSERT_FRESH = `
 INSERT INTO idempotency_records
   (id, scope, key_hash, status, owner_token, lease_expires_at, request_fingerprint)
-VALUES ($1, $2, $3, 'processing', $4, now() + $5::double precision * interval '1 second', $6)
+VALUES ($1, $2, $3, 'processing', $4, now() + ($5::double precision / 1000) * interval '1 second', $6)
 ON CONFLICT (scope, key_hash) DO NOTHING
 RETURNING id`;
 
@@ -78,7 +78,7 @@ FOR UPDATE`;
 const RECLAIM_LEASE = `
 UPDATE idempotency_records
 SET owner_token = $3,
-    lease_expires_at = now() + $4::double precision * interval '1 second',
+    lease_expires_at = now() + ($4::double precision / 1000) * interval '1 second',
     updated_at = now(),
     row_version = row_version + 1
 WHERE scope = $1 AND key_hash = $2`;

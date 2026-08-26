@@ -37,4 +37,4 @@ ALTER DEFAULT PRIVILEGES FOR ROLE devguard_migrator IN SCHEMA public
 
 -- The runtime role must never gain schema mutation on any object.
 ALTER DEFAULT PRIVILEGES FOR ROLE devguard_migrator IN SCHEMA public
-  REVOKE CREATE ON TABLES FROM devguard_app;
+

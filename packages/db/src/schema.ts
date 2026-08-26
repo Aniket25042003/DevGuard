@@ -37,6 +37,15 @@ export async function assertSchemaCompatible(pool: DevGuardPool): Promise<void> 
   if (Number(failures[0]?.n ?? '0') > 0) {
     throw incompatible('database has recorded migration failures (dirty state)');
   }
+
+  // Reject future schema versions the binary does not know about.
+  const KNOWN_MAX_VERSION = 2; // update when new migrations ship
+  const latestApplied: number = versions.length > 0 ? (versions[versions.length - 1] ?? 0) : 0;
+  if (latestApplied > KNOWN_MAX_VERSION) {
+    throw incompatible(
+      `database schema version ${latestApplied} is newer than this binary supports (max ${KNOWN_MAX_VERSION}); upgrade the application`,
+    );
+  }
 }
 
 function incompatible(reason: string, cause?: unknown): Error {

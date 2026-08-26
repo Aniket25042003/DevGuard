@@ -78,12 +78,12 @@ export async function runMigrations(
           'SELECT version::text AS version, name, checksum FROM schema_migrations ORDER BY version',
         )
       ).rows;
-      const failures = await client.query<{ n: string }>(
-        'SELECT count(*)::text AS n FROM migration_failures',
+      const failures = await client.query<{ version: string }>(
+        'SELECT version::text AS version FROM migration_failures ORDER BY version DESC LIMIT 1',
       );
-      if (Number(failures.rows[0]?.n ?? '0') > 0) {
+      if (Number(failures.rows[0]?.version ?? '0') > 0) {
         throw makeError('MIGRATION_DIRTY', {
-          details: { version: Number(applied.at(-1)?.version ?? '0') },
+          details: { version: Number(failures.rows[0]?.version ?? '0') },
         });
       }
 
