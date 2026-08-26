@@ -19,6 +19,17 @@ lists exactly the registered codes.
 | SECRET_UNAVAILABLE            | integration   | 503  | safe_retry           | The requested secret is unavailable or expired.                     | —                                 |
 | TRUST_ITEM_INVALID_TRANSITION | domain        | 409  | no_retry             | Trust evaluation state transition is not allowed.                   | {from, to}                        |
 | UNTRUSTED_PROPOSAL_REJECTED   | authorization | 403  | no_retry             | The proposal carried untrusted authorization data and was rejected. | {strippedFields}                  |
+| ARCHIVE_REJECTED              | security      | 422  | no_retry             | Archive was rejected by extraction safety rules.                    | {reasonCode}                      |
+| ARTIFACT_ACCESS_DENIED        | authorization | 403  | no_retry             | Access to this artifact is not permitted.                           | —                                 |
+| ARTIFACT_EXPIRED              | domain        | 410  | no_retry             | Artifact has expired.                                               | —                                 |
+| ARTIFACT_NOT_SAFE             | security      | 409  | no_retry             | Artifact is not in a safe state.                                    | —                                 |
+| CSRF_VALIDATION_FAILED        | security      | 403  | no_retry             | Request failed CSRF or origin validation.                           | —                                 |
+| OUTPUT_BUDGET_EXCEEDED        | domain        | 422  | no_retry             | Output exceeded its configured budget.                              | {limitKind}                       |
+| PATCH_REJECTED                | security      | 422  | no_retry             | Patch was rejected by safety validation.                            | {reasonCode}                      |
+| PATH_ACCESS_BLOCKED           | security      | 400  | no_retry             | The requested path was blocked by path policy.                      | {reasonCode}                      |
+| RATE_LIMITER_UNAVAILABLE      | integration   | 503  | safe_retry           | Rate limiting is unavailable; request refused.                      | —                                 |
+| WEBHOOK_DELIVERY_CONFLICT     | concurrency   | 409  | no_retry             | Delivery ID was reused with different content.                      | {deliveryId}                      |
+| WEBHOOK_SIGNATURE_INVALID     | security      | 401  | no_retry             | Webhook signature verification failed.                              | —                                 |
 | INTERNAL                      | application   | 500  | human_intervention   | An unexpected error occurred.                                       | —                                 |
 | NOT_FOUND                     | application   | 404  | no_retry             | The requested resource was not found.                               | —                                 |
 | PROVIDER_RATE_LIMITED         | integration   | 429  | safe_retry           | The external provider rate limit was reached.                       | —                                 |

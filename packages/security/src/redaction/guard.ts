@@ -46,7 +46,10 @@ export class SensitiveDataGuard {
       process.env['DEVGUARD_REDACTION_HMAC_KEY'] ??
       (() => {
         // Fail closed: the development fallback must never reach production.
-        if (process.env['NODE_ENV'] === 'production' || process.env['DEVGUARD_ENV'] === 'production') {
+        if (
+          process.env['NODE_ENV'] === 'production' ||
+          process.env['DEVGUARD_ENV'] === 'production'
+        ) {
           throw new Error('redaction HMAC key required outside development');
         }
         return 'devguard-dev-hmac-key';
