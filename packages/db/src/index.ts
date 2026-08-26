@@ -54,3 +54,23 @@ export {
   OutboxRepository,
   OutboxWriter,
 } from './reliability/outbox.js';
+
+// ---- C009 identity/repository persistence ----
+export {
+  ConnectedRepositoryStore,
+  IdentityRepository,
+  InstallationStore,
+} from './repositories/identity-repository.js';
+export type {
+  ConnectedRepository,
+  ConnectRepositoryInput,
+  InstallationSnapshot,
+  ObservedIdentityInput,
+  RepositoryLifecycleStatus,
+  RepositoryPatch,
+  UserIdentity,
+} from './repositories/identity-repository.js';
+
+// ---- C010 policy/approval persistence ----
+export { ApprovalStore, PolicyVersionStore } from './repositories/policy-approval.js';
+export type { ApprovalStatusTransition, CanonicalPolicy } from './repositories/policy-approval.js';
