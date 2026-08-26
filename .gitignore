@@ -16,6 +16,8 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+*.d.mts
+*.d.mts.map
 
 # Test and coverage artifacts
 coverage/

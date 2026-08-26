@@ -9,6 +9,7 @@
     { "path": "packages/authorization" },
     { "path": "packages/security" },
     { "path": "packages/db" },
+    { "path": "packages/test-harness" },
     { "path": "apps/api" },
     { "path": "apps/worker" },
     { "path": "apps/web" },

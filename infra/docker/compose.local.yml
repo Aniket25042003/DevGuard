@@ -1,0 +1,51 @@
+# DevGuard local development stack (C098).
+#
+# Project name scoping prevents cross-project container/volume reuse.
+# Data binds to loopback only; no privileged options, no Docker socket,
+# no host network. Credentials below are local-only dev values and are NOT
+# secrets; production credentials never belong here.
+name: devguard-local
+
+services:
+  postgres:
+    image: postgres:17.5-alpine
+    container_name: devguard-local-postgres
+    restart: unless-stopped
+    environment:
+      # Fixed, clearly non-production dev credentials; the real application
+      # role (devguard_app) is created by the init script below.
+      POSTGRES_USER: devguard_admin
+      POSTGRES_PASSWORD: devguard_admin_local
+      POSTGRES_DB: devguard
+      DEVGUARD_APP_ROLE_PASSWORD: devguard_app_local
+    volumes:
+      - devguard-local-pgdata:/var/lib/postgresql/data
+      - ../postgres/init-dev-roles.sql:/docker-entrypoint-initdb.d/10-init-dev-roles.sql:ro
+    ports:
+      - '127.0.0.1:15432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U devguard_admin -d devguard']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 5s
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: devguard-local-redis
+    restart: unless-stopped
+    command:
+      ['redis-server', '--appendonly', 'no', '--save', '', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - devguard-local-redisdata:/data
+    ports:
+      - '127.0.0.1:16379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+
+volumes:
+  devguard-local-pgdata:
+  devguard-local-redisdata:

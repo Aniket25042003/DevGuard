@@ -5,7 +5,8 @@
     "rootDir": ".",
     "noEmit": false,
     "emitDeclarationOnly": true,
-    "types": ["node"]
+    "types": ["node"],
+    "allowJs": true
   },
   "include": ["src/**/*.ts"],
   "references": [
@@ -17,6 +18,7 @@
     { "path": "../../packages/security" },
     { "path": "../../packages/config" },
     { "path": "../../packages/db" },
+    { "path": "../../packages/test-harness" },
     { "path": "../../apps/api" },
     { "path": "../../apps/worker" }
   ]

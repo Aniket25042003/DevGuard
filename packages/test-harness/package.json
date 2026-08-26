@@ -1,0 +1,22 @@
+{
+  "name": "@devguard/test-harness",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only deterministic test runtime (C096): fake clock, seeded IDs, isolated PostgreSQL fixtures, leak sentinels, failure injection and evidence manifests. Never imported by production code.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/db": "workspace:*",
+    "@devguard/errors": "workspace:*"
+  }
+}
