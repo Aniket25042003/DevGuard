@@ -247,7 +247,7 @@ export function buildRegistry(
       // Capability version negotiation: declared or manifest version must satisfy range.
       const declaredVersion = rawCall.capabilityVersion;
       if (
-        declaredVersion !== undefined &&
+        declaredVersion === undefined ||
         !versionSatisfies(declaredVersion, entry.tool.capabilityVersionRange)
       ) {
         return {
@@ -305,7 +305,9 @@ export function buildRegistry(
       // apiVersion may be a semver or an API date stamp (e.g. GitHub's
       // '2026-01-01' style): both are accepted as immutable version pins.
       const versionStamp = /^\d+\.\d+\.\d+$|^\d{4}-\d{2}-\d{2}$/.test(manifest.apiVersion);
-      const ok = found.length === 0 && versionStamp;
+      const canonical = JSON.stringify({ provider: manifest.provider, apiVersion: manifest.apiVersion, capabilities: Object.fromEntries(Object.entries(manifest.capabilities).sort()) });
+        const hashValid = /^[a-f0-9]{64}$/.test(manifest.manifestHash) && createHash('sha256').update(canonical).digest('hex') === manifest.manifestHash;
+        const ok = found.length === 0 && versionStamp && hashValid;
       return {
         ok,
         problems: ok ? [] : [...found, ...(versionStamp ? [] : ['malformed apiVersion'])],
