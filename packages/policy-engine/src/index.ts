@@ -61,3 +61,67 @@ export {
   type PolicySource,
   type ValidatePolicyResult,
 } from './service.js';
+
+// ---- C024 action taxonomy + tool registry ----
+export {
+  ACTION_CATEGORIES,
+  ACTION_DEFINITIONS,
+  findActionDefinition,
+  validateCatalog,
+  type ActionCategory,
+  type ActionDefinition,
+  type ExecutionObligation,
+} from './actions/catalog.js';
+export {
+  PROVIDER_IDS,
+  TOOL_STATUSES,
+  RegistryBuildError,
+  buildRegistry,
+  versionSatisfies,
+  type ActionMetadata,
+  type ProviderCapabilityManifest,
+  type ProviderId,
+  type RawProviderToolCall,
+  type RegisteredTool,
+  type RegistrySnapshot,
+  type ResolveResult,
+  type ToolDefinitionInput,
+  type ToolStatus,
+} from './tools/registry.js';
+
+// ---- C025 contextual risk classification ----
+export {
+  CLASSIFIER_VERSION,
+  CONTEXT_RISK_RULES,
+  classify,
+  compareClassifications,
+  looksSensitivePath,
+  type ContextRiskRule,
+} from './classification/rules.js';
+export {
+  RISK_LATTICE,
+  actionContext,
+  isTrustedFact,
+  joinRisks,
+  monotonic,
+  provenance,
+  rankOf,
+  targetDescriptor,
+  type ActionContext,
+  type Classification,
+  type LatticeRisk,
+  type Provenance,
+  type RiskFactor,
+} from './classification/lattice.js';
+
+// ---- C026 command risk analysis ----
+export {
+  analyzeCommand,
+  analyzeShellSource,
+  networkRequest,
+  relativePath,
+  sandboxCommandProposal,
+  type CommandClass,
+  type CommandClassification,
+  type SandboxCommandProposal,
+} from './commands/analyzer.js';
