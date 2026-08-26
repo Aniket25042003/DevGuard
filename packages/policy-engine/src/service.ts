@@ -143,7 +143,7 @@ export class PolicyDocumentService {
     | { ok: false; report: PolicyValidationReport } {
     const report = new PolicyValidationReport();
     const decoder = new PolicyDecoder(report);
-    const decoded = decoder.decode(input.bytes);
+    const decoded = decoder.decode(input.bytes, input.formatHint);
     if (!decoded) return { ok: false, report };
 
     let parsed: RepositoryPolicyV1;

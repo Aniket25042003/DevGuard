@@ -44,7 +44,8 @@ export class PolicyDecoder {
    * Decode untrusted bytes to a JSON-compatible document or record diagnostics.
    * Returns undefined when decoding failed.
    */
-  decode(source: Uint8Array | string): DecodedDocument | undefined {
+  decode(source: Uint8Array | string, formatHint?: 'yaml' | 'json'): DecodedDocument | undefined {
+    this.#nodeBudget = DECODE_LIMITS.maxNodes;
     const text = typeof source === 'string' ? source : Buffer.from(source).toString('utf8');
     if (Buffer.byteLength(text, 'utf8') > DECODE_LIMITS.maxBytes) {
       this.#report.add({
@@ -54,9 +55,10 @@ export class PolicyDecoder {
       });
       return undefined;
     }
-    const isJson = /^\s*[{}[]/.test(text);
+    const isJson = formatHint === 'json';
     try {
-      const raw = isJson ? JSON.parse(text) : this.#parseYamlSafely(text);
+      // Parse through YAML's AST for both formats so duplicate members are not discarded.
+      const raw = this.#parseYamlSafely(text);
       if (!isPlainValue(raw)) {
         this.#report.add({
           code: 'POLICY_SCHEMA_INVALID',
