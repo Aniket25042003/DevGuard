@@ -74,3 +74,15 @@ export type {
 // ---- C010 policy/approval persistence ----
 export { ApprovalStore, PolicyVersionStore } from './repositories/policy-approval.js';
 export type { ApprovalStatusTransition, CanonicalPolicy } from './repositories/policy-approval.js';
+
+// ---- C011 workflow/evidence persistence ----
+export { WorkflowRunStore, EventStore } from './repositories/workflow-evidence.js';
+export type {
+  NewRunInput,
+  StoredEvent,
+  WorkflowRunRecord,
+} from './repositories/workflow-evidence.js';
+
+// ---- C012 retention/storage ----
+export { RetentionResolver, StorageOperationRepository } from './repositories/retention.js';
+export type { RetentionDecision, RetentionPolicyInput } from './repositories/retention.js';
