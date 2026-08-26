@@ -55,9 +55,11 @@ export class PolicyDecoder {
       });
       return undefined;
     }
-    const isJson = formatHint === 'json';
+    // Format provenance: explicit hint wins; otherwise structural detection.
+    // Both formats parse through YAML's AST so duplicate members are never
+    // silently discarded (parity of rejection across YAML and JSON).
+    const format: 'yaml' | 'json' = formatHint ?? (/^\s*[{[]/.test(text) ? 'json' : 'yaml');
     try {
-      // Parse through YAML's AST for both formats so duplicate members are not discarded.
       const raw = this.#parseYamlSafely(text);
       if (!isPlainValue(raw)) {
         this.#report.add({
@@ -68,9 +70,7 @@ export class PolicyDecoder {
         return undefined;
       }
       const value = this.#sanitize(raw, '$', 0);
-      return value === undefined && !this.#report.ok
-        ? undefined
-        : { value, format: isJson ? 'json' : 'yaml' };
+      return value === undefined && !this.#report.ok ? undefined : { value, format };
     } catch (error) {
       const loc = locationOf(error);
       this.#report.add({
