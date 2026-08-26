@@ -48,13 +48,18 @@ export interface EncryptedSecretRecord {
 }
 
 function canonicalAad(data: AssociatedData): Buffer {
-  const canonical = [
-    `scopeType=${data.scopeType}`,
-    `scopeId=${data.scopeId}`,
-    `purpose=${data.purpose}`,
-    `refVersion=${data.refVersion}`,
-  ].join('|');
-  return Buffer.from(canonical, 'utf8');
+  // Length-prefixed encoding prevents delimiter injection between fields.
+  // NOTE: changing this encoding invalidates all persisted EncryptedSecretRecords.
+  // Safe to change before MVP because no records exist; add format discriminator
+  // when persistence begins.
+  const fields = [data.scopeType, data.scopeId, data.purpose, data.refVersion];
+  const parts = fields.map((field) => {
+    const bytes = Buffer.from(field, 'utf8');
+    const prefix = Buffer.alloc(4);
+    prefix.writeUInt32BE(bytes.byteLength);
+    return Buffer.concat([prefix, bytes]);
+  });
+  return Buffer.concat(parts);
 }
 
 export function aadDigest(data: AssociatedData): string {

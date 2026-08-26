@@ -1,3 +1,6 @@
+// IMPORTANT: these tests require DEGUARD_TEST_DATABASE_URL pointing at a
+// disposable database, NOT a shared instance.
+// They destructively reset the public schema (C007 §20 test isolation).
 /**
  * C007 §22 — DB-gated integration: apply from zero, idempotent re-run,
  * checksum refusal, dirty-state gate, and health schemaVersion.
@@ -23,6 +26,9 @@ let pool: DevGuardPool;
 beforeAll(async () => {
   pool = createPool({ connectionString: TEST_DATABASE_URL, max: 3 });
   // The gated target is disposable by contract (C007 §20 test isolation).
+  if (!TEST_DATABASE_URL.includes('test') && !TEST_DATABASE_URL.includes('disposable')) {
+    throw new Error('DEGUARD_TEST_DATABASE_URL must reference a disposable database');
+  }
   await pool.query({ text: 'DROP SCHEMA public CASCADE' });
   await pool.query({ text: 'CREATE SCHEMA public' });
 });

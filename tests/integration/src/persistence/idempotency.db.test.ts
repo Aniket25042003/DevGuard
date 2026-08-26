@@ -14,6 +14,7 @@ import {
   type DevGuardPool,
   type TransactionContext,
   type UnitOfWork,
+  idempotencyKeyHash,
 } from '@devguard/db';
 import { TEST_DATABASE_URL } from './db-harness.js';
 
@@ -32,7 +33,7 @@ function beginInput(key: string, body: unknown, leaseMs = 60_000) {
 async function expireLease(tx: TransactionContext, key: string): Promise<void> {
   await tx.query({
     text: "UPDATE idempotency_records SET lease_expires_at = now() - interval '1 second' WHERE scope = $1 AND key_hash = $2",
-    values: [SCOPE, key],
+    values: [SCOPE, idempotencyKeyHash(SCOPE, key)],
   });
 }
 
@@ -60,7 +61,7 @@ describeDb('C008 idempotency matrix', () => {
     const rows = await uow.transaction((tx) =>
       tx.query<{ status: string; response_code: number; row_version: string }>({
         text: 'SELECT status, response_code, row_version::text AS row_version FROM idempotency_records WHERE scope = $1 AND key_hash = $2',
-        values: [SCOPE, key],
+        values: [SCOPE, idempotencyKeyHash(SCOPE, key)],
       }),
     );
     expect(rows[0]?.status).toBe('completed');
