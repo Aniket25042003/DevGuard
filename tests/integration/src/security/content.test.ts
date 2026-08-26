@@ -67,6 +67,11 @@ function tarEntry(name: string, content: Buffer, typeflag = '0'): Buffer {
   header.write(content.byteLength.toString(8).padStart(11, '0') + '\u0000', 124, 12, 'latin1');
   header.write(typeflag, 156, 1, 'latin1');
   header.write('ustar\u000000', 257, 8, 'latin1');
+  // POSIX checksum with the checksum field treated as spaces.
+  header.fill(0x20, 148, 156);
+  let sum = 0;
+  for (const byte of header) sum += byte;
+  header.write(sum.toString(8).padStart(6, '0') + '\u0000 ', 148, 8, 'latin1');
   const padding = Buffer.alloc((512 - (content.byteLength % 512)) % 512);
   return Buffer.concat([header, content, padding]);
 }
@@ -95,17 +100,20 @@ describe('C095 tar archive inspection', () => {
       /entry_traversal_above_root/,
     );
 
-    const symlink = Buffer.concat([
-      (() => {
-        const block = Buffer.alloc(512);
-        block.write('link', 0, 100, 'utf8');
-        block.write('2', 124, 12, 'latin1');
-        block.write('2', 156, 1, 'latin1'); // typeflag '2' = symlink
-        block.write('ustar\u000000', 257, 8, 'latin1');
-        return block;
-      })(),
-      tarEnd(),
-    ]);
+    const symlinkBlock = (() => {
+      const block = Buffer.alloc(512);
+      block.write('link', 0, 100, 'utf8');
+      block.write('0'.padStart(11, '0') + '\u0000', 124, 12, 'latin1'); // size 0
+      block.write('2', 156, 1, 'latin1'); // typeflag '2' = symlink
+      block.write('ustar\u000000', 257, 8, 'latin1');
+      // Valid POSIX checksum so the rejection is the typeflag, not the header.
+      block.fill(0x20, 148, 156);
+      let sum = 0;
+      for (const byte of block) sum += byte;
+      block.write(sum.toString(8).padStart(6, '0') + '\u0000 ', 148, 8, 'latin1');
+      return block;
+    })();
+    const symlink = Buffer.concat([symlinkBlock, tarEnd()]);
     expect(() => inspectTarArchive(symlink, 10, tinyBudget)).toThrowError(/link_or_device_entry/);
 
     const collision = Buffer.concat([

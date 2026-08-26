@@ -275,10 +275,14 @@ export function authorizeArtifactRead(
   if (record.scanState !== 'SAFE') {
     throw makeError('ARTIFACT_NOT_SAFE', { cause: new Error(`state ${record.scanState}`) });
   }
-  if (
-    record.retentionExpiresAt !== undefined &&
-    Date.parse(record.retentionExpiresAt) <= Date.now()
-  ) {
-    throw makeError('ARTIFACT_EXPIRED', { cause: new Error('retention elapsed') });
+  if (record.retentionExpiresAt !== undefined) {
+    const expiryMs = Date.parse(record.retentionExpiresAt);
+    // Malformed persisted lifecycle data fails closed rather than granting.
+    if (Number.isNaN(expiryMs)) {
+      throw makeError('ARTIFACT_EXPIRED', { cause: new Error('invalid retention timestamp') });
+    }
+    if (expiryMs <= Date.now()) {
+      throw makeError('ARTIFACT_EXPIRED', { cause: new Error('retention elapsed') });
+    }
   }
 }

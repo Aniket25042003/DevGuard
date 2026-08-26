@@ -316,29 +316,63 @@ export function validatePatch(
     totalRemoved += diff.removedLines;
     if (totalHunks > budget.maxPatchHunks) rejectBudget();
 
-    const operationKind = classifyOperation(diff);
-    // Content-changing operations require at least one hunk.
-    if (operationKind !== 'delete' && diff.hunks.length === 0) {
+    // Normalize every declared path first so agreement checks operate on
+    // canonical values (and policy runs on each independently).
+    const normalizeOrNull = (value: string | null | undefined): string | null => {
+      if (value === undefined || value === null) return null;
+      return normalizeRelativePath(context.rootId, value).normalizedRelativePath;
+    };
+    const normGitOld = normalizeOrNull(diff.gitOldPath);
+    const normGitNew = normalizeOrNull(diff.gitNewPath);
+    const normHeaderOld = normalizeOrNull(diff.oldPath);
+    const normHeaderNew = normalizeOrNull(diff.newPath);
+    const normRenameFrom = normalizeOrNull(diff.renameFrom);
+    const normRenameTo = normalizeOrNull(diff.renameTo);
+
+    // Envelope/header agreement: corresponding non-null normalized paths MUST
+    // be identical. /dev/null (null header) pairs with a present envelope path
+    // for create/delete semantics.
+    if (normGitOld !== null && normHeaderOld !== null && normGitOld !== normHeaderOld) {
+      rejectPatch('inconsistent_headers');
+    }
+    if (normGitNew !== null && normHeaderNew !== null && normGitNew !== normHeaderNew) {
+      rejectPatch('inconsistent_headers');
+    }
+    if (normHeaderOld !== null && normGitOld === null) rejectPatch('inconsistent_headers');
+    if (normHeaderNew !== null && normGitNew === null) rejectPatch('inconsistent_headers');
+
+    const isPureRename =
+      normRenameFrom !== undefined &&
+      normRenameTo !== undefined &&
+      diff.hunks.length === 0 &&
+      normGitOld === normRenameFrom &&
+      normGitNew === normRenameTo;
+
+    const operationKind: PatchOperationKind = isPureRename ? 'update' : classifyOperation(diff);
+
+    // Content-changing operations require at least one hunk (pure renames are
+    // metadata-only and exempt).
+    if (!isPureRename && operationKind !== 'delete' && diff.hunks.length === 0) {
       rejectPatch('operation_requires_hunk');
     }
 
-    // Every named target — envelope, headers, renames — passes full policy.
+    // Every named target passes full policy.
     const targets = new Set<string>();
     for (const candidate of [
-      diff.gitOldPath,
-      diff.gitNewPath,
-      diff.oldPath,
-      diff.newPath,
-      diff.renameFrom,
-      diff.renameTo,
+      normGitOld,
+      normGitNew,
+      normHeaderOld,
+      normHeaderNew,
+      normRenameFrom,
+      normRenameTo,
     ]) {
-      if (candidate !== undefined && candidate !== null) targets.add(candidate);
+      if (candidate !== null) targets.add(candidate);
     }
     for (const target of targets) {
       checkPath(target);
     }
 
-    const primaryTarget = diff.newPath ?? diff.gitNewPath ?? diff.oldPath ?? '';
+    const primaryTarget = normGitNew ?? normHeaderNew ?? normGitOld ?? normHeaderOld ?? '';
     operations.push({
       kind: operationKind,
       targetPath: primaryTarget,

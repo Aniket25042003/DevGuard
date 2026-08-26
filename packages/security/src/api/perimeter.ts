@@ -26,7 +26,18 @@ export interface CorsDecision {
 function normalizeOrigin(raw: string): string {
   try {
     const parsed = new URL(raw);
-    // Exact scheme+host+port comparison; no suffix/suffix-trick tolerance.
+    // A true origin is ONLY scheme://host[:port] — anything carrying userinfo,
+    // a path beyond '/', search, or hash is not an Origin value.
+    if (
+      !['http:', 'https:'].includes(parsed.protocol) ||
+      parsed.username !== '' ||
+      parsed.password !== '' ||
+      (parsed.pathname !== '/' && parsed.pathname !== '') ||
+      parsed.search !== '' ||
+      parsed.hash !== ''
+    ) {
+      return '';
+    }
     return `${parsed.protocol}//${parsed.host}`.toLowerCase();
   } catch {
     return '';

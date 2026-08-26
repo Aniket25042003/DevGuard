@@ -56,7 +56,7 @@ function readOctal(block: Buffer, offset: number, length: number): number {
  * Parse a tar byte stream into a validated manifest.
  * Supports ustar/GNU basic typeflags '0' (file), '\u0000' (legacy file), '5' (directory).
  */
-export function inspectTarArchive(
+export function inspectTarArchive /* MARKER */(
   tarBytes: Buffer,
   compressedBytes: number,
   budget: ContentBudget,
@@ -65,6 +65,8 @@ export function inspectTarArchive(
     reject('invalid_tar_structure');
   }
   const entries: ArchiveEntry[] = [];
+  let sawFirstZeroBlock = false;
+  let sawSecondZeroBlock = false;
   const seenNamesLower = new Set<string>();
   let offset = 0;
   let total = 0;
@@ -73,7 +75,29 @@ export function inspectTarArchive(
   while (offset + TAR_BLOCK <= tarBytes.length) {
     const header = tarBytes.subarray(offset, offset + TAR_BLOCK);
     const name = readString(header, 0, 100);
-    if (name.length === 0) break; // two consecutive zero blocks end the archive
+    const isZeroBlock = name.length === 0 && header.every((byte) => byte === 0);
+    if (!isZeroBlock) {
+      // POSIX header checksum (field 148..156 computed as spaces). Zero blocks
+      // (end-of-archive markers) are exempt from checksum semantics.
+      const declaredChecksum = readOctal(header, 148, 8);
+      const window = Buffer.from(header);
+      window.fill(0x20, 148, 156);
+      let computed = 0;
+      for (const byte of window) computed += byte;
+      if (computed !== declaredChecksum) reject('header_checksum_mismatch');
+    }
+    if (isZeroBlock) {
+      // POSIX end-of-archive = two consecutive zero blocks.
+      if (!sawFirstZeroBlock) {
+        sawFirstZeroBlock = true;
+        offset += TAR_BLOCK;
+        continue;
+      }
+      sawSecondZeroBlock = true;
+      offset += TAR_BLOCK;
+      break;
+    }
+    if (sawFirstZeroBlock || sawSecondZeroBlock) reject('data_after_terminator');
     const size = readOctal(header, 124, 12);
     const typeflagByte = header[156] ?? 0x30;
     const typeflag = String.fromCharCode(typeflagByte);
@@ -94,6 +118,8 @@ export function inspectTarArchive(
       reject('link_or_device_entry');
     }
     if (size < 0) reject('invalid_entry_size');
+    const dataBlocks = Math.ceil(size / TAR_BLOCK) * TAR_BLOCK;
+    if (offset + TAR_BLOCK + dataBlocks > tarBytes.length) reject('truncated_payload');
 
     // Path safety through the SAME PathGuard lexical rules.
     let safePath: string;
@@ -125,6 +151,12 @@ export function inspectTarArchive(
     offset += TAR_BLOCK + Math.ceil(size / TAR_BLOCK) * TAR_BLOCK;
   }
 
+  if (!sawFirstZeroBlock || !sawSecondZeroBlock) reject('missing_terminator');
+  while (offset < tarBytes.length) {
+    const block = tarBytes.subarray(offset, Math.min(offset + TAR_BLOCK, tarBytes.length));
+    if (block.some((byte) => byte !== 0)) reject('data_after_terminator');
+    offset += TAR_BLOCK;
+  }
   if (entries.length === 0) reject('empty_archive');
   const ratio = compressedBytes > 0 ? total / compressedBytes : total;
   if (compressedBytes > 0 && ratio > budget.maxArchiveRatio) reject('expansion_ratio_budget');

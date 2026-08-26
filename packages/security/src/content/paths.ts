@@ -148,11 +148,22 @@ export async function resolveWorkspacePath(
 
   // Walk components with lstat: refuse symlinks anywhere along the way.
   let walked = rootAbsolute;
-  for (const segment of safe.normalizedRelativePath.split('/')) {
-    walked = path.join(walked, segment);
+  const segments = safe.normalizedRelativePath.split('/');
+  for (let index = 0; index < segments.length; index += 1) {
+    const segmentValue = segments[index];
+    if (segmentValue === undefined) break;
+    walked = path.join(walked, segmentValue);
     try {
       const stats = await filesystem.lstat(walked);
       if (stats.isSymbolicLink()) fail('symlink_component');
+      const isFinal = index === segments.length - 1;
+      if (isFinal) {
+        // Final component may be a regular file or directory only.
+        if (!stats.isFile() && !stats.isDirectory()) fail('special_file');
+      } else if (!stats.isDirectory()) {
+        // Intermediate components must be real directories.
+        fail('non_directory_component');
+      }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') break; // not-yet-created leaf is fine
       throw error;
