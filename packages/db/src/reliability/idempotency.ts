@@ -131,9 +131,9 @@ export class IdempotencyStore {
         },
       };
     }
-    const leaseExpired =
-      row.lease_expires_at === null || row.lease_expires_at.getTime() <= Date.now();
-    if (!leaseExpired) return { kind: 'conflict' };
+    // Expiry is enforced inside the reclaim SQL using the database clock,
+    // eliminating app-vs-DB clock-skew windows.
+    if (row.lease_expires_at === null) return { kind: 'conflict' };
 
     await tx.query({
       text: RECLAIM_LEASE,
@@ -144,6 +144,12 @@ export class IdempotencyStore {
 
   /** CAS-complete by owner token; stale/unknown tokens fail closed. */
   async complete(token: string, result: StoredResult, tx: TransactionContext): Promise<void> {
+    const serialized = JSON.stringify(result.responseJson ?? null);
+    if (Buffer.byteLength(serialized, 'utf8') > 65_536) {
+      throw makeError('VALIDATION_FAILED', {
+        cause: new Error('idempotency response exceeds 64KB'),
+      });
+    }
     const updated = await tx.query<{ id: string }>({
       text: COMPLETE_BY_TOKEN,
       values: [token, result.responseCode, result.responseJson],

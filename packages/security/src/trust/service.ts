@@ -220,6 +220,9 @@ export class AgentTrustService {
         const evaluation = this.evaluations.get(id);
         if (evaluation?.decision === 'quarantine' || evaluation?.decision === 'block') {
           quarantined.push(id);
+          if (evaluation.reasonCodes.some((r) => r.startsWith('instruction_'))) {
+            rejected.push(id);
+          }
           continue;
         }
         if (!label.classes.includes(TRUST_RANK[item.envelope.sourceKind])) continue;
@@ -257,7 +260,7 @@ export class AgentTrustService {
       bundleDigest,
       authorityDigest: authoritySnapshotDigest(authority),
       sections,
-      rejectedInstructionIds: rejected,
+      rejectedInstructionIds: [...new Set(rejected)],
       quarantinedIds: [...new Set(quarantined)],
       createdAt: this.now().toISOString(),
     };

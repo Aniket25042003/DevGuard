@@ -67,7 +67,13 @@ export function createUnitOfWork(pool: DevGuardPool): UnitOfWork {
     ): Promise<T> {
       // Interpolation is safe: `isolation` is a closed literal union, never user input.
       const begin = `BEGIN ISOLATION LEVEL ${(options?.isolation ?? DEFAULT_ISOLATION).toUpperCase()}`;
-      const maxAttempts = 1 + (options?.retrySerialization ?? 0);
+      const maxRetriesRaw = options?.retrySerialization ?? 0;
+      if (!Number.isSafeInteger(maxRetriesRaw) || maxRetriesRaw < 0 || maxRetriesRaw > 20) {
+        throw new RangeError(
+          `retrySerialization must be a safe integer between 0 and 20, got ${maxRetriesRaw}`,
+        );
+      }
+      const maxAttempts = 1 + maxRetriesRaw;
 
       let attempt = 0;
       for (;;) {
