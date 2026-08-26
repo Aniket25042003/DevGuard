@@ -62,7 +62,10 @@ export function bootstrapEnv(repoRoot, paths = {}) {
     .map((line) => {
       const match = /^([A-Z][A-Z0-9_]+)=.*$/.exec(line);
       if (!match) return line;
-      return line.replace(/=.*$/, `=${localDefaults[match[1]] ?? line.slice(line.indexOf('=') + 1)}`);
+      return line.replace(
+        /=.*$/,
+        `=${localDefaults[match[1]] ?? line.slice(line.indexOf('=') + 1)}`,
+      );
     })
     .join('\n');
   // flag 'wx' fails if the file appeared concurrently; create-if-absent only.
