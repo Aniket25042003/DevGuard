@@ -12,7 +12,6 @@ import {
   effectiveLimits,
   normalizePolicyV1,
   repositoryPolicyV1,
-  type CanonicalPolicyDocument,
 } from '@devguard/policy-engine';
 const REGISTRIES = {
   knownActions: new Set([
@@ -183,7 +182,7 @@ describe('normalization (C023 §8/§22)', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('unicode strings are NFC-normalized before hashing', () => {
+  it('unicode strings are NFC-normalized before hashing', async () => {
     // Obligations accept arbitrary short strings, so compose vs decomposed é
     // must yield identical canonical bytes/hashes.
     const decomposed = JSON.stringify({
