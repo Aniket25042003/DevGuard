@@ -1,0 +1,56 @@
+/**
+ * @devguard/db — PostgreSQL foundation (C007) and reliability primitives (C008).
+ *
+ * Boundary rule: `pg` is imported only inside this package. Domain/application
+ * code consumes the ports exported here; SQL never leaves the persistence layer.
+ */
+export type { DatabaseHealthStatus, DbPoolConfig, DevGuardPool } from './pool.js';
+export { createPool } from './pool.js';
+
+export type {
+  IsolationLevel,
+  TransactionContext,
+  TransactionOptions,
+  UnitOfWork,
+} from './transaction.js';
+export { createUnitOfWork } from './transaction.js';
+
+export type { RetryDecision, SqlStatement } from './sql.js';
+export { classifySqlState, sqlStateOf } from './sql.js';
+
+export { uuidv7 } from './uuid.js';
+
+export type {
+  AppliedMigrationRow,
+  MigrationPlan,
+  MigrationSource,
+  ParsedMigration,
+} from './migrations/list.js';
+export {
+  loadMigrationSources,
+  parseMigrations,
+  planMigrations,
+  resolveMigrationsDir,
+  sha256Hex,
+} from './migrations/list.js';
+
+export type { MigrationRunOptions, MigrationRunResult } from './migrations/runner.js';
+export { runMigrations } from './migrations/runner.js';
+
+export { assertSchemaCompatible } from './schema.js';
+
+export type { BeginInput, BeginOutcome, StoredResult } from './reliability/idempotency.js';
+export {
+  canonicalJsonStringify,
+  IdempotencyStore,
+  idempotencyKeyHash,
+  requestFingerprint,
+} from './reliability/idempotency.js';
+
+export type { OutboxEventLike, OutboxRecord } from './reliability/outbox.js';
+export {
+  MAX_OUTBOX_ATTEMPTS,
+  MAX_OUTBOX_SERIALIZED_BYTES,
+  OutboxRepository,
+  OutboxWriter,
+} from './reliability/outbox.js';

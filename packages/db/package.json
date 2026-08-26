@@ -1,0 +1,25 @@
+{
+  "name": "@devguard/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PostgreSQL foundation (C007) plus transactions/idempotency/outbox reliability (C008): pool lifecycle, UnitOfWork, checksummed migrations, idempotency records, transactional outbox.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/errors": "workspace:*",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.13.0"
+  }
+}

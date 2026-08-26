@@ -8,6 +8,7 @@
     { "path": "packages/auth" },
     { "path": "packages/authorization" },
     { "path": "packages/security" },
+    { "path": "packages/db" },
     { "path": "apps/api" },
     { "path": "apps/worker" },
     { "path": "apps/web" },

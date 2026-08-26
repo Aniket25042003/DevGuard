@@ -32,6 +32,7 @@
       "@devguard/auth": ["packages/auth/src/index.ts"],
       "@devguard/authorization": ["packages/authorization/src/index.ts"],
       "@devguard/security": ["packages/security/src/index.ts"],
+      "@devguard/db": ["packages/db/src/index.ts"],
       "@devguard/config": ["packages/config/src/index.ts"]
     },
     "plugins": []

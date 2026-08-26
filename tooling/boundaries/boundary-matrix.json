@@ -22,7 +22,8 @@
     "apps/web": "ui",
     "tests/integration": "test",
     "tests/e2e": "test",
-    "packages/security": "application"
+    "packages/security": "application",
+    "packages/db": "persistence"
   },
   "packageScope": "@devguard",
   "domainExternalAllowlist": ["zod"],
