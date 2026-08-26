@@ -12,9 +12,9 @@
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'devguard_app') THEN
-    EXECUTE format('CREATE ROLE devguard_app LOGIN PASSWORD %L', :'app_password');
+    EXECUTE format('CREATE ROLE devguard_app LOGIN PASSWORD %L', 'devguard_app_local');
   ELSE
-    EXECUTE format('ALTER ROLE devguard_app LOGIN PASSWORD %L', :'app_password');
+    EXECUTE format('ALTER ROLE devguard_app LOGIN PASSWORD %L', 'devguard_app_local');
   END IF;
 END
 $$;
