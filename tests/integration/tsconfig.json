@@ -16,6 +16,7 @@
     { "path": "../../packages/authorization" },
     { "path": "../../packages/security" },
     { "path": "../../packages/config" },
+    { "path": "../../packages/db" },
     { "path": "../../apps/api" },
     { "path": "../../apps/worker" }
   ]

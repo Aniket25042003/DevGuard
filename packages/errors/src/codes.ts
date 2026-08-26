@@ -316,6 +316,47 @@ export const FOUNDATION_ERROR_DESCRIPTORS = [
     retryClass: 'no_retry',
     safeMessage: 'Access to this artifact is not permitted.',
   },
+  // ---- Persistence foundation codes (C007/C008) ----
+  {
+    code: 'MIGRATION_CHECKSUM_MISMATCH',
+    category: 'persistence',
+    httpStatus: 409,
+    retryClass: 'no_retry',
+    // Applied migrations are immutable (C007 §9); changed SQL must ship as a new migration.
+    safeMessage: 'An applied database migration no longer matches its recorded checksum.',
+    detailSchema: z.object({
+      version: z.number().int().nonnegative(),
+      name: z.string().min(1).max(128),
+    }),
+  },
+  {
+    code: 'MIGRATION_DIRTY',
+    category: 'persistence',
+    httpStatus: 500,
+    retryClass: 'no_retry',
+    safeMessage:
+      'The database schema is in a failed migration state; operator recovery is required.',
+    detailSchema: z.object({
+      version: z.number().int().nonnegative(),
+    }),
+  },
+  {
+    code: 'IDEMPOTENCY_KEY_REUSED',
+    category: 'concurrency',
+    httpStatus: 409,
+    retryClass: 'no_retry',
+    safeMessage: 'This idempotency key was already used with a different request.',
+  },
+  {
+    code: 'SCHEMA_INCOMPATIBLE',
+    category: 'persistence',
+    httpStatus: 500,
+    retryClass: 'no_retry',
+    safeMessage: 'The deployed database schema is not compatible with this service version.',
+    detailSchema: z.object({
+      reason: z.string().min(1).max(128),
+    }),
+  },
 ] as const satisfies readonly ErrorDescriptor[];
 
 /** Known foundation codes as a literal union for ergonomic switches. */
