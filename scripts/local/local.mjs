@@ -112,7 +112,7 @@ async function waitContainerHealthy(project, service, deadlineMs) {
     if (Date.now() - startedAt > deadlineMs) {
       throw new Error(`${service} did not become healthy within ${deadlineMs}ms`);
     }
-    const probe = runCompose([], project, ['ps', '--format', 'json', service]);
+    const probe = runCompose(COMPOSE_LOCAL, project, ['ps', '--format', 'json', service]);
     if (
       probe.ok &&
       probe.stdout.includes(String.raw`"Health"`) &&
@@ -351,14 +351,16 @@ async function cmdUp() {
   const supervisor = new AppSupervisor();
   forwardSignals(supervisor);
   const apiEnv = {
+    ...env,
     RUN_SERVER: '1',
     PORT: String(appPorts.api),
     DATABASE_URL: env.DATABASE_URL,
     REDIS_URL: env.REDIS_URL,
   };
   supervisor.start('api', ['node', 'apps/api/dist/main.js'], apiEnv);
-  const workerEnv = { DATABASE_URL: env.DATABASE_URL, REDIS_URL: env.REDIS_URL };
-  supervisor.start('worker', ['node', 'apps/worker/dist/main.js'], workerEnv);
+  // Worker is scaffold-only and exits successfully; do not supervise it as persistent.
+  const workerEnv = { ...env, DATABASE_URL: env.DATABASE_URL, REDIS_URL: env.REDIS_URL };
+  void workerEnv;
   // apps/web is scaffold-only until C076+ starts landing; report truthfully.
   record(
     'STARTING_APPS',
