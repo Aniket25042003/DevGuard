@@ -106,13 +106,13 @@ function runCompose(files, project, action, extraArgs = []) {
   return runProbe(argv[0], argv.slice(1));
 }
 
-async function waitContainerHealthy(project, service, deadlineMs) {
+async function waitContainerHealthy(files, project, service, deadlineMs) {
   const startedAt = Date.now();
   for (;;) {
     if (Date.now() - startedAt > deadlineMs) {
       throw new Error(`${service} did not become healthy within ${deadlineMs}ms`);
     }
-    const probe = runCompose([], project, ['ps', '--format', 'json', service]);
+    const probe = runCompose(files, project, ['ps', '--format', 'json', service]);
     if (
       probe.ok &&
       probe.stdout.includes(String.raw`"Health"`) &&
@@ -315,8 +315,8 @@ async function cmdUp() {
   if (!deps.ok) process.exit(3);
   try {
     await Promise.all([
-      waitContainerHealthy(LOCAL_PROJECT, 'postgres', 60_000),
-      waitContainerHealthy(LOCAL_PROJECT, 'redis', 60_000),
+      waitContainerHealthy(COMPOSE_LOCAL, LOCAL_PROJECT, 'postgres', 60_000),
+      waitContainerHealthy(COMPOSE_LOCAL, LOCAL_PROJECT, 'redis', 60_000),
     ]);
     record('WAITING_FOR_DEPENDENCIES', 'passed', 'healthchecks green for postgres & redis');
   } catch (error) {
