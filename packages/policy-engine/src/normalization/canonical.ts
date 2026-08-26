@@ -77,7 +77,7 @@ export function effectiveLimits(
  * V1 schema itself (never defaulted).
  */
 export function normalizePolicyV1(validated: RepositoryPolicyV1): CanonicalPolicyDocument {
-  return Object.freeze({
+  return deepFreeze({
     schemaVersion: 1 as const,
     repository: { owner: validated.repository.owner, name: validated.repository.name },
     autonomy: { level: validated.autonomy.level },
@@ -98,6 +98,14 @@ export function normalizePolicyV1(validated: RepositoryPolicyV1): CanonicalPolic
     validation: Object.freeze({ obligations: sortedUnique(validated.validation.obligations) }),
     limits: Object.freeze(effectiveLimits(validated.limits)),
   });
+}
+
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);
+  }
+  return value;
 }
 
 /** Idempotence check per C023 §10: canonicalizing twice yields equal bytes. */
