@@ -130,7 +130,12 @@ export class PolicyDocumentService {
       schemaVersion: 1 as const,
       canonicalJson: params.activeVersion.canonicalJson,
       hash: params.activeVersion.hash,
-      bindings: Object.freeze({ ...params.bindings }),
+      bindings: Object.freeze({
+          ...params.bindings,
+          providerCapabilityVersions: Object.freeze({
+            ...params.bindings.providerCapabilityVersions,
+          }),
+        }),
       boundAt: (this.options.now ?? (() => new Date()))().toISOString(),
     });
   }
@@ -143,7 +148,7 @@ export class PolicyDocumentService {
     | { ok: false; report: PolicyValidationReport } {
     const report = new PolicyValidationReport();
     const decoder = new PolicyDecoder(report);
-    const decoded = decoder.decode(input.bytes);
+    const decoded = decoder.decode(input.bytes, input.formatHint);
     if (!decoded) return { ok: false, report };
 
     let parsed: RepositoryPolicyV1;

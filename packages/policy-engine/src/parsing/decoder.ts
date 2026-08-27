@@ -44,8 +44,17 @@ export class PolicyDecoder {
    * Decode untrusted bytes to a JSON-compatible document or record diagnostics.
    * Returns undefined when decoding failed.
    */
-  decode(source: Uint8Array | string): DecodedDocument | undefined {
-    const text = typeof source === 'string' ? source : Buffer.from(source).toString('utf8');
+  decode(source: Uint8Array | string, formatHint?: 'yaml' | 'json'): DecodedDocument | undefined {
+    let text: string;
+    if (typeof source === 'string') text = source;
+    else {
+      if (source.byteLength > DECODE_LIMITS.maxBytes) {
+        this.#report.add({ code: 'POLICY_TOO_LARGE', path: '', message: `policy exceeds ${DECODE_LIMITS.maxBytes} bytes` });
+        return undefined;
+      }
+      try { text = new TextDecoder('utf-8', { fatal: true }).decode(source); }
+      catch { this.#report.add({ code: 'POLICY_SYNTAX_INVALID', path: '', message: 'invalid UTF-8' }); return undefined; }
+    }
     if (Buffer.byteLength(text, 'utf8') > DECODE_LIMITS.maxBytes) {
       this.#report.add({
         code: 'POLICY_TOO_LARGE',
@@ -54,7 +63,7 @@ export class PolicyDecoder {
       });
       return undefined;
     }
-    const isJson = /^\s*[{}[]/.test(text);
+    const isJson = formatHint === 'json' || (formatHint !== 'yaml' && /^\s*[{}[]/.test(text));
     try {
       const raw = isJson ? JSON.parse(text) : this.#parseYamlSafely(text);
       if (!isPlainValue(raw)) {
