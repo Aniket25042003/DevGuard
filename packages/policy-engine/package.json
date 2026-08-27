@@ -18,7 +18,6 @@
   "dependencies": {
     "@devguard/contracts": "workspace:*",
     "@devguard/errors": "workspace:*",
-    "yaml": "2.6.1",
-    "zod": "^4.1.12"
+    "yaml": "2.6.1"
   }
 }

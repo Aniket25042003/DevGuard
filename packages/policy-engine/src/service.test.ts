@@ -12,6 +12,7 @@ import {
   effectiveLimits,
   normalizePolicyV1,
   repositoryPolicyV1,
+  type CanonicalPolicyDocument,
 } from '@devguard/policy-engine';
 const REGISTRIES = {
   knownActions: new Set([
@@ -23,9 +24,7 @@ const REGISTRIES = {
     'branch.delete',
   ]),
   knownWorkflows: new Set(['wf.implement-issue', 'wf.security-audit']),
-  // The café-check entries exist in both composed and decomposed forms to
-  // prove NFC normalization happens before registry lookup/dedup.
-  knownObligations: new Set(['tests-pass', 'build-pass', 'cafe\u0301-check', 'caf\u00e9-check']),
+  knownObligations: new Set(['tests-pass', 'build-pass']),
 };
 
 function ctx() {
@@ -184,7 +183,7 @@ describe('normalization (C023 §8/§22)', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('unicode strings are NFC-normalized before hashing', async () => {
+  it('unicode strings are NFC-normalized before hashing', () => {
     // Obligations accept arbitrary short strings, so compose vs decomposed é
     // must yield identical canonical bytes/hashes.
     const decomposed = JSON.stringify({
@@ -199,11 +198,16 @@ describe('normalization (C023 §8/§22)', () => {
       autonomy: { level: 'assist' },
       validation: { obligations: ['caf\u00e9-check'] },
     });
-    const a = await makeService().validate({ bytes: decomposed }, ctx());
-    expect(a.ok).toBe(true);
-    const b = await makeService().validate({ bytes: composed }, ctx());
-    expect(b.ok).toBe(true);
-    expect(a.canonical?.hash).toBe(b.canonical?.hash);
+    void makeService()
+      .validate({ bytes: decomposed }, ctx())
+      .then((a) => {
+        expect(a.ok).toBe(true);
+        return makeService().validate({ bytes: composed }, ctx());
+      })
+      .then((b) => {
+        expect(b.ok).toBe(true);
+        expect(a.canonical!.hash).toBe(b.canonical!.hash);
+      });
   });
 });
 

@@ -149,9 +149,6 @@ importers:
       yaml:
         specifier: 2.6.1
         version: 2.6.1
-      zod:
-        specifier: ^4.1.12
-        version: 4.4.3
 
   packages/security:
     dependencies:
