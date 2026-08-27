@@ -162,7 +162,7 @@ export function classify(
   ]);
   const inputFingerprint = createHash('sha256').update(fingerprintInput).digest('hex');
 
-  for (const rule of rules) {
+  for (const rule of [...rules].sort((a, b) => a.id.localeCompare(b.id))) {
     if (!rule.matches(context)) continue;
     // A matched escalation that requires trusted confirmation must be
     // verifiable — absence of those facts fails the WHOLE classification
