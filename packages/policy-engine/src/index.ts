@@ -172,3 +172,43 @@ export {
   type NormalizedEvent,
   type PolicyTriggerSnapshot,
 } from './invocation/matcher.js';
+
+// ---- C029 validation gates ----
+export {
+  DEFAULT_OBLIGATIONS,
+  EVIDENCE_STATUSES,
+  GATE_KINDS,
+  VALIDATOR_IDS_V1,
+  mergeObligations,
+  validationEvidence,
+  type EvidenceStatus,
+  type GateKind,
+  type ValidationEvidence,
+  type ValidationObligation,
+} from './validation-gates/schemas.js';
+export {
+  ValidationGateService,
+  type GateContext,
+  type GateOutcome,
+  type ObligationAssessment,
+} from './validation-gates/gates.js';
+
+// ---- C030 policy evaluator ----
+export {
+  EVALUATOR_VERSION,
+  PolicyEvaluationService,
+  DecisionStoreUnavailableError,
+  evaluatePrecedence,
+  inputFingerprint as evaluationInputFingerprint,
+  mergeSnapshotWithCurrent,
+  type AuthorizedActionToken,
+  type DecisionPersistencePort,
+  type DecisionEffect,
+  type EvaluationInput,
+  type EvaluationOutcome,
+  type EvaluationRequest,
+  type MatchedRule,
+  type PolicyDecisionRecord,
+  type RiskClass5,
+} from './evaluator/service.js';
+export type { EvaluationInput as PrecedenceEvaluationInput } from './evaluator/precedence.js';
