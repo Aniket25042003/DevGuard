@@ -290,6 +290,10 @@ export function buildRegistry(
       problems: readonly string[];
     } {
       const found: string[] = [];
+      for (const name of Object.keys(manifest.capabilities)) {
+        if (!entries.some((e) => e.tool.provider === manifest.provider && e.tool.providerToolName === name))
+          found.push(`unknown capability ${name}`);
+      }
       for (const entry of entries.filter((e) => e.tool.provider === manifest.provider)) {
         const declared = manifest.capabilities[entry.tool.providerToolName];
         if (declared === undefined) continue; // not offered this deployment
@@ -316,7 +320,7 @@ export function buildRegistry(
       const ok = found.length === 0 && versionStamp && hashValid;
       return {
         ok,
-        problems: ok ? [] : [...found, ...(versionStamp ? [] : ['malformed apiVersion'])],
+        problems: ok ? [] : [...found, ...(versionStamp ? [] : ['malformed apiVersion']), ...(hashValid ? [] : ['invalid manifestHash'])],
       };
     },
   };
@@ -326,8 +330,16 @@ export function buildRegistry(
 export function versionSatisfies(version: string, range: string): boolean {
   if (!semverish.test(version)) return false;
   const clean = range.trim();
-  if (clean.startsWith('^')) return sameMinor(version, clean.slice(1));
-  if (clean.startsWith('~')) return sameMajor(version, clean.slice(1));
+  if (clean.startsWith('^')) {
+    const base = parseSemver(clean.slice(1));
+    const v = parseSemver(version);
+    const upper = base[0] > 0 ? [base[0] + 1, 0, 0] : base[1] > 0 ? [0, base[1] + 1, 0] : [0, 0, base[2] + 1];
+    return compareSemver(version, clean.slice(1)) >= 0 && compareSemver(version, upper.join('.')) < 0;
+  }
+  if (clean.startsWith('~')) {
+    const base = parseSemver(clean.slice(1));
+    return compareSemver(version, clean.slice(1)) >= 0 && compareSemver(version, `${base[0]}.${base[1] + 1}.0`) < 0;
+  }
   if (clean.startsWith('>=')) return compareSemver(version, clean.slice(2)) >= 0;
   if (/^\d/.test(clean)) return compareSemver(version, clean) === 0;
   return false;
