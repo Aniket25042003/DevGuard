@@ -16,8 +16,9 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@devguard/contracts": "workspace:*",
     "@devguard/errors": "workspace:*",
     "@devguard/logging": "workspace:*",
-    "@devguard/contracts": "workspace:*"
+    "zod": "^4.1.12"
   }
 }

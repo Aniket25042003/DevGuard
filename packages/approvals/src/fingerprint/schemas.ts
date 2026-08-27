@@ -189,7 +189,7 @@ export function buildFingerprints(
   const actionJson = canonicalize(checkedAction);
   const actionFingerprint = sha256Hex(actionJson);
 
-  const normalizedReasonCodes = [...new Set(contextInput.risk.reasonCodes)].sort((a, b) =>
+  const normalizedReasonCodes: string[] = [...new Set(contextInput.risk.reasonCodes)].sort((a: string, b: string) =>
     a.localeCompare(b),
   );
   const validations = [...contextInput.validations].sort((a, b) => a.id.localeCompare(b.id));
