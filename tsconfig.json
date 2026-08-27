@@ -10,6 +10,7 @@
     { "path": "packages/security" },
     { "path": "packages/db" },
     { "path": "packages/test-harness" },
+    { "path": "packages/policy-engine" },
     { "path": "apps/api" },
     { "path": "apps/worker" },
     { "path": "apps/web" },
