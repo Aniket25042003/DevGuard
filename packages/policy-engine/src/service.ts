@@ -130,7 +130,10 @@ export class PolicyDocumentService {
       schemaVersion: 1 as const,
       canonicalJson: params.activeVersion.canonicalJson,
       hash: params.activeVersion.hash,
-      bindings: Object.freeze({ ...params.bindings }),
+      bindings: Object.freeze({
+          ...params.bindings,
+          providerCapabilityVersions: Object.freeze({ ...params.bindings.providerCapabilityVersions }),
+        }),
       boundAt: (this.options.now ?? (() => new Date()))().toISOString(),
     });
   }
@@ -170,7 +173,11 @@ export class PolicyDocumentService {
     | { created: true; record: PolicyVersionRecord }
     | { created: false; diagnostics: readonly PolicyDiagnostic[] }
   > {
-    const pipeline = this.#runPipeline(input.source, input.semanticContext);
+    const pipeline = this.#runPipeline(input.source, {
+      ...input.semanticContext,
+      expectedOwner: input.semanticContext.expectedOwner ?? (() => { throw new Error('repository owner binding required'); })(),
+      expectedName: input.semanticContext.expectedName ?? (() => { throw new Error('repository name binding required'); })(),
+    });
     if (!pipeline.ok) {
       return { created: false, diagnostics: pipeline.report.items };
     }
