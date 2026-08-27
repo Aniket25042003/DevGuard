@@ -28,14 +28,12 @@ function legal(from: string, trigger: ApprovalTrigger): boolean {
       ? {
           ...clock,
           contextMatchesBinding: false, // only used by mark-stale
-          cancellationCurrent: true,
-          externalEffectBegan: false,
           providerProvesNotStarted: true,
           leaseFenced: true,
           providerOutcomeVerified: trigger === 'execute-verified',
           stepsOneThroughSixPassed: true,
         }
-      : { ...clock, contextMatchesBinding: false, cancellationCurrent: true },
+      : { ...clock, contextMatchesBinding: false },
   );
   return verdict.allowed;
 }
