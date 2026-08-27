@@ -22,6 +22,7 @@
     "apps/web": "ui",
     "tests/integration": "test",
     "tests/e2e": "test",
+    "packages/test-harness": "test",
     "packages/security": "application",
     "packages/db": "persistence"
   },

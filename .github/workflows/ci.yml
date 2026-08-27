@@ -1,0 +1,169 @@
+name: ci
+
+# C099 §12 — deterministic quality gates. Same root commands as local dev;
+# frozen lockfile; minimal permissions; every job has a timeout; superseded
+# runs cancel under a per-PR concurrency key.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.sha }}-ci
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PNPM_VERSION: 10.10.0
+
+jobs:
+  changes:
+    name: ci / changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      affected: ${{ steps.scope.outputs.affected }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Compute affected scope
+        id: scope
+        run: |
+          # Path/ownership mapping lives at scripts/ci/scope.mjs; cross-cutting
+          # files (lockfile, configs, tooling, .github) force the full matrix.
+          node scripts/ci/scope.mjs "${{ github.event_name }}" >> "$GITHUB_OUTPUT"
+
+  install-integrity:
+    name: ci / install-integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [changes]
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - name: Frozen-lockfile install (first executable step)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+  typecheck:
+    name: ci / typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [install-integrity]
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm typecheck
+
+  lint:
+    name: ci / lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [install-integrity]
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm lint
+
+  format:
+    name: ci / format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [install-integrity]
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm format:check
+
+  build:
+    name: ci / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [install-integrity]
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm build
+
+  unit:
+    name: ci / unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [install-integrity, changes]
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      # DB-gated suites self-skip without DEGUARD_TEST_DATABASE_URL; they are
+      # enforced by the `ci / integration` gate which provisions services.
+      - run: pnpm test
+
+  required:
+    name: ci / required
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [changes, install-integrity, typecheck, lint, format, build, unit]
+    if: always()
+    steps:
+      - name: Aggregate gate for branch protection
+        run: |
+          failed=0
+          for result in \
+            "changes:${{ needs.changes.result }}" \
+            "install-integrity:${{ needs.install-integrity.result }}" \
+            "typecheck:${{ needs.typecheck.result }}" \
+            "lint:${{ needs.lint.result }}" \
+            "format:${{ needs.format.result }}" \
+            "build:${{ needs.build.result }}" \
+            "unit:${{ needs.unit.result }}"; do
+            name="${result%%:*}"; status="${result##*:}"
+            echo "$name -> $status"
+            case "$status" in success|skipped) ;; *) failed=1 ;; esac
+          done
+          exit $failed

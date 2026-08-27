@@ -1,0 +1,38 @@
+# DevGuard disposable test services (C096/C098).
+#
+# Isolated from developer data by construction: separate project name, tmpfs
+# storage (nothing survives restart), dedicated loopback ports. CI uses this
+# profile non-interactively.
+name: devguard-test
+
+services:
+  postgres:
+    image: postgres:17.5-alpine
+    container_name: devguard-test-postgres
+    environment:
+      POSTGRES_USER: devguard_test
+      POSTGRES_PASSWORD: devguard_test_local
+      POSTGRES_DB: devguard_test
+    # tmpfs data dir: teardown-on-failure and repeat runs cannot leak rows.
+    tmpfs:
+      - /var/lib/postgresql/data
+    ports:
+      - '127.0.0.1:25432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U devguard_test -d devguard_test']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 5s
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: devguard-test-redis
+    command: ['redis-server', '--save', '', '--appendonly', 'no']
+    ports:
+      - '127.0.0.1:26379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 24

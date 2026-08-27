@@ -150,6 +150,15 @@ importers:
         specifier: ^4.1.12
         version: 4.4.3
 
+  packages/test-harness:
+    dependencies:
+      '@devguard/db':
+        specifier: workspace:*
+        version: link:../db
+      '@devguard/errors':
+        specifier: workspace:*
+        version: link:../errors
+
   tests/e2e:
     dependencies:
       '@devguard/api':
@@ -212,9 +221,15 @@ importers:
       '@devguard/security':
         specifier: workspace:*
         version: link:../../packages/security
+      '@devguard/test-harness':
+        specifier: workspace:*
+        version: link:../../packages/test-harness
       '@devguard/worker':
         specifier: workspace:*
         version: link:../../apps/worker
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
 
 packages:
 
