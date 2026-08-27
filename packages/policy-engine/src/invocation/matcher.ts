@@ -127,7 +127,11 @@ export class TriggerMatcher {
       const last = context.lastInvocationAtByRule?.get(`${rule.ruleId}|${event.resourceIdentity}`);
       return last !== undefined && now - last < rule.cooldownSeconds * 1000;
     });
-    if (cooldownBlocked) {
+    const eligible = matching.filter((rule) => {
+        const last = context.lastInvocationAtByRule?.get(`${rule.ruleId}|${event.resourceIdentity}`);
+        return last === undefined || now - last >= rule.cooldownSeconds * 1000;
+      });
+      if (eligible.length === 0 && cooldownBlocked) {
       return {
         outcome: 'REJECTED',
         reasonCode: 'COOLDOWN_ACTIVE',
@@ -140,7 +144,7 @@ export class TriggerMatcher {
     // while every contributing rule ID is retained for audit.
     const byWorkflow = new Map<string, { ruleIds: string[]; rule: TriggerRule }>();
     let fanOutCap = Number.MAX_SAFE_INTEGER;
-    for (const rule of matching) {
+    for (const rule of eligible) {
       fanOutCap = Math.min(fanOutCap, rule.maxFanOut);
       const existing = byWorkflow.get(rule.workflowId);
       if (existing) {
