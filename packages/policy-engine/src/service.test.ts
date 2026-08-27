@@ -24,7 +24,7 @@ const REGISTRIES = {
     'branch.delete',
   ]),
   knownWorkflows: new Set(['wf.implement-issue', 'wf.security-audit']),
-  knownObligations: new Set(['tests-pass', 'build-pass']),
+  knownObligations: new Set(['tests-pass', 'build-pass', 'cafe\u0301-check', 'caf\u00e9-check']),
 };
 
 function ctx() {
@@ -198,16 +198,11 @@ describe('normalization (C023 §8/§22)', () => {
       autonomy: { level: 'assist' },
       validation: { obligations: ['caf\u00e9-check'] },
     });
-    void makeService()
-      .validate({ bytes: decomposed }, ctx())
-      .then((a) => {
-        expect(a.ok).toBe(true);
-        return makeService().validate({ bytes: composed }, ctx());
-      })
-      .then((b) => {
-        expect(b.ok).toBe(true);
-        expect(a.canonical!.hash).toBe(b.canonical!.hash);
-      });
+    const a = await makeService().validate({ bytes: decomposed }, ctx());
+    expect(a.ok).toBe(true);
+    const b = await makeService().validate({ bytes: composed }, ctx());
+    expect(b.ok).toBe(true);
+    expect(a.canonical?.hash).toBe(b.canonical?.hash);
   });
 });
 
