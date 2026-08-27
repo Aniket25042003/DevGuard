@@ -353,7 +353,8 @@ function tokenize(input: string): string[] | undefined {
     const char = input[i];
     if (quote) {
       if (char === quote) quote = undefined;
-      else current += char;
+      else if (quote === '"' && (char === '$' || char === '`')) return undefined;
+        else current += char;
       continue;
     }
     if (char === '"' || char === "'") {
