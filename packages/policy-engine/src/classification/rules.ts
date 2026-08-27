@@ -157,8 +157,8 @@ export function classify(
     // Only stable projections of facts enter the fingerprint: kind + version,
     // never raw values that may contain timestamps of fetch alone.
     context.facts
-        .map((f) => [f.kind, f.value, f.provenance.source, f.provenance.version ?? null])
-        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      .map((f) => [f.kind, f.value, f.provenance.source, f.provenance.version ?? null])
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
   ]);
   const inputFingerprint = createHash('sha256').update(fingerprintInput).digest('hex');
 

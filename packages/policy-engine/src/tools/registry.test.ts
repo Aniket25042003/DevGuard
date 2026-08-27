@@ -2,6 +2,7 @@
  * C024 §22 — taxonomy completeness, registry build validation, resolution
  * matrix, capability drift, and SANDBOX_ONLY obligation semantics.
  */
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
 import {
@@ -110,12 +111,13 @@ describe('resolve() decision matrix (C024 §22)', () => {
     ]);
   }
   const VALID = { ref: 'main' };
+  const VERSION = { capabilityVersion: '1.2.0' };
 
   it('enabled+unique+valid input emits typed action with metadata', () => {
     const result = make().resolve({
       provider: 'trueforge_mcp',
       toolName: 'github_read_issues',
-      capabilityVersion: '1.2.0',
+      ...VERSION,
       payload: VALID,
     });
     expect(result.outcome).toBe('RESOLVED');
@@ -147,10 +149,20 @@ describe('resolve() decision matrix (C024 §22)', () => {
     expect(PROVIDER_IDS).not.toContain('rogue_provider');
   });
 
+  it('missing capabilityVersion denies incompatible (verified versions required)', () => {
+    const result = make().resolve({
+      provider: 'trueforge_mcp',
+      toolName: 'github_read_issues',
+      payload: VALID,
+    });
+    expect(result).toMatchObject({ outcome: 'DENIED_INCOMPATIBLE' });
+  });
+
   it('invalid input denies with field errors, never a guessed pass', () => {
     const result = make().resolve({
       provider: 'trueforge_mcp',
       toolName: 'github_read_issues',
+      ...VERSION,
       payload: { ref: 123 },
     });
     expect(result.outcome).toBe('DENIED_INVALID_INPUT');
@@ -176,6 +188,7 @@ describe('resolve() decision matrix (C024 §22)', () => {
     const resolved = registry.resolve({
       provider: 'trueforge_mcp',
       toolName: 'merge_pr',
+      ...VERSION,
       payload: {},
     });
     expect(resolved.outcome).toBe('RESOLVED');
@@ -203,13 +216,26 @@ describe('workflow-filtered exposure (least privilege)', () => {
 });
 
 describe('capability verification & drift (REG-CONTRACT-001 basis)', () => {
+  /** Canonical manifest hash per verifyCapabilities' pinning contract. */
+  function manifestHash(capabilities: Record<string, string>, apiVersion = '2026-01-01'): string {
+    return createHash('sha256')
+      .update(
+        JSON.stringify({
+          provider: 'trueforge_mcp',
+          apiVersion,
+          capabilities: Object.fromEntries(Object.entries(capabilities).sort()),
+        }),
+      )
+      .digest('hex');
+  }
+
   it('verifies compatible manifests and flags drifted versions', () => {
     const registry = buildRegistry([tool('t1', 'issue_read')]);
     const good = registry.verifyCapabilities({
       provider: 'trueforge_mcp',
       apiVersion: '2026-01-01',
       capabilities: { t1: '1.4.2' },
-      manifestHash: 'hash-1',
+      manifestHash: manifestHash({ t1: '1.4.2' }),
     });
     expect(good.ok).toBe(true);
 
@@ -217,10 +243,19 @@ describe('capability verification & drift (REG-CONTRACT-001 basis)', () => {
       provider: 'trueforge_mcp',
       apiVersion: '2026-01-01',
       capabilities: { t1: '2.0.0' },
-      manifestHash: 'hash-2',
+      manifestHash: manifestHash({ t1: '2.0.0' }),
     });
     expect(drifted.ok).toBe(false);
     expect(drifted.problems.join()).toContain('drift');
+
+    // A tampered hash fails closed even when every version matches.
+    const tampered = registry.verifyCapabilities({
+      provider: 'trueforge_mcp',
+      apiVersion: '2026-01-01',
+      capabilities: { t1: '1.4.2' },
+      manifestHash: 'hash-tampered',
+    });
+    expect(tampered.ok).toBe(false);
   });
 });
 

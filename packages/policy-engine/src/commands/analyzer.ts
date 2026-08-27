@@ -1,4 +1,4 @@
-*
+/**
  * C026 §8/§17/§22 — sandbox command proposals and the deterministic
  * CommandRiskAnalyzer.
  *
@@ -84,7 +84,7 @@ export interface CommandClassification {
 
 const SANDBOX_OBLIGATIONS = ['sandbox_only', 'timeout_required'] as const;
 
-* Commands that permanently delete, escalate privilege, or rewrite history. */
+/** Commands that permanently delete, escalate privilege, or rewrite history. */
 interface StructuralFinding {
   readonly ruleId: string;
   readonly explanation: string;
@@ -252,7 +252,7 @@ function classifySimple(executable: string, argv: readonly string[]): CommandCla
       classes.add(sub === 'typecheck' || sub === 'lint' ? 'READ_ONLY' : 'BUILD_TEST');
     else if (sub === 'install' || sub === 'add' || sub === 'ci') classes.add('PACKAGE_INSTALL');
     else if (['build', 'run', 'compile'].includes(sub)) classes.add('BUILD_TEST');
-      else classes.add('UNKNOWN');
+    else classes.add('UNKNOWN');
   } else {
     switch (executable) {
       case 'cat':
@@ -263,14 +263,15 @@ function classifySimple(executable: string, argv: readonly string[]): CommandCla
       case 'rg':
       case 'find':
       case 'wc':
-      case 'git': {
+      case 'git':
+        {
           const sub = (argv[0] ?? '').toLowerCase();
           if (['status', 'log', 'diff', 'show', 'branch', 'remote', 'rev-parse'].includes(sub))
             classes.add('READ_ONLY');
           else classes.add('UNKNOWN');
           break;
         }
-        
+
         classes.add('READ_ONLY');
         break;
       case 'curl':
@@ -291,7 +292,7 @@ function classifySimple(executable: string, argv: readonly string[]): CommandCla
   return [...classes];
 }
 
-*
+/**
  * Conservative shell-mode analysis: splits on top-level `;`/newline into
  * simple segments; each must be a plain single pipeline of simple words with
  * optional safe pipes (`|`) where BOTH sides classify; everything else is
@@ -343,7 +344,7 @@ export function analyzeShellSource(source: string): {
   return { segments: [{ executable: String(words[0]), argv: words.slice(1) }], unsupported: false };
 }
 
-* Whitespace tokenizer that honors quotes but treats expansions as opaque. */
+/** Whitespace tokenizer that honors quotes but treats expansions as opaque. */
 function tokenize(input: string): string[] | undefined {
   const words: string[] = [];
   let current = '';
@@ -379,7 +380,7 @@ function tokenize(input: string): string[] | undefined {
 }
 
 export interface CommandAnalysisContext {
-  * Trusted manifest snapshot: repository script name → resolved command hash. */
+  /** Trusted manifest snapshot: repository script name → resolved command hash. */
   readonly knownScriptHashes?: Readonly<Record<string, string>> | undefined;
 }
 
