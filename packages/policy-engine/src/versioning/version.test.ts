@@ -14,6 +14,7 @@ const DOC = `schemaVersion: 1
 repository: { owner: octo, name: app }
 autonomy: { level: developer }
 `;
+// Tests below bind versions to octo/app via semanticContext.
 
 const REGISTRIES = {
   knownActions: new Set<string>(['issue.read']),
@@ -92,7 +93,7 @@ describe('PolicyDocumentService.createVersion/activate', () => {
       source: { bytes: DOC },
       repositoryId: '11111111-1111-4111-8111-111111111111',
       createdBy: 'user-1',
-      semanticContext: { registries: REGISTRIES },
+      semanticContext: { registries: REGISTRIES, expectedOwner: 'octo', expectedName: 'app' },
     });
     expect(result.created).toBe(true);
     if (result.created) {
@@ -117,13 +118,13 @@ describe('PolicyDocumentService.createVersion/activate', () => {
       source: { bytes: DOC },
       repositoryId: '22222222-2222-4222-8222-222222222222',
       createdBy: 'u',
-      semanticContext: { registries: REGISTRIES },
+      semanticContext: { registries: REGISTRIES, expectedOwner: 'octo', expectedName: 'app' },
     });
     const replay = await makeSvc().createVersion({
       source: { bytes: DOC },
       repositoryId: '22222222-2222-4222-8222-222222222222',
       createdBy: 'u',
-      semanticContext: { registries: REGISTRIES },
+      semanticContext: { registries: REGISTRIES, expectedOwner: 'octo', expectedName: 'app' },
     });
     expect(first.created && replay.created).toBe(true);
     if (first.created && replay.created) {
@@ -143,7 +144,7 @@ describe('PolicyDocumentService.createVersion/activate', () => {
       source: { bytes: DOC },
       repositoryId: '33333333-3333-4333-8333-333333333333',
       createdBy: 'u',
-      semanticContext: { registries: REGISTRIES },
+      semanticContext: { registries: REGISTRIES, expectedOwner: 'octo', expectedName: 'app' },
     });
     if (!created.created) throw new Error('expected creation to succeed');
     const repoId = '33333333-3333-4333-8333-333333333333';
