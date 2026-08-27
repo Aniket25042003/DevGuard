@@ -227,6 +227,9 @@ importers:
       '@devguard/worker':
         specifier: workspace:*
         version: link:../../apps/worker
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
 
 packages:
 

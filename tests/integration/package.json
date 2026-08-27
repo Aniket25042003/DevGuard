@@ -22,6 +22,7 @@
     "@devguard/errors": "workspace:*",
     "@devguard/security": "workspace:*",
     "@devguard/test-harness": "workspace:*",
-    "@devguard/worker": "workspace:*"
+    "@devguard/worker": "workspace:*",
+    "zod": "^4.1.12"
   }
 }
