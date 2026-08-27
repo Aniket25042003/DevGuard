@@ -128,10 +128,10 @@ export class TriggerMatcher {
       return last !== undefined && now - last < rule.cooldownSeconds * 1000;
     });
     const eligible = matching.filter((rule) => {
-        const last = context.lastInvocationAtByRule?.get(`${rule.ruleId}|${event.resourceIdentity}`);
-        return last === undefined || now - last >= rule.cooldownSeconds * 1000;
-      });
-      if (eligible.length === 0 && cooldownBlocked) {
+      const last = context.lastInvocationAtByRule?.get(`${rule.ruleId}|${event.resourceIdentity}`);
+      return last === undefined || now - last >= rule.cooldownSeconds * 1000;
+    });
+    if (eligible.length === 0 && cooldownBlocked) {
       return {
         outcome: 'REJECTED',
         reasonCode: 'COOLDOWN_ACTIVE',

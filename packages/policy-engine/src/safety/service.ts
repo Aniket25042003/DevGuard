@@ -68,7 +68,12 @@ export class SafetyConstraintService {
           [...floorIndex.keys()].sort(),
           ...(['assist', 'developer', 'trusted', 'autonomous'] as const).map((level) => {
             const profile = AUTONOMY_PROFILES[level];
-            return [level, [...profile.automaticActions].sort(), [...profile.approvalRequiredActions].sort(), [...profile.deniedActions].sort()];
+            return [
+              level,
+              [...profile.automaticActions].sort(),
+              [...profile.approvalRequiredActions].sort(),
+              [...profile.deniedActions].sort(),
+            ];
           }),
         ]),
       )
