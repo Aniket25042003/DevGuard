@@ -43,9 +43,9 @@ export type ApprovalActionV1 = z.infer<typeof approvalActionV1>;
 export const validationEvidenceRef = z
   .object({
     id: z.string().min(1).max(64),
-    configDigest: shaPattern,
+    configDigest: z.string().regex(shaPattern),
     status: z.enum(['SATISFIED', 'BLOCKED', 'UNKNOWN', 'NOT_APPLICABLE']),
-    evidenceDigest: shaPattern,
+    evidenceDigest: z.string().regex(shaPattern),
     subjectSha: z.string().min(6).max(128),
   })
   .strict();
@@ -53,7 +53,7 @@ export const validationEvidenceRef = z
 export const approvalContextV1 = z
   .object({
     schemaVersion: z.literal('approval-context/v1'),
-    actionFingerprint: shaPattern,
+    actionFingerprint: z.string().regex(shaPattern),
     workflow: z
       .object({
         runId: z.string().min(26).max(36),
@@ -111,7 +111,7 @@ export const approvalContextV1 = z
           .object({
             type: z.string().min(1).max(32),
             id: z.string().min(1).max(128),
-            digest: shaPattern,
+            digest: z.string().regex(shaPattern),
           })
           .strict(),
       )
