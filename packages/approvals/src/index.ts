@@ -65,3 +65,29 @@ export {
   type ValidityPersistencePort,
   type ValidityPurpose,
 } from './application/validity.js';
+
+export {
+  EXECUTION_STEPS,
+  PrivilegedExecutionService,
+  type C034Ports,
+  type CurrentPolicyEvaluation,
+  type CurrentTargetObservation,
+  type ExecutionResult,
+  type ExecutionStep,
+  type ExecutorOutcome,
+  type ExecutionPersistencePort,
+  type OutcomeVerifierPort,
+  type PrivilegedApprovalRecord,
+  type Step7Executor,
+  type StepEvidence,
+} from './application/execution.js';
+export {
+  ApprovalResumeCoordinator,
+  RESUME_INTENT_KINDS,
+  RESUME_INTENT_STATES,
+  intentForStatus,
+  type ResumeDispatchPort,
+  type ResumeIntentKind,
+  type ResumeIntentState,
+  type RuntimeLink,
+} from './application/resume-sync.js';
