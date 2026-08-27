@@ -20,6 +20,8 @@
     "@devguard/contracts": "workspace:*",
     "@devguard/db": "workspace:*",
     "@devguard/errors": "workspace:*",
+    "@devguard/logging": "workspace:*",
+    "@devguard/queue": "workspace:*",
     "@devguard/security": "workspace:*",
     "@devguard/test-harness": "workspace:*",
     "@devguard/worker": "workspace:*",

@@ -24,6 +24,8 @@
     "tests/e2e": "test",
     "packages/test-harness": "test",
     "packages/policy-engine": "application",
+    "packages/queue": "application",
+    "packages/logging": "application",
     "packages/security": "application",
     "packages/db": "persistence"
   },
