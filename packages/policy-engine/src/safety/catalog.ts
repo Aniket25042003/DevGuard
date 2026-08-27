@@ -96,39 +96,9 @@ export interface AutonomyProfile {
   readonly deniedActions: ReadonlySet<string>;
 }
 
-class ImmutableSet implements ReadonlySet<string> {
-  readonly [Symbol.toStringTag] = 'Set';
-  readonly #values: Set<string>;
-
-  constructor(values: readonly string[]) {
-    this.#values = new Set(values);
-  }
-
-  get size(): number {
-    return this.#values.size;
-  }
-  has(value: string): boolean {
-    return this.#values.has(value);
-  }
-  entries(): IterableIterator<[string, string]> {
-    return this.#values.entries();
-  }
-  keys(): IterableIterator<string> {
-    return this.#values.keys();
-  }
-  values(): IterableIterator<string> {
-    return this.#values.values();
-  }
-  forEach(callbackfn: (value: string, value2: string, set: ReadonlySet<string>) => void): void {
-    this.#values.forEach((value) => callbackfn(value, value, this));
-  }
-  [Symbol.iterator](): IterableIterator<string> {
-    return this.values();
-  }
-}
-
+/** Frozen set: mutation attempts throw at runtime, type forbids them statically. */
 function set(values: readonly string[]): ReadonlySet<string> {
-  return Object.freeze(new ImmutableSet(values));
+  return Object.freeze(new Set(values));
 }
 
 const READ_ACTIONS = set([
