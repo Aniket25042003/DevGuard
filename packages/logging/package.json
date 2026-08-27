@@ -1,0 +1,21 @@
+{
+  "name": "@devguard/logging",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Structured correlated operational logging (C061): canonical record schema, context propagation across async boundaries, redaction by path plus secret-pattern defense-in-depth, safe error serialization.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/errors": "workspace:*"
+  }
+}
