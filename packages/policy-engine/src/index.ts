@@ -125,3 +125,50 @@ export {
   type CommandClassification,
   type SandboxCommandProposal,
 } from './commands/analyzer.js';
+
+// ---- C027 global safety + autonomy ceilings ----
+export {
+  AUTONOMY_PROFILES,
+  GLOBAL_RULES,
+  GLOBAL_SAFETY_VERSION,
+  RESTRICTION_SOURCES,
+  profileForLevel,
+  type AutonomyProfile,
+  type GlobalRule,
+  type Restriction,
+  type RestrictionSource,
+  type SafetyCatalogSnapshot,
+} from './safety/catalog.js';
+export {
+  restrictionRank,
+  SafetyCatalogError,
+  SafetyConstraintService,
+  type ClassifiedActionRef,
+} from './safety/service.js';
+
+// ---- C028 invocation policy ----
+export {
+  INVOCATION_REGISTRY_VERSION,
+  MANUAL_COMMANDS_V1,
+  TRIGGER_IDS_V1,
+  WORKFLOW_IDS_V1,
+  normalizeWorkflowId,
+  triggerFilter,
+  type ManualCommandDefinition,
+  type TriggerFilter,
+  type TriggerIdV1,
+  type TriggerRule,
+  type WorkflowIdResult,
+  type WorkflowIdV1,
+} from './invocation/registry.js';
+export {
+  invocationDedupeKey,
+  ManualCommandRegistry,
+  TriggerMatcher,
+  type ManualCommandRequest,
+  type ManualResult,
+  type MatchedCandidate,
+  type MatchResult,
+  type NormalizedEvent,
+  type PolicyTriggerSnapshot,
+} from './invocation/matcher.js';
