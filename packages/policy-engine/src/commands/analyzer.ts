@@ -354,7 +354,7 @@ function tokenize(input: string): string[] | undefined {
     if (quote) {
       if (char === quote) quote = undefined;
       else if (quote === '"' && (char === '$' || char === '`')) return undefined;
-        else current += char;
+      else current += char;
       continue;
     }
     if (char === '"' || char === "'") {

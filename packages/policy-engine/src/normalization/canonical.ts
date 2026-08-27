@@ -90,9 +90,9 @@ export function normalizePolicyV1(validated: RepositoryPolicyV1): CanonicalPolic
   return deepFreeze({
     schemaVersion: 1 as const,
     repository: {
-        owner: validated.repository.owner.toLowerCase(),
-        name: validated.repository.name.toLowerCase(),
-      },
+      owner: validated.repository.owner.toLowerCase(),
+      name: validated.repository.name.toLowerCase(),
+    },
     autonomy: { level: validated.autonomy.level },
     triggers: Object.freeze(
       Object.fromEntries(

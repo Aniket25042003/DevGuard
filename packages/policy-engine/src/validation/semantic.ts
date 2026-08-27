@@ -94,7 +94,11 @@ function validateRepositoryMatch(
   context: SemanticContext,
 ): void {
   if ((context.expectedOwner === undefined) !== (context.expectedName === undefined)) {
-    report.add({ code: 'POLICY_CONFLICT', path: 'repository', message: 'expected repository owner and name must be provided together' });
+    report.add({
+      code: 'POLICY_CONFLICT',
+      path: 'repository',
+      message: 'expected repository owner and name must be provided together',
+    });
     return;
   }
   if (context.expectedOwner !== undefined && context.expectedName !== undefined) {
