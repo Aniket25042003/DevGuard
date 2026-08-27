@@ -161,8 +161,10 @@ export function resolveEdge(
     };
   }
 
-  const nowMs = context.nowMs;
-  const expiresAtMs = context.expiresAtMs;
+  // Partial context keeps call sites flexible; missing mandatory clock data
+  // degrades to a conservative refusal domain.
+  const nowMs = context.nowMs ?? 0;
+  const expiresAtMs = context.expiresAtMs ?? Number.MAX_SAFE_INTEGER;
   // Trigger-specific guards (C031 §9 table).
   switch (trigger) {
     case 'approve':

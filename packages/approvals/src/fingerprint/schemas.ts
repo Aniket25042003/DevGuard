@@ -7,14 +7,16 @@
  * ANY mutation changes the digest (mutation matrix tested exhaustively).
  */
 import { z } from 'zod';
-import { ActionType } from '@devguard/contracts';
 import { canonicalize, sha256Hex } from './canonical.js';
 
 const isoSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/; // RFC3339 seconds precision
-const validIsoSeconds = z.string().regex(isoSeconds).refine((value) => {
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
-}, 'expiry must be a valid UTC timestamp');
+const validIsoSeconds = z
+  .string()
+  .regex(isoSeconds)
+  .refine((value) => {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
+  }, 'expiry must be a valid UTC timestamp');
 const shaPattern = /^[0-9a-f]{64}$/;
 
 export const approvalActionV1 = z
@@ -24,7 +26,7 @@ export const approvalActionV1 = z
       .string()
       .min(1)
       .max(64)
-      .pipe(ActionType),
+      .regex(/^[a-z][a-z0-9_.]*$/),
     tool: z
       .object({ id: z.string().min(1).max(128), registryVersion: z.string().min(1).max(64) })
       .strict(),
@@ -48,9 +50,9 @@ export type ApprovalActionV1 = z.infer<typeof approvalActionV1>;
 export const validationEvidenceRef = z
   .object({
     id: z.string().min(1).max(64),
-    configDigest: shaPattern,
+    configDigest: z.string().regex(shaPattern),
     status: z.enum(['SATISFIED', 'BLOCKED', 'UNKNOWN', 'NOT_APPLICABLE']),
-    evidenceDigest: shaPattern,
+    evidenceDigest: z.string().regex(shaPattern),
     subjectSha: z.string().min(6).max(128),
   })
   .strict();
@@ -58,7 +60,7 @@ export const validationEvidenceRef = z
 export const approvalContextV1 = z
   .object({
     schemaVersion: z.literal('approval-context/v1'),
-    actionFingerprint: shaPattern,
+    actionFingerprint: z.string().regex(shaPattern),
     workflow: z
       .object({
         runId: z.string().min(26).max(36),
@@ -116,7 +118,7 @@ export const approvalContextV1 = z
           .object({
             type: z.string().min(1).max(32),
             id: z.string().min(1).max(128),
-            digest: shaPattern,
+            digest: z.string().regex(shaPattern),
           })
           .strict(),
       )
@@ -183,11 +185,10 @@ export function buildFingerprints(
     ...actionInput,
     schemaVersion: 'approval-action/v1',
   });
-  const checkedContextTemplate = ({
+  const checkedContextTemplate = approvalContextV1.parse({
     ...contextInput,
     schemaVersion: 'approval-context/v1',
-  }) as ApprovalContextV1;
-  void checkedContextTemplate;
+  });
   const operation = structuredClone(checkedAction.operation);
   assertNoSecrets(operation);
 
