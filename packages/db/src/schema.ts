@@ -8,6 +8,7 @@
 import { makeError } from '@devguard/errors';
 import type { DevGuardPool } from './pool.js';
 import { sqlStateOf } from './sql.js';
+import { loadMigrationSources, parseMigrations, resolveMigrationsDir } from './migrations/list.js';
 
 export async function assertSchemaCompatible(pool: DevGuardPool): Promise<void> {
   let versions: number[];
@@ -38,8 +39,12 @@ export async function assertSchemaCompatible(pool: DevGuardPool): Promise<void> 
     throw incompatible('database has recorded migration failures (dirty state)');
   }
 
-  // Reject future schema versions the binary does not know about.
-  const KNOWN_MAX_VERSION = 2; // update when new migrations ship
+  // Reject future schema versions the binary does not know about. Derived
+  // from the packaged migration files so appending 00N_x.sql updates this
+  // automatically instead of relying on someone editing a constant here.
+  const KNOWN_MAX_VERSION: number = parseMigrations(
+    loadMigrationSources(resolveMigrationsDir()),
+  ).reduce((max, migration) => Math.max(max, migration.version), 0);
   const latestApplied: number = versions.length > 0 ? (versions[versions.length - 1] ?? 0) : 0;
   if (latestApplied > KNOWN_MAX_VERSION) {
     throw incompatible(

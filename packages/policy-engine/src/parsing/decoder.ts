@@ -47,20 +47,28 @@ export class PolicyDecoder {
   decode(source: Uint8Array | string, formatHint?: 'yaml' | 'json'): DecodedDocument | undefined {
     this.#nodeBudget = DECODE_LIMITS.maxNodes;
     let text: string;
-      if (typeof source === 'string') {
-        text = source;
-      } else {
-        if (source.byteLength > DECODE_LIMITS.maxBytes) {
-          this.#report.add({ code: 'POLICY_TOO_LARGE', path: '', message: `policy exceeds ${DECODE_LIMITS.maxBytes} bytes` });
-          return undefined;
-        }
-        try {
-          text = new TextDecoder('utf-8', { fatal: true }).decode(source);
-        } catch {
-          this.#report.add({ code: 'POLICY_SYNTAX_INVALID', path: '', message: 'invalid UTF-8 encoding' });
-          return undefined;
-        }
+    if (typeof source === 'string') {
+      text = source;
+    } else {
+      if (source.byteLength > DECODE_LIMITS.maxBytes) {
+        this.#report.add({
+          code: 'POLICY_TOO_LARGE',
+          path: '',
+          message: `policy exceeds ${DECODE_LIMITS.maxBytes} bytes`,
+        });
+        return undefined;
       }
+      try {
+        text = new TextDecoder('utf-8', { fatal: true }).decode(source);
+      } catch {
+        this.#report.add({
+          code: 'POLICY_SYNTAX_INVALID',
+          path: '',
+          message: 'invalid UTF-8 encoding',
+        });
+        return undefined;
+      }
+    }
     if (Buffer.byteLength(text, 'utf8') > DECODE_LIMITS.maxBytes) {
       this.#report.add({
         code: 'POLICY_TOO_LARGE',

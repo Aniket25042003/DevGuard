@@ -131,9 +131,11 @@ export class PolicyDocumentService {
       canonicalJson: params.activeVersion.canonicalJson,
       hash: params.activeVersion.hash,
       bindings: Object.freeze({
-          ...params.bindings,
-          providerCapabilityVersions: Object.freeze({ ...params.bindings.providerCapabilityVersions }),
+        ...params.bindings,
+        providerCapabilityVersions: Object.freeze({
+          ...params.bindings.providerCapabilityVersions,
         }),
+      }),
       boundAt: (this.options.now ?? (() => new Date()))().toISOString(),
     });
   }

@@ -10,14 +10,14 @@ import {
   OutboxWriter,
   createPool,
   createUnitOfWork,
-  runMigrations,
   uuidv7,
   type DevGuardPool,
   type OutboxRecord,
   type UnitOfWork,
 } from '@devguard/db';
 import { type DevGuardError } from '@devguard/errors';
-import { TEST_DATABASE_URL } from './db-harness.js';
+import { requireDatabaseUrl } from './db-harness.js';
+import { provisionDatabase, teardownDatabase } from '@devguard/test-harness';
 
 const describeDb = process.env.DEGUARD_TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -42,9 +42,16 @@ async function countPendingEvents(): Promise<number> {
   return Number(rows[0]?.n ?? '0');
 }
 
+const LEASED_DB = `dg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
 beforeAll(async () => {
-  pool = createPool({ connectionString: TEST_DATABASE_URL, max: 5 });
-  await runMigrations(pool);
+  // C096 isolation: dedicated leased database per suite/worker.
+  const handle = await provisionDatabase({
+    adminUrl: requireDatabaseUrl(),
+    databaseName: LEASED_DB,
+  });
+  await handle.pool.drain();
+  pool = createPool({ connectionString: handle.url, max: 5 });
   uow = createUnitOfWork(pool);
   writer = new OutboxWriter();
   repository = new OutboxRepository(pool);
@@ -52,6 +59,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await pool?.drain();
+  await teardownDatabase(requireDatabaseUrl(), LEASED_DB);
 });
 
 describeDb('C008 transactional outbox', () => {
@@ -143,10 +151,11 @@ describeDb('C008 transactional outbox', () => {
       await holderDone;
     }
 
-    // Once the holder rolls back, everything is claimable again.
-    const all = await repository.claim(20, 60_000, 'worker-c');
-    expect(all.length).toBeGreaterThanOrEqual(before);
-    for (const record of all) {
+    // Once the holder rolls back, exactly ITS two locked rows become
+    // claimable again: worker-b's claims keep valid leases for their TTL.
+    const released = await repository.claim(20, 60_000, 'worker-c');
+    expect(released.length).toBe(2);
+    for (const record of released) {
       expect(record.rowVersion >= 1n).toBe(true);
       expect(typeof record.payload).toBe('object');
     }
@@ -184,10 +193,12 @@ describeDb('C008 transactional outbox', () => {
     let current: OutboxRecord = reclaimed;
     let deadLettered = false;
     for (let guard = 0; guard <= MAX_OUTBOX_ATTEMPTS && !deadLettered; guard += 1) {
+      // available_at slightly in the past so the immediate claim cannot race
+      // millisecond wall-clock precision.
       const outcome = await repository.reschedule(
         current.id,
         current.rowVersion,
-        new Date().toISOString(),
+        new Date(Date.now() - 50).toISOString(),
         'PROVIDER_UNAVAILABLE',
       );
       expect(outcome.attempts).toBeLessThanOrEqual(MAX_OUTBOX_ATTEMPTS);
