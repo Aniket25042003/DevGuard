@@ -21,7 +21,9 @@ import {
 
 /** Sorted, deduplicated readonly array helper. */
 function sortedUnique(values: readonly string[]): readonly string[] {
-  return [...new Set(values)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).map((v) => v.toString());
+  return [...new Set(values.map((value) => value.normalize('NFC')))].sort((a, b) =>
+    a < b ? -1 : a > b ? 1 : 0,
+  );
 }
 
 /** Recursively sort object keys; strings are Unicode NFC normalized. */
@@ -79,7 +81,10 @@ export function effectiveLimits(
 export function normalizePolicyV1(validated: RepositoryPolicyV1): CanonicalPolicyDocument {
   return deepFreeze({
     schemaVersion: 1 as const,
-    repository: { owner: validated.repository.owner, name: validated.repository.name },
+    repository: {
+        owner: validated.repository.owner.toLowerCase(),
+        name: validated.repository.name.toLowerCase(),
+      },
     autonomy: { level: validated.autonomy.level },
     triggers: Object.freeze(
       Object.fromEntries(
