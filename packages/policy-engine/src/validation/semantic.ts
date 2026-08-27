@@ -93,6 +93,10 @@ function validateRepositoryMatch(
   report: PolicyValidationReport,
   context: SemanticContext,
 ): void {
+  if ((context.expectedOwner === undefined) !== (context.expectedName === undefined)) {
+    report.add({ code: 'POLICY_CONFLICT', path: 'repository', message: 'expected repository owner and name must be provided together' });
+    return;
+  }
   if (context.expectedOwner !== undefined && context.expectedName !== undefined) {
     const matches =
       policy.repository.owner.toLowerCase() === context.expectedOwner.toLowerCase() &&
