@@ -42,3 +42,26 @@ export {
   type CreateApprovalRequest,
   type CreatedApproval,
 } from './application/create-approval.js';
+
+export {
+  ApprovalAuthorizationService,
+  type ApprovalCommandResult,
+  type ApprovalRepositoryForResolution,
+  type ApprovalSnapshot,
+  type ApproverCapability,
+  type AuthenticatedPrincipal,
+  type ResolutionPorts,
+  type RepositoryAuthorizerPort,
+  type ApprovalValidityPort as ApprovalValidityGatePort,
+  type ResolveApprovalCommand,
+} from './application/resolution.js';
+export {
+  ApprovalValidityService,
+  STALE_REASON_CODES,
+  type CurrentBindingObservation,
+  type ExpiringApprovalState,
+  type StaleReasonCode,
+  type ValidityCheckRecord,
+  type ValidityPersistencePort,
+  type ValidityPurpose,
+} from './application/validity.js';
