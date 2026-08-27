@@ -1,0 +1,24 @@
+{
+  "name": "@devguard/approvals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Durable approval aggregate (C031-C035): exact fingerprints via canonical JSON (RFC 8785 subset), exhaustive FSM, authorization-gated resolution, staleness/expiry, eight-step execution double-check.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/contracts": "workspace:*",
+    "@devguard/errors": "workspace:*",
+    "@devguard/logging": "workspace:*",
+    "zod": "^4.1.12"
+  }
+}

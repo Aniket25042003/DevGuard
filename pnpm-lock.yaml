@@ -80,6 +80,21 @@ importers:
         specifier: ^4.1.12
         version: 4.4.3
 
+  packages/approvals:
+    dependencies:
+      '@devguard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@devguard/errors':
+        specifier: workspace:*
+        version: link:../errors
+      '@devguard/logging':
+        specifier: workspace:*
+        version: link:../logging
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
+
   packages/auth:
     dependencies:
       '@devguard/contracts':
@@ -230,6 +245,9 @@ importers:
       '@devguard/api-contracts':
         specifier: workspace:*
         version: link:../../packages/api-contracts
+      '@devguard/approvals':
+        specifier: workspace:*
+        version: link:../../packages/approvals
       '@devguard/auth':
         specifier: workspace:*
         version: link:../../packages/auth
