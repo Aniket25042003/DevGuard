@@ -138,6 +138,12 @@ importers:
         specifier: ^4.1.12
         version: 4.4.3
 
+  packages/logging:
+    dependencies:
+      '@devguard/errors':
+        specifier: workspace:*
+        version: link:../errors
+
   packages/policy-engine:
     dependencies:
       '@devguard/contracts':
@@ -152,6 +158,15 @@ importers:
       zod:
         specifier: ^4.1.12
         version: 4.4.3
+
+  packages/queue:
+    dependencies:
+      '@devguard/errors':
+        specifier: workspace:*
+        version: link:../errors
+      '@devguard/logging':
+        specifier: workspace:*
+        version: link:../logging
 
   packages/security:
     dependencies:
@@ -233,6 +248,12 @@ importers:
       '@devguard/errors':
         specifier: workspace:*
         version: link:../../packages/errors
+      '@devguard/logging':
+        specifier: workspace:*
+        version: link:../../packages/logging
+      '@devguard/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
       '@devguard/security':
         specifier: workspace:*
         version: link:../../packages/security

@@ -1,0 +1,16 @@
+# Gitleaks configuration (C099 security gate).
+#
+# Repository-specific allowlist for SYNTHETIC fixtures only. Every entry must
+# reference a file whose secret-shaped strings are provably fake (they exist
+# to exercise redaction/validation regexes at runtime) and be documented here
+# with a rationale. Real credentials are NEVER allowlisted; genuine findings
+# block immediately and require rotation.
+#
+# The runtime synthetic token values are assembled from string fragments so
+# fresh diffs introduce no scannable literal; the historical entry below pins
+# the one-time detection until history ages out of the PR scan window.
+[allowlist]
+  description = "DevGuard reviewed allowances"
+  paths = [
+    '''(?i)packages/logging/src/logger\.test\.ts''',
+  ]
