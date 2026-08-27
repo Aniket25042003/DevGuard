@@ -20,9 +20,7 @@ const validIsoSeconds = z
     const [, monthString, dayString] = (datePart ?? '').split('-');
     const month = Number(monthString);
     const day = Number(dayString);
-    return (
-      Number.isFinite(Date.parse(value)) && month >= 1 && month <= 12 && day >= 1 && day <= 31
-    );
+    return Number.isFinite(Date.parse(value)) && month >= 1 && month <= 12 && day >= 1 && day <= 31;
   }, 'expiry must be a valid UTC timestamp');
 const shaPattern = /^[0-9a-f]{64}$/;
 
