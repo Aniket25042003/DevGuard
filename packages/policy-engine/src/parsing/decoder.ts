@@ -45,11 +45,9 @@ export class PolicyDecoder {
    * Returns undefined when decoding failed.
    */
   decode(source: Uint8Array | string, formatHint?: 'yaml' | 'json'): DecodedDocument | undefined {
-    this.#nodeBudget = DECODE_LIMITS.maxNodes;
     let text: string;
-    if (typeof source === 'string') {
-      text = source;
-    } else {
+    if (typeof source === 'string') text = source;
+    else {
       if (source.byteLength > DECODE_LIMITS.maxBytes) {
         this.#report.add({
           code: 'POLICY_TOO_LARGE',
@@ -61,11 +59,7 @@ export class PolicyDecoder {
       try {
         text = new TextDecoder('utf-8', { fatal: true }).decode(source);
       } catch {
-        this.#report.add({
-          code: 'POLICY_SYNTAX_INVALID',
-          path: '',
-          message: 'invalid UTF-8 encoding',
-        });
+        this.#report.add({ code: 'POLICY_SYNTAX_INVALID', path: '', message: 'invalid UTF-8' });
         return undefined;
       }
     }
@@ -77,12 +71,9 @@ export class PolicyDecoder {
       });
       return undefined;
     }
-    // Format provenance: explicit hint wins; otherwise structural detection.
-    // Both formats parse through YAML's AST so duplicate members are never
-    // silently discarded (parity of rejection across YAML and JSON).
-    const format: 'yaml' | 'json' = formatHint ?? (/^\s*[{[]/.test(text) ? 'json' : 'yaml');
+    const isJson = formatHint === 'json' || (formatHint !== 'yaml' && /^\s*[{}[]/.test(text));
     try {
-      const raw = this.#parseYamlSafely(text);
+      const raw = isJson ? JSON.parse(text) : this.#parseYamlSafely(text);
       if (!isPlainValue(raw)) {
         this.#report.add({
           code: 'POLICY_SCHEMA_INVALID',
@@ -92,7 +83,9 @@ export class PolicyDecoder {
         return undefined;
       }
       const value = this.#sanitize(raw, '$', 0);
-      return value === undefined && !this.#report.ok ? undefined : { value, format };
+      return value === undefined && !this.#report.ok
+        ? undefined
+        : { value, format: isJson ? 'json' : 'yaml' };
     } catch (error) {
       const loc = locationOf(error);
       this.#report.add({

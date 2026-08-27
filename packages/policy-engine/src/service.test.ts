@@ -12,6 +12,7 @@ import {
   effectiveLimits,
   normalizePolicyV1,
   repositoryPolicyV1,
+  type CanonicalPolicyDocument,
 } from '@devguard/policy-engine';
 const REGISTRIES = {
   knownActions: new Set([
@@ -23,8 +24,6 @@ const REGISTRIES = {
     'branch.delete',
   ]),
   knownWorkflows: new Set(['wf.implement-issue', 'wf.security-audit']),
-  // The café-check entries exist in both composed and decomposed forms to
-  // prove NFC normalization happens before registry lookup/dedup.
   knownObligations: new Set(['tests-pass', 'build-pass', 'cafe\u0301-check', 'caf\u00e9-check']),
 };
 

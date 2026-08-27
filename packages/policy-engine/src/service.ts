@@ -175,17 +175,7 @@ export class PolicyDocumentService {
     | { created: true; record: PolicyVersionRecord }
     | { created: false; diagnostics: readonly PolicyDiagnostic[] }
   > {
-    // C023 §16: a persisted version must be bound to its connected repository;
-    // retargeting was already rejected during validation, so creation requires
-    // the expected owner/name to anchor the document.
-    const pipeline = this.#runPipeline(input.source, {
-      ...input.semanticContext,
-      expectedOwner: input.semanticContext.expectedOwner,
-      expectedName: input.semanticContext.expectedName,
-    });
-    if (!input.semanticContext.expectedOwner || !input.semanticContext.expectedName) {
-      throw new Error('repository binding required: semanticContext.expectedOwner/expectedName');
-    }
+    const pipeline = this.#runPipeline(input.source, input.semanticContext);
     if (!pipeline.ok) {
       return { created: false, diagnostics: pipeline.report.items };
     }

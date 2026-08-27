@@ -26,6 +26,14 @@ function sortedUnique(values: readonly string[]): readonly string[] {
   );
 }
 
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);
+  }
+  return value;
+}
+
 /** Recursively sort object keys; strings are Unicode NFC normalized. */
 function sortedDeep(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortedDeep);
@@ -103,14 +111,6 @@ export function normalizePolicyV1(validated: RepositoryPolicyV1): CanonicalPolic
     validation: Object.freeze({ obligations: sortedUnique(validated.validation.obligations) }),
     limits: Object.freeze(effectiveLimits(validated.limits)),
   });
-}
-
-function deepFreeze<T>(value: T): T {
-  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
-    Object.freeze(value);
-    for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);
-  }
-  return value;
 }
 
 /** Idempotence check per C023 §10: canonicalizing twice yields equal bytes. */
