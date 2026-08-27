@@ -118,12 +118,13 @@ export class ApprovalAuthorizationService {
     // Fresh capability check FIRST (obtained outside any DB transaction).
     const capability: ApproverCapability =
       command.decision === 'APPROVE' ? 'APPROVE_PRIVILEGED_ACTION' : 'REJECT_PRIVILEGED_ACTION';
-    const grant = await this.ports.authorizer.authorizeFresh(
-      principal,
-      '',
-      capability,
-    );
-    if (!grant.authorized) return { outcome: 'DENIED', code: grant.reasonCode ?? 'AUTHORIZATION_DENIED', detail: 'authorization denied' };
+    const grant = await this.ports.authorizer.authorizeFresh(principal, '', capability);
+    if (!grant.authorized)
+      return {
+        outcome: 'DENIED',
+        code: grant.reasonCode ?? 'AUTHORIZATION_DENIED',
+        detail: 'authorization denied',
+      };
 
     const snapshot = await this.ports.approvals.load(command.approvalId);
 
@@ -184,7 +185,12 @@ export class ApprovalAuthorizationService {
       '',
       'CANCEL_PRIVILEGED_ACTION',
     );
-    if (!grant.authorized) return { outcome: 'DENIED', code: grant.reasonCode ?? 'AUTHORIZATION_DENIED', detail: 'authorization denied' };
+    if (!grant.authorized)
+      return {
+        outcome: 'DENIED',
+        code: grant.reasonCode ?? 'AUTHORIZATION_DENIED',
+        detail: 'authorization denied',
+      };
     const snapshot = await this.ports.approvals.load(command.approvalId);
     if (snapshot.status === 'CANCELLED') {
       return { outcome: 'NOOP_SAME_DECISION', status: snapshot.status, version: snapshot.version };

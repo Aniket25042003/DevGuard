@@ -197,12 +197,16 @@ export class ApprovalValidityService {
       };
     }
 
-    if (state.status === 'EXECUTING' && (input.purpose === 'PRE_EXECUTION' || input.purpose === 'RECOVERY')) {
-        if (determined.result === 'STALE') return { kind: 'STALE', reasonCodes: determined.reasonCodes, checkId, applied: false };
-        if (determined.result === 'EXPIRED') return { kind: 'EXPIRED', checkId, applied: false };
-      }
+    if (
+      state.status === 'EXECUTING' &&
+      (input.purpose === 'PRE_EXECUTION' || input.purpose === 'RECOVERY')
+    ) {
+      if (determined.result === 'STALE')
+        return { kind: 'STALE', reasonCodes: determined.reasonCodes, checkId, applied: false };
+      if (determined.result === 'EXPIRED') return { kind: 'EXPIRED', checkId, applied: false };
+    }
 
-      if (determined.result === 'EXPIRED') {
+    if (determined.result === 'EXPIRED') {
       const applied = await this.persistence.compareAndSet({
         approvalId: input.approvalId,
         expectedVersion: state.version,
