@@ -164,6 +164,9 @@ importers:
       '@devguard/logging':
         specifier: workspace:*
         version: link:../logging
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
 
   packages/logging:
     dependencies:
