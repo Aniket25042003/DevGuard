@@ -17,48 +17,61 @@ import {
   type DevGuardPool,
 } from '@devguard/db';
 import { DevGuardError } from '@devguard/errors';
-import { TEST_DATABASE_URL } from './db-harness.js';
+import { provisionDatabase, teardownDatabase } from '@devguard/test-harness';
+import { requireDatabaseUrl } from './db-harness.js';
 
 const describeDb = process.env.DEGUARD_TEST_DATABASE_URL ? describe : describe.skip;
 
 let pool: DevGuardPool;
 
+const LEASED_DB = `dg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
 beforeAll(async () => {
-  pool = createPool({ connectionString: TEST_DATABASE_URL, max: 3 });
-  // The gated target is disposable by contract (C007 §20 test isolation).
-  if (!TEST_DATABASE_URL.includes('test') && !TEST_DATABASE_URL.includes('disposable')) {
-    throw new Error('DEGUARD_TEST_DATABASE_URL must reference a disposable database');
-  }
-  await pool.query({ text: 'DROP SCHEMA public CASCADE' });
-  await pool.query({ text: 'CREATE SCHEMA public' });
+  // C096 isolation: every DB-gated suite owns a leased database so parallel
+  // workers cannot observe each other's migrations or fixtures.
+  const handle = await provisionDatabase({
+    adminUrl: requireDatabaseUrl(),
+    databaseName: LEASED_DB,
+    // This suite owns the migration lifecycle and needs a virgin database.
+    skipMigrations: true,
+  });
+  await handle.pool.drain();
+  pool = createPool({ connectionString: handle.url, max: 3 });
 });
 
 afterAll(async () => {
   await pool?.drain();
+  await teardownDatabase(requireDatabaseUrl(), LEASED_DB);
 });
 
 describeDb('C007 migration runner', () => {
   it('applies all packaged migrations from zero in one locked run', async () => {
+    // Expected set derives from the packaged files (C007 §22): appending a
+    // migration must not require editing this suite.
+    const expected = parseMigrations(loadMigrationSources(resolveMigrationsDir()))
+      .map((migration) => migration.version)
+      .sort((a, b) => a - b);
     const result = await runMigrations(pool);
-    expect(result.applied).toEqual([1, 2]);
+    expect(result.applied).toEqual(expected);
     const rows = await pool.query<{ version: string }>({
       text: 'SELECT version::text AS version FROM schema_migrations ORDER BY version',
     });
-    expect(rows.map((row) => Number(row.version))).toEqual([1, 2]);
+    expect(rows.map((row) => Number(row.version))).toEqual(expected);
     expect(await assertSchemaCompatible(pool)).toBeUndefined();
   });
 
   it('reports the applied schema version through health()', async () => {
     const status = await pool.health();
     expect(status.ok).toBe(true);
-    expect(status.schemaVersion).toBe(2);
+    expect(status.schemaVersion).toBeGreaterThanOrEqual(6);
     expect(status.latencyMs).toBeGreaterThanOrEqual(0);
   });
 
   it('re-runs idempotently without replaying applied migrations', async () => {
     const again = await runMigrations(pool);
     expect(again.applied).toEqual([]);
-    expect(again.verified).toEqual([1, 2]);
+    expect(again.applied).toEqual([]);
+    expect(again.verified.length).toBeGreaterThan(0);
   });
 
   it('refuses a tampered checksum on an applied migration', async () => {

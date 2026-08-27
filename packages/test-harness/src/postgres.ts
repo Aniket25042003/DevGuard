@@ -23,11 +23,14 @@ export interface PostgresFixtureOptions {
   readonly adminUrl: string;
   /** Leased database name from ResourceLeaseManager (dg_...). */
   readonly databaseName: string;
+  /** Skip automatic from-zero migrations (suites that own the lifecycle). */
+  readonly skipMigrations?: boolean;
 }
 
 export interface PostgresFixtureHandle {
   readonly url: string;
   readonly pool: DevGuardPool;
+  /** Versions applied by the harness; empty when skipMigrations was set. */
   readonly appliedMigrations: readonly number[];
 }
 
@@ -84,6 +87,9 @@ export async function provisionDatabase(
   const url = deriveUrl(options.adminUrl, options.databaseName);
   const fixturePool = createPool({ connectionString: url, max: 5 });
   try {
+    if (options.skipMigrations) {
+      return { url, pool: fixturePool, appliedMigrations: [] };
+    }
     const result = await runMigrations(fixturePool);
     return { url, pool: fixturePool, appliedMigrations: result.applied };
   } catch (error) {

@@ -1,0 +1,24 @@
+{
+  "name": "@devguard/policy-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Canonical repository-policy pipeline (C023): safe YAML/JSON decoding, V1 schema parsing, semantic validation, fail-closed normalization, canonical JSON + SHA-256 versioning. Deterministic; never model-assisted.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/contracts": "workspace:*",
+    "@devguard/errors": "workspace:*",
+    "yaml": "2.6.1",
+    "zod": "^4.1.12"
+  }
+}

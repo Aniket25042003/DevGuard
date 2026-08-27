@@ -81,7 +81,12 @@ SET owner_token = $3,
     lease_expires_at = now() + ($4::double precision / 1000) * interval '1 second',
     updated_at = now(),
     row_version = row_version + 1
-WHERE scope = $1 AND key_hash = $2`;
+WHERE scope = $1 AND key_hash = $2
+  -- Live lease guard: a record still owned by another caller must NOT be
+  -- reclaimed; only an expired (or NULL-never-leased) record is eligible.
+  AND lease_expires_at IS NOT NULL
+  AND lease_expires_at <= now()
+RETURNING id`;
 
 const COMPLETE_BY_TOKEN = `
 UPDATE idempotency_records
@@ -131,14 +136,14 @@ export class IdempotencyStore {
         },
       };
     }
-    // Expiry is enforced inside the reclaim SQL using the database clock,
-    // eliminating app-vs-DB clock-skew windows.
-    if (row.lease_expires_at === null) return { kind: 'conflict' };
-
-    await tx.query({
+    // Expiry is enforced by the database clock inside the reclaim statement
+    // (eliminating app-vs-DB clock-skew windows). A live lease owned by
+    // another caller yields no reclaimed rows -> retryable conflict.
+    const reclaimed = await tx.query<{ id: string }>({
       text: RECLAIM_LEASE,
       values: [input.scope, keyHash, token, input.leaseMs],
     });
+    if (reclaimed.length === 0) return { kind: 'conflict' };
     return { kind: 'acquired', token };
   }
 

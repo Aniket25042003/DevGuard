@@ -9,14 +9,14 @@ import {
   createPool,
   createUnitOfWork,
   requestFingerprint,
-  runMigrations,
   uuidv7,
   type DevGuardPool,
   type TransactionContext,
   type UnitOfWork,
   idempotencyKeyHash,
 } from '@devguard/db';
-import { TEST_DATABASE_URL } from './db-harness.js';
+import { requireDatabaseUrl } from './db-harness.js';
+import { provisionDatabase, teardownDatabase } from '@devguard/test-harness';
 
 const describeDb = process.env.DEGUARD_TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -37,15 +37,23 @@ async function expireLease(tx: TransactionContext, key: string): Promise<void> {
   });
 }
 
+const LEASED_DB = `dg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
 beforeAll(async () => {
-  pool = createPool({ connectionString: TEST_DATABASE_URL, max: 5 });
-  await runMigrations(pool);
+  // C096 isolation: dedicated leased database per suite/worker.
+  const handle = await provisionDatabase({
+    adminUrl: requireDatabaseUrl(),
+    databaseName: LEASED_DB,
+  });
+  await handle.pool.drain();
+  pool = createPool({ connectionString: handle.url, max: 5 });
   uow = createUnitOfWork(pool);
   store = new IdempotencyStore();
 });
 
 afterAll(async () => {
   await pool?.drain();
+  await teardownDatabase(requireDatabaseUrl(), LEASED_DB);
 });
 
 describeDb('C008 idempotency matrix', () => {
