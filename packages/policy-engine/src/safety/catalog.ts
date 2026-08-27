@@ -96,8 +96,39 @@ export interface AutonomyProfile {
   readonly deniedActions: ReadonlySet<string>;
 }
 
+class ImmutableSet implements ReadonlySet<string> {
+  readonly [Symbol.toStringTag] = 'Set';
+  readonly #values: Set<string>;
+
+  constructor(values: readonly string[]) {
+    this.#values = new Set(values);
+  }
+
+  get size(): number {
+    return this.#values.size;
+  }
+  has(value: string): boolean {
+    return this.#values.has(value);
+  }
+  entries(): IterableIterator<[string, string]> {
+    return this.#values.entries();
+  }
+  keys(): IterableIterator<string> {
+    return this.#values.keys();
+  }
+  values(): IterableIterator<string> {
+    return this.#values.values();
+  }
+  forEach(callbackfn: (value: string, value2: string, set: ReadonlySet<string>) => void): void {
+    this.#values.forEach((value) => callbackfn(value, value, this));
+  }
+  [Symbol.iterator](): IterableIterator<string> {
+    return this.values();
+  }
+}
+
 function set(values: readonly string[]): ReadonlySet<string> {
-  return new Set(values);
+  return Object.freeze(new ImmutableSet(values));
 }
 
 const READ_ACTIONS = set([
@@ -158,7 +189,7 @@ const REVERSIBLE_GIT_WRITES = set([
 export const AUTONOMY_PROFILES: Readonly<Record<AutonomyLevel, AutonomyProfile>> = Object.freeze({
   assist: Object.freeze({
     level: 'assist',
-    automaticActions: new Set([...READ_ACTIONS, ...SANDBOX_ACTIONS]),
+    automaticActions: set([...READ_ACTIONS, ...SANDBOX_ACTIONS]),
     approvalRequiredActions: set([]),
     // Assist may not touch GitHub writes or ANY external effect (C027 §4.1).
     deniedActions: set([
@@ -172,7 +203,7 @@ export const AUTONOMY_PROFILES: Readonly<Record<AutonomyLevel, AutonomyProfile>>
   }),
   developer: Object.freeze({
     level: 'developer',
-    automaticActions: new Set([...READ_ACTIONS, ...SANDBOX_ACTIONS, ...REVERSIBLE_GIT_WRITES]),
+    automaticActions: set([...READ_ACTIONS, ...SANDBOX_ACTIONS, ...REVERSIBLE_GIT_WRITES]),
     // C027 §22: protected/default branch write and merge pause for humans;
     // external side effects carry the same floor (§8 external category).
     approvalRequiredActions: set([...APPROVAL_FLOOR_ACTIONS, 'external_notification_send']),
@@ -180,13 +211,13 @@ export const AUTONOMY_PROFILES: Readonly<Record<AutonomyLevel, AutonomyProfile>>
   }),
   trusted: Object.freeze({
     level: 'trusted',
-    automaticActions: new Set([...READ_ACTIONS, ...SANDBOX_ACTIONS, ...REVERSIBLE_GIT_WRITES]),
+    automaticActions: set([...READ_ACTIONS, ...SANDBOX_ACTIONS, ...REVERSIBLE_GIT_WRITES]),
     approvalRequiredActions: set([...APPROVAL_FLOOR_ACTIONS, 'external_notification_send']),
     deniedActions: set(DENY_ALL_LEVELS_ACTIONS),
   }),
   autonomous: Object.freeze({
     level: 'autonomous',
-    automaticActions: new Set([...READ_ACTIONS, ...SANDBOX_ACTIONS, ...REVERSIBLE_GIT_WRITES]),
+    automaticActions: set([...READ_ACTIONS, ...SANDBOX_ACTIONS, ...REVERSIBLE_GIT_WRITES]),
     // Floors remain floors: autonomous is not unlimited (C027 §25).
     approvalRequiredActions: set([...APPROVAL_FLOOR_ACTIONS, 'external_notification_send']),
     deniedActions: set(DENY_ALL_LEVELS_ACTIONS),
