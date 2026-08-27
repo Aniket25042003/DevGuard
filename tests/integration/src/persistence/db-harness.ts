@@ -7,7 +7,7 @@
  */
 import { createPool, type DevGuardPool } from '@devguard/db';
 
-export const TEST_DATABASE_URL = process.env['DEVGUARD_TEST_DATABASE_URL'] ?? '';
+export const TEST_DATABASE_URL = process.env['DEGUARD_TEST_DATABASE_URL'] ?? '';
 
 /** Gate per the PR-007 brief: DB-gated suites skip silently without a database. */
 export function requireDatabaseUrl(): string {
