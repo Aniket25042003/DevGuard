@@ -1,0 +1,23 @@
+{
+  "name": "@devguard/github-adapter",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Provider-isolating GitHub adapter (C017-C021): App JWT auth, scoped token leases, typed operation descriptors, base client with rate budgets and pagination, narrow read-only resource adapters. Provider types stop at the boundary.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/errors": "workspace:*",
+    "@devguard/logging": "workspace:*",
+    "@devguard/contracts": "workspace:*"
+  }
+}

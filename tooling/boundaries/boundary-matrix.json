@@ -26,6 +26,7 @@
     "packages/policy-engine": "application",
     "packages/queue": "application",
     "packages/approvals": "application",
+    "packages/github-adapter": "adapter",
     "packages/logging": "application",
     "packages/security": "application",
     "packages/db": "persistence"
