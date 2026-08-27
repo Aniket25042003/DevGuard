@@ -94,7 +94,12 @@ export function canonicalize(value: unknown): string {
       // JCS key order: UTF-16 code unit sort of the RAW key.
       const keys = Object.keys(node).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
       const parts: string[] = [];
+      const normalizedKeys = new Set<string>();
       for (const key of keys) {
+        const normalizedKey = key.normalize('NFC');
+        if (normalizedKeys.has(normalizedKey))
+          throw new CanonicalizationError('normalized key collision');
+        normalizedKeys.add(normalizedKey);
         const child = node[key];
         if (child === undefined) continue; // absent, never null
         parts.push(`${serializeString(key)}:${walk(child)}`);

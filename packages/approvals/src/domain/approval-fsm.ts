@@ -120,6 +120,11 @@ export interface TransitionGuardContext {
   readonly providerProvesNotStarted?: boolean | undefined;
   readonly leaseFenced?: boolean | undefined;
   readonly providerOutcomeVerified?: boolean | undefined;
+  readonly resolutionAuthorized?: boolean | undefined;
+  readonly expectedVersionMatches?: boolean | undefined;
+  readonly fingerprintsMatch?: boolean | undefined;
+  readonly providerProvesFailure?: boolean | undefined;
+  readonly uncertaintyExhausted?: boolean | undefined;
 }
 
 export type TransitionVerdict =
@@ -156,6 +161,8 @@ export function resolveEdge(
     };
   }
 
+  // Partial context keeps call sites flexible; missing mandatory clock data
+  // degrades to a conservative refusal domain.
   const nowMs = context.nowMs ?? 0;
   const expiresAtMs = context.expiresAtMs ?? Number.MAX_SAFE_INTEGER;
   // Trigger-specific guards (C031 §9 table).
@@ -189,14 +196,14 @@ export function resolveEdge(
       }
       break;
     case 'cancel-before-execution':
-      if (context.cancellationCurrent === false) {
+      if (context.cancellationCurrent !== true) {
         return {
           allowed: false,
           code: 'APPROVAL_ILLEGAL_TRANSITION',
           detail: 'cancellation generation superseded',
         };
       }
-      if (from === 'APPROVED' && context.externalEffectBegan === true) {
+      if (from === 'APPROVED' && context.externalEffectBegan !== false) {
         return {
           allowed: false,
           code: 'APPROVAL_ILLEGAL_TRANSITION',

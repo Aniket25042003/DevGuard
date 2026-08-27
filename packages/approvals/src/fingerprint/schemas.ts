@@ -10,6 +10,18 @@ import { z } from 'zod';
 import { canonicalize, sha256Hex } from './canonical.js';
 
 const isoSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/; // RFC3339 seconds precision
+const validIsoSeconds = z
+  .string()
+  .regex(isoSeconds)
+  .refine((value) => {
+    // Shape is guaranteed by the regex above; this refinement only rejects
+    // impossible calendar values (e.g. month 13) that Date.parse coerces.
+    const [datePart] = value.split('T');
+    const [, monthString, dayString] = (datePart ?? '').split('-');
+    const month = Number(monthString);
+    const day = Number(dayString);
+    return Number.isFinite(Date.parse(value)) && month >= 1 && month <= 12 && day >= 1 && day <= 31;
+  }, 'expiry must be a valid UTC timestamp');
 const shaPattern = /^[0-9a-f]{64}$/;
 
 export const approvalActionV1 = z
@@ -19,7 +31,7 @@ export const approvalActionV1 = z
       .string()
       .min(1)
       .max(64)
-      .regex(/^[a-z][a-z0-9_]*$/),
+      .regex(/^[a-z][a-z0-9_.]*$/),
     tool: z
       .object({ id: z.string().min(1).max(128), registryVersion: z.string().min(1).max(64) })
       .strict(),
@@ -116,7 +128,7 @@ export const approvalContextV1 = z
           .strict(),
       )
       .max(32),
-    expiresAt: z.string().regex(isoSeconds, 'expiry uses RFC3339 second precision'),
+    expiresAt: validIsoSeconds,
   })
   .strict();
 
@@ -174,37 +186,42 @@ export function buildFingerprints(
 ): ActionFingerprintResult {
   // Boundary validation (C031 §5): fingerprints are ONLY computed over
   // schema-valid payloads; fractional timestamps, unknown keys etc. fail here.
+  // Stage 1: validate the ACTION payload.
   const checkedAction = approvalActionV1.parse({
     ...actionInput,
     schemaVersion: 'approval-action/v1',
   });
-  const checkedContextTemplate = approvalContextV1.parse({
-    ...contextInput,
-    schemaVersion: 'approval-context/v1',
-  }) as ApprovalContextV1;
-  void checkedContextTemplate;
   const operation = structuredClone(checkedAction.operation);
   assertNoSecrets(operation);
+
+  // Stage 2: validate the context EXCLUDING the derived fingerprint — the
+  // context's actionFingerprint is computed from stage 1's canonical bytes,
+  // so the full-context parse below is the chicken-and-egg-safe order.
+  const contextTemplate = approvalContextV1.omit({ actionFingerprint: true }).parse({
+    ...contextInput,
+    schemaVersion: 'approval-context/v1',
+  });
 
   const actionJson = canonicalize(checkedAction);
   const actionFingerprint = sha256Hex(actionJson);
 
-  const normalizedReasonCodes: string[] = [...new Set(contextInput.risk.reasonCodes)].sort(
-    (a: string, b: string) => a.localeCompare(b),
+  const normalizedReasonCodes = [...new Set(contextInput.risk.reasonCodes)].sort((a, b) =>
+    a.localeCompare(b),
   );
-  const validations = [...contextInput.validations].sort((a, b) => a.id.localeCompare(b.id));
-  const evidence = [...contextInput.evidence].sort(
+  const validations = [...contextTemplate.validations].sort((a, b) => a.id.localeCompare(b.id));
+  const evidence = [...contextTemplate.evidence].sort(
     (a, b) => a.type.localeCompare(b.type) || a.id.localeCompare(b.id),
   );
   const context = {
-    ...checkedContextTemplate,
-    schemaVersion: 'approval-context/v1',
+    ...contextTemplate,
     actionFingerprint,
-    risk: { ...contextInput.risk, reasonCodes: normalizedReasonCodes },
+    risk: { ...contextTemplate.risk, reasonCodes: normalizedReasonCodes },
     validations,
     evidence,
   } satisfies ApprovalContextV1;
-  const contextJson = canonicalize(context);
+  // Full-context reparse also validates the injected fingerprint field itself.
+  const checkedContext = approvalContextV1.parse(context);
+  const contextJson = canonicalize(checkedContext);
   const contextFingerprint = sha256Hex(contextJson);
 
   return {
