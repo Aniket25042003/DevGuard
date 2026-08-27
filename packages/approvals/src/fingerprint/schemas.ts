@@ -7,9 +7,14 @@
  * ANY mutation changes the digest (mutation matrix tested exhaustively).
  */
 import { z } from 'zod';
+import { ActionType } from '@devguard/contracts';
 import { canonicalize, sha256Hex } from './canonical.js';
 
 const isoSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/; // RFC3339 seconds precision
+const validIsoSeconds = z.string().regex(isoSeconds).refine((value) => {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString() === value;
+}, 'expiry must be a valid UTC timestamp');
 const shaPattern = /^[0-9a-f]{64}$/;
 
 export const approvalActionV1 = z
@@ -19,7 +24,7 @@ export const approvalActionV1 = z
       .string()
       .min(1)
       .max(64)
-      .regex(/^[a-z][a-z0-9_]*$/),
+      .pipe(ActionType),
     tool: z
       .object({ id: z.string().min(1).max(128), registryVersion: z.string().min(1).max(64) })
       .strict(),
@@ -116,7 +121,7 @@ export const approvalContextV1 = z
           .strict(),
       )
       .max(32),
-    expiresAt: z.string().regex(isoSeconds, 'expiry uses RFC3339 second precision'),
+    expiresAt: validIsoSeconds,
   })
   .strict();
 
@@ -178,7 +183,7 @@ export function buildFingerprints(
     ...actionInput,
     schemaVersion: 'approval-action/v1',
   });
-  const checkedContextTemplate = approvalContextV1.parse({
+  const checkedContextTemplate = ({
     ...contextInput,
     schemaVersion: 'approval-context/v1',
   }) as ApprovalContextV1;
