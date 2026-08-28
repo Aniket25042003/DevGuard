@@ -84,9 +84,17 @@ export type AggregateVerdict =
 export type FreshnessEvaluator = (result: ValidationResult) => boolean;
 
 export const NoopFreshnessEvaluator: FreshnessEvaluator = (result) => {
+  // Fail closed: a result with no validity window, or one that is not current,
+  // is stale.
+  if (result.validUntilIso === undefined) return false;
   const observed = Date.parse(result.observedAtIso);
-  const validUntil = result.validUntilIso === undefined ? Number.POSITIVE_INFINITY : Date.parse(result.validUntilIso);
-  return Number.isFinite(observed) && observed <= Date.now() && Number.isFinite(validUntil) && validUntil >= Date.now();
+  const validUntil = Date.parse(result.validUntilIso);
+  return (
+    Number.isFinite(observed) &&
+    observed <= Date.now() &&
+    Number.isFinite(validUntil) &&
+    validUntil >= Date.now()
+  );
 };
 
 export class ValidationAggregator {
@@ -97,9 +105,27 @@ export class ValidationAggregator {
     evidence: OutcomeEvidenceInput,
     expectations: { readonly targetSha?: string; readonly validatorIds?: readonly string[] } = {},
   ): AggregateVerdict {
-    const bad = results.find((r) => r.status === 'BLOCKED' || r.status === 'ERROR' || (expectations.targetSha !== undefined && r.targetSha !== expectations.targetSha));
-    if (expectations.validatorIds?.some((id) => !results.some((r) => r.validatorId === id && r.status === 'PASSED')))
-      return { gate: 'UNSATISFIED', outcome: this.#outcome(evidence, 'failed', 'required validation evidence missing', 'required_user_action', 'run required validations') };
+    const bad = results.find(
+      (r) =>
+        r.status === 'BLOCKED' ||
+        r.status === 'ERROR' ||
+        (expectations.targetSha !== undefined && r.targetSha !== expectations.targetSha),
+    );
+    if (
+      expectations.validatorIds?.some(
+        (id) => !results.some((r) => r.validatorId === id && r.status === 'PASSED'),
+      )
+    )
+      return {
+        gate: 'UNSATISFIED',
+        outcome: this.#outcome(
+          evidence,
+          'failed',
+          'required validation evidence missing',
+          'required_user_action',
+          'run required validations',
+        ),
+      };
     if (bad !== undefined) {
       return {
         gate: 'BLOCKED',
@@ -155,9 +181,18 @@ export class ValidationAggregator {
       }
     }
     if (evidence.notCompletedItems.length > 0) {
-        return { gate: 'UNSATISFIED', outcome: this.#outcome(evidence, 'partial', 'workflow items remain incomplete', 'required_user_action', 'complete remaining items') };
-      }
-      if (evidence.prPendingApproval) {
+      return {
+        gate: 'UNSATISFIED',
+        outcome: this.#outcome(
+          evidence,
+          'partial',
+          'workflow items remain incomplete',
+          'required_user_action',
+          'complete remaining items',
+        ),
+      };
+    }
+    if (evidence.prPendingApproval) {
       return {
         gate: 'UNSATISFIED',
         outcome: this.#outcome(

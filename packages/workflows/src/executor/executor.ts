@@ -96,7 +96,10 @@ export class RetryClassifier {
 }
 
 export class InMemoryLockManager {
-  readonly locks = new Map<string, { state: LockState; ownerRunId: string; token: string; untilIso: string }>();
+  readonly locks = new Map<
+    string,
+    { state: LockState; ownerRunId: string; token: string; untilIso: string }
+  >();
 
   async acquire(canonicalKey: string, ownerRunId: string, ttlMs: number): Promise<LockResult> {
     const existing = this.locks.get(canonicalKey);
@@ -168,15 +171,20 @@ export class WorkflowExecutor {
       };
 
     // Acquire canonical resource locks in sorted order (lock is optimization; the
-    // provider expected-SHA is correctness).
+    // provider expected-SHA is correctness). Release is ownership-bound: only the
+    // acquiring run+token can release.
+    const acquired: Array<{ key: string; token: string }> = [];
     for (const lockKey of [...locks].sort()) {
       const lock = await this.#locks.acquire(lockKey, job.runId, 30_000);
-      if (!lock.ok)
+      if (!lock.ok) {
+        for (const a of acquired) await this.#locks.release(a.key, job.runId, a.token);
         return {
           ok: false,
           retry: { kind: 'no_retry', terminalCode: 'RESOURCE_LOCKED' },
           detail: lock.detail,
         };
+      }
+      acquired.push({ key: lockKey, token: lock.lockId });
     }
 
     const supported = await this.#command.verifyCancellationSupported(job.runId);
@@ -191,10 +199,11 @@ export class WorkflowExecutor {
     await this.#command.dispatch(job);
     const result = await handler.run(job);
     if (result.ok) {
-      for (const lockKey of locks) await this.#locks.release(lockKey);
+      for (const a of acquired) await this.#locks.release(a.key, job.runId, a.token);
       return { ok: true };
     }
     const retry = this.#retries.classify({ code: result.code });
+    for (const a of acquired) await this.#locks.release(a.key, job.runId, a.token);
     return { ok: false, retry, detail: result.code };
   }
 }

@@ -85,6 +85,7 @@ describe('C048 validation aggregate gate', () => {
       mandatory,
       targetSha: 'a'.repeat(40),
       observedAtIso: '2026-08-28T00:00:00.000Z',
+      validUntilIso: '2099-01-01T00:00:00.000Z',
       findingIds: [],
     };
   }
