@@ -16,6 +16,7 @@
 import type { TimestampIso } from '@devguard/contracts';
 import { internalError, makeError } from '@devguard/errors';
 import type { DevGuardPool } from '../pool.js';
+import { createUnitOfWork } from '../transaction.js';
 import { uuidv7 } from '../uuid.js';
 
 // ---------------------------------------------------------------------------
@@ -229,7 +230,7 @@ FROM auth_transactions WHERE state_hash = $1`,
     const rows = await this.pool.query<Record<string, unknown>>({
       text: `UPDATE auth_transactions
 SET consumed_at = $2, row_version = row_version + 1
-WHERE state_hash = $1 AND row_version = $3 AND consumed_at IS NULL
+WHERE state_hash = $1 AND row_version = $3 AND consumed_at IS NULL AND expires_at > $2
 RETURNING row_version`,
       values: [stateHash, consumedAt, expectedRowVersion],
     });
@@ -282,6 +283,8 @@ WHERE issuer = $1 AND subject = $2`,
     // the canonical user_id, and the orphan user row we may have created is
     // cleaned up so one subject always binds exactly one user.
     const candidateId = uuidv7();
+      return createUnitOfWork(this.pool).transaction(async (tx) => {
+        await tx.query({
     await this.pool
       .query({
         text: 'INSERT INTO users (id, login, display_name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
@@ -290,7 +293,7 @@ WHERE issuer = $1 AND subject = $2`,
       .catch((error: unknown) => {
         throw internalError(error);
       });
-    const inserted = await this.pool.query<{ user_id: string }>({
+    const inserted = await tx.query<{ user_id: string }>({
       text: `INSERT INTO external_identities (id, user_id, issuer, subject, login_snapshot)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (issuer, subject) DO UPDATE SET last_seen_at = now(), login_snapshot = EXCLUDED.login_snapshot
