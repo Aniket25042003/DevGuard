@@ -311,3 +311,64 @@ export {
   type InstructionSnapshotStorePort,
   type SnapshotSaveResult,
 } from './read/instruction-trust/instruction-snapshot-store.js';
+
+// ---- C022 GitHub webhook ingress / delivery / routing ----
+export {
+  WEBHOOK_SCHEMA_VERSION,
+  DELIVERY_STATES,
+  TERMINAL_DELIVERY_STATES,
+  WEBHOOK_EVENTS,
+  deliveryLedgerRowSchema,
+  eventHeaderSchema,
+  githubWebhookHeadersSchema,
+  normalizedWebhookEventSchema,
+  type DeliveryLedgerRow,
+  type DeliveryState,
+  type GitHubWebhookHeaders,
+  type NormalizedWebhookEvent,
+  type SafeRemoteMetadata,
+  type WebhookAcceptance,
+  type WebhookEventName,
+} from './webhook/contracts.js';
+export {
+  InMemoryDeliveryLedger,
+  InMemoryPayloadVault,
+  canTransition,
+  deliveryRow,
+  resolveDeliveryTransition,
+  type DeliveryLedgerPort,
+  type LedgerClaimResult,
+  type PayloadVaultPort,
+  type Trigger,
+} from './webhook/delivery-ledger.js';
+export {
+  GitHubWebhookIngress,
+  type GitHubWebhookIngressDeps,
+  type WebhookEventSinkPort,
+  type WebhookIngressEvent,
+} from './webhook/ingress.js';
+export { WebhookNormalizer, type NormalizationResult } from './webhook/normalizer.js';
+export {
+  GitHubWebhookProcessor,
+  NoopCurrentStateReconciler,
+  type CurrentStateReconciler,
+  type ProcessingResult,
+  type ProcessorEvent,
+  type ProcessorEventSinkPort,
+} from './webhook/processor.js';
+export {
+  StaticSecretProvider,
+  WebhookSignatureVerifier,
+  extractDigest,
+  isCanonicalSignatureHeader,
+  type SecretVersion,
+  type SecretVersionProvider,
+  type VerificationResult,
+} from './webhook/signature-verifier.js';
+export {
+  TriggerRouter,
+  type RoutedTrigger,
+  type RoutingResult,
+  type TriggerRouterDeps,
+  type WebhookTriggerDefinition,
+} from './webhook/trigger-router.js';
