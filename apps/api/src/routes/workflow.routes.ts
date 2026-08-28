@@ -10,7 +10,6 @@
  * push/idempotency stay server-side (C067). Command catalog shows redacted argv
  * + class + state, never secrets or raw output (C069).
  */
-import { z } from 'zod';
 import { WorkflowKind } from '@devguard/contracts';
 import type { RegisterV1Route } from '../transport/kernel.js';
 
@@ -95,7 +94,14 @@ export function registerWorkflowRoutes(
         body === undefined ||
         typeof body.workflowType !== 'string' ||
         typeof body.version !== 'string' ||
-        typeof body.idempotencyKey !== 'string' || !WorkflowKind.safeParse(body.workflowType).success || body.workflowType.length === 0 || body.version.length === 0 || body.idempotencyKey.length === 0 || typeof body.input !== 'object' || body.input === null || Array.isArray(body.input)
+        typeof body.idempotencyKey !== 'string' ||
+        !WorkflowKind.safeParse(body.workflowType).success ||
+        body.workflowType.length === 0 ||
+        body.version.length === 0 ||
+        body.idempotencyKey.length === 0 ||
+        typeof body.input !== 'object' ||
+        body.input === null ||
+        Array.isArray(body.input)
       ) {
         return c.json(
           {
@@ -173,7 +179,10 @@ export function registerWorkflowRoutes(
 }
 
 export interface CommandCatalogPort {
-  commandsOf(runId: string, userId: string): Promise<
+  commandsOf(
+    runId: string,
+    userId: string,
+  ): Promise<
     Array<{
       commandId: string;
       class: string;

@@ -92,6 +92,7 @@ describe('C067 workflow routes', () => {
         workflowType: 'implement_issue',
         version: '1.0.0',
         idempotencyKey: 'k1',
+        input: {},
       }),
     });
     expect(launch.status).toBe(202);
@@ -108,6 +109,7 @@ describe('C067 workflow routes', () => {
         workflowType: 'implement_issue',
         version: '1.0.0',
         idempotencyKey: 'k1',
+        input: {},
       }),
     });
     expect(replay.status).toBe(200); // replayed
