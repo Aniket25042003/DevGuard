@@ -6,6 +6,16 @@
  */
 import './errors.js';
 
+// ---- C050 product workflow: diagnose_failure ----
+export {
+  DIAGNOSE_FAILURE_STEPS,
+  DIAGNOSE_FAILURE_ALLOWED_ACTIONS,
+  DIAGNOSE_FAILURE_DEFINITION_ID,
+  DIAGNOSE_FAILURE_DEFINITION_VERSION,
+  diagnoseFailureDefinition,
+  type FailureStep,
+} from './product/diagnose-failure.js';
+
 // ---- C054 product workflow: review_remediation ----
 export {
   REVIEW_REMEDIATION_STEPS,
