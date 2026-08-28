@@ -23,6 +23,33 @@ export class OutputNormalizer {
   #chunkCount = 0;
   #truncated = false;
   #digest = createHash('sha256');
+  #carry = '';
+
+  private longestSecret(): number {
+    return this.secretValues.reduce((max, secret) => Math.max(max, Buffer.byteLength(secret, 'utf8')), 0);
+  }
+
+  private redact(text: string): string {
+    return this.secretValues.reduce((acc, secret) => acc.split(secret).join('[REDACTED]'), text);
+  }
+
+  private accept(text: string): number {
+    const bytes = Buffer.from(text, 'utf8');
+    const accepted = bytes.subarray(0, Math.max(0, this.maxBytes - this.#bytes));
+    const safe = accepted.toString('utf8');
+    this.#digest.update(safe, 'utf8');
+    this.#bytes += Buffer.byteLength(safe, 'utf8');
+    return Buffer.byteLength(safe, 'utf8');
+  }
+
+  #flush(final: boolean): number {
+    const redacted = this.redact(this.#carry);
+    const keep = final ? 0 : Math.max(0, this.longestSecret() - 1);
+    const boundary = Array.from(redacted).slice(0, Math.max(0, Array.from(redacted).length - keep)).join('');
+    this.#carry = final ? '' : Array.from(redacted).slice(Math.max(0, Array.from(redacted).length - keep)).join('');
+    return this.accept(boundary);
+  }
+
 
   constructor(
     private readonly outputId: string,
@@ -37,25 +64,15 @@ export class OutputNormalizer {
     const raw = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8');
     // Normalize encoding and strip terminal control/ANSI escapes.
     const normalized = this.stripControls(raw);
-    // Redact any secret values that leaked into output.
-    const redacted = this.secretValues.reduce(
-      (acc, secret) => acc.split(secret).join('[REDACTED]'),
-      normalized,
-    );
-    const accepted = Math.min(redacted.length, this.maxBytes - this.#bytes);
-    if (accepted <= 0) {
-      this.#truncated = true;
-      return { acceptedBytes: 0, truncated: this.#truncated };
-    }
-    const slice = redacted.slice(0, accepted);
-    this.#digest.update(slice, 'utf8');
-    this.#bytes += slice.length;
+    this.#carry += normalized;
+    const accepted = this.#flush(false);
     this.#chunkCount += 1;
-    if (slice.length < redacted.length) this.#truncated = true;
-    return { acceptedBytes: slice.length, truncated: this.#truncated };
+    if (accepted < Buffer.byteLength(normalized, 'utf8')) this.#truncated = true;
+    return { acceptedBytes: accepted, truncated: this.#truncated };
   }
 
   finalize(): OutputRef {
+    if (this.#carry) this.#flush(true);
     return {
       outputId: this.outputId,
       bytes: this.#bytes,
