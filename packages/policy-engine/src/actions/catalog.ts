@@ -256,6 +256,8 @@ export const ACTION_DEFINITIONS: readonly ActionDefinition[] = Object.freeze([
   validationAct('approval_checkpoint_create', 'reversible_write'),
 ]);
 
+export type CanonicalActionId = (typeof ACTION_DEFINITIONS)[number]['id'];
+
 const BY_ID: ReadonlyMap<string, ActionDefinition> = new Map(
   ACTION_DEFINITIONS.map((definition) => [definition.id, definition]),
 );
