@@ -108,7 +108,10 @@ const outputIssue = z
     id: repoId,
     number: issueNumber,
     title: z.string(),
-    body: z.string().nullable().default(''),
+    body: z
+      .string()
+      .nullable()
+      .transform((body) => body ?? ''),
     state: z.enum(['open', 'closed']),
     labels: z
       .array(z.object({ name: z.string() }))

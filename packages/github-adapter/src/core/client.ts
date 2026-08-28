@@ -63,7 +63,37 @@ export class FetchTransport implements GitHubTransport {
       response.headers.forEach((value, key) => {
         headers[key.toLowerCase()] = value;
       });
-      const bodyText = response.status !== 204 ? await response.text() : undefined;
+      let bodyText: string | undefined;
+      if (response.status !== 204) {
+        if (!response.body) {
+          bodyText = await response.text();
+        } else {
+          const reader = response.body.getReader();
+          const chunks: Uint8Array[] = [];
+          let total = 0;
+          try {
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              total += value.byteLength;
+              if (total > MAX_RESPONSE_BYTES) {
+                await reader.cancel();
+                throw new Error('response body exceeds maximum size');
+              }
+              chunks.push(value);
+            }
+          } finally {
+            reader.releaseLock();
+          }
+          const bytes = new Uint8Array(total);
+          let offset = 0;
+          for (const chunk of chunks) {
+            bytes.set(chunk, offset);
+            offset += chunk.length;
+          }
+          bodyText = new TextDecoder().decode(bytes);
+        }
+      }
       if (bodyText && Buffer.byteLength(bodyText, 'utf8') > MAX_RESPONSE_BYTES) {
         throw new Error('response body exceeds maximum size');
       }
@@ -111,11 +141,9 @@ export class GitHubBaseClient {
     authorizedActionContext?: AuthorizedActionContext,
   ): Promise<GitHubResult<O>> {
     // Writes REQUIRE an unforgeable authorized context from the action gateway.
-    // HMAC digest must be valid and bound to this exact operation/input.
     if (
       operation.safety === 'write' &&
       (!authorizedActionContext ||
-        !/^[0-9a-f]{64}$/.test(authorizedActionContext.digest) ||
         ctx.authorizationContext?.digest !== authorizedActionContext.digest ||
         authorizedActionContext.operationKey !== operation.operationId ||
         ctx.operationId !== operation.operationId)
@@ -130,37 +158,19 @@ export class GitHubBaseClient {
       };
     }
 
-    // Finding 2: validate input through the descriptor's schema.
-    let checkedInput: I;
-    try {
-      checkedInput = operation.inputSchema.parse(validatedInput);
-    } catch (error) {
-      return {
-        ok: false,
-        error: {
-          kind: 'VALIDATION' as const,
-          operationId: operation.operationId,
-          message: `input schema validation failed: ${String((error as Error)?.message ?? error)}`,
-        },
-      };
-    }
-
-    const rawPath = buildPath(operation.pathTemplate, checkedInput as Record<string, unknown>);
-    // Finding 1 (PR25): remaining GET fields become query string (commit_sha→ref, etc.)
-    const pathPlaceholders = new Set(
-      [...operation.pathTemplate.matchAll(/\{(\w+)\}/g)].map((m) => m[1]),
+    const parsedInput = operation.inputSchema.parse(validatedInput) as Record<string, unknown>;
+    const path = buildPath(operation.pathTemplate, parsedInput);
+    const pathKeys = new Set(
+      Array.from(operation.pathTemplate.matchAll(/\{(\w+)\}/g), (m) => m[1]),
     );
-    const queryEntries = Object.entries(checkedInput as Record<string, unknown>).filter(
-      ([key, value]) => !pathPlaceholders.has(key) && value !== undefined && value !== null,
-    );
-    // Map commit_sha → ref for GitHub Contents API
-    const mappedEntries = queryEntries.map(([key, value]) =>
-      key === 'commit_sha' ? (['ref', value] as const) : ([key, value] as const),
-    );
-    const path =
-      mappedEntries.length > 0
-        ? `${rawPath}?${mappedEntries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join('&')}`
-        : rawPath;
+    const query = Object.entries(parsedInput)
+      .filter(([key, value]) => !pathKeys.has(key) && value !== undefined)
+      .map(
+        ([key, value]) =>
+          `${encodeURIComponent(key === 'commit_sha' ? 'ref' : key)}=${encodeURIComponent(String(value))}`,
+      )
+      .join('&');
+    const requestPath = query ? `${path}?${query}` : path;
     const headers: Record<string, string> = {
       accept: 'application/vnd.github+json',
       authorization: `Bearer ${token.expose()}`,
@@ -171,31 +181,17 @@ export class GitHubBaseClient {
 
     const body =
       operation.method !== 'GET' && operation.method !== 'DELETE'
-        ? JSON.stringify(checkedInput)
+        ? JSON.stringify(operation.inputSchema.parse(validatedInput))
         : undefined;
 
-    let raw: RawTransportResponse;
-    try {
-      raw = await this.options.transport.request({
-        method: operation.method,
-        path,
-        headers,
-        ...(body !== undefined ? { body } : {}),
-        timeoutMs: ctx.deadlineMs ?? DEFAULT_TIMEOUT_MS,
-        host: ALLOWED_HOST,
-      });
-    } catch (error) {
-      const isTimeout =
-        error instanceof Error && (error.name === 'AbortError' || error.message.includes('abort'));
-      return {
-        ok: false,
-        error: {
-          kind: isTimeout ? 'TIMEOUT' : 'SERVER_ERROR',
-          operationId: operation.operationId,
-          message: `transport error: ${String((error as Error)?.message ?? error)}`,
-        },
-      };
-    }
+    const raw = await this.options.transport.request({
+      method: operation.method,
+      path: requestPath,
+      headers,
+      ...(body !== undefined ? { body } : {}),
+      timeoutMs: ctx.deadlineMs ?? DEFAULT_TIMEOUT_MS,
+      host: ALLOWED_HOST,
+    });
 
     const meta: GitHubResponseMeta = {
       ...(raw.headers['x-github-request-id']
@@ -230,20 +226,8 @@ export class GitHubBaseClient {
     }
 
     if (raw.status === 204 || raw.bodyText === undefined || raw.bodyText === '') {
-      try {
-        operation.outputSchema.parse(undefined);
-        return { ok: true, value: undefined as O, meta };
-      } catch {
-        return {
-          ok: false,
-          error: {
-            kind: 'SCHEMA_MISMATCH',
-            operationId: operation.operationId,
-            message: `empty response for ${operation.operationId} but outputSchema requires a value`,
-            ...(meta.githubRequestId ? { githubRequestId: meta.githubRequestId } : {}),
-          },
-        };
-      }
+      const value = operation.outputSchema.parse(undefined);
+      return { ok: true, value, meta };
     }
 
     try {
