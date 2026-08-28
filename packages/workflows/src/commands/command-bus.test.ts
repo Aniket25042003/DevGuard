@@ -82,13 +82,21 @@ describe('CommandBus.submit (CP006 §22)', () => {
       idempotencyKey: KEY,
       createdBy: 'user-1',
     });
-    expect(result).toEqual({ runId: 'run-0001', replayed: false });
+    expect(result).toMatchObject({ runId: 'run-0001', replayed: false });
+    expect(result.commandId).toBe('review_remediation');
+    expect(result.originSurface).toBe('cli');
     expect(calls.length).toBe(1);
     expect(calls[0]?.workflowType).toBe('review_remediation');
     expect(calls[0]?.originSurface).toBe('cli');
     expect(calls[0]?.triggerType).toBe('manual');
     expect(calls[0]?.runId).toBe('run-0001');
     expect(calls[0]?.idempotencyKeyHash).toBe(idempotencyKeyHashOf(KEY));
+    // The outbox event payload is the CANONICAL C004 shape (no stray command keys).
+    expect(calls[0]?.eventPayload).toMatchObject({
+      repositoryId: 'repo-1',
+      trigger: 'manual',
+      requestedBy: 'user-1',
+    });
   });
 
   it('persists exactly one run when the same idempotency key is replayed', async () => {
@@ -154,6 +162,46 @@ describe('CommandBus.submit (CP006 §22)', () => {
         idempotencyKey: KEY,
       }),
     ).rejects.toBeInstanceOf(CommandOriginForgedError);
+    expect(persistence.calls.length).toBe(0);
+  });
+
+  it('rejects schedule provenance until the DB/event contract supports it', async () => {
+    const { bus, persistence } = makeBus();
+    await expect(
+      bus.submit({
+        command: { commandId: 'review' },
+        repositoryId: 'repo-1',
+        originSurface: 'schedule',
+        idempotencyKey: KEY,
+        trustedSurface: true,
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(persistence.calls.length).toBe(0);
+  });
+
+  it('rejects a non-object command input (invalid scalar) before persisting', async () => {
+    const { bus, persistence } = makeBus();
+    await expect(
+      bus.submit({
+        command: { commandId: 'review', input: 'just-a-string' },
+        repositoryId: 'repo-1',
+        originSurface: 'cli',
+        idempotencyKey: KEY,
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(persistence.calls.length).toBe(0);
+  });
+
+  it('rejects an empty definition version', async () => {
+    const { bus, persistence } = makeBus();
+    await expect(
+      bus.submit({
+        command: { commandId: 'review', definitionVersion: '   ' },
+        repositoryId: 'repo-1',
+        originSurface: 'cli',
+        idempotencyKey: KEY,
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     expect(persistence.calls.length).toBe(0);
   });
 

@@ -39,34 +39,50 @@ afterAll(async () => {
 
 const KEY_HASH = 'a'.repeat(64);
 const RUN_ID = 'c8a2e9f0-1111-4222-8333-444455556666';
+const REPO = '11111111-2222-4333-8444-555555555555';
+const FINGERPRINT =
+  '{"commandId":"review_remediation","repositoryId":"11111111-2222-4333-8444-555555555555","originSurface":"cli","definitionVersion":"1.0.0"}';
 
-async function createQueuedRun(runId: string, keyHash: string) {
+async function createQueuedRun(runId: string, keyHash: string, fingerprint: string) {
   return createUnitOfWork(pool).transaction(async (tx) => {
     const store = new WorkflowRunStore(tx as never);
     let created: { runId: string } | undefined;
     try {
       const record = await store.create({
         id: runId,
-        repositoryId: 'repo-1',
+        repositoryId: REPO,
         workflowType: 'review_remediation',
         triggerType: 'manual',
-        triggerReferenceJson: JSON.stringify({ originSurface: 'cli', commandId: 'review' }),
+        triggerReferenceJson: JSON.stringify({
+          originSurface: 'cli',
+          commandId: 'review_remediation',
+          requestFingerprint: fingerprint,
+          definitionVersion: '1.0.0',
+        }),
         idempotencyKeyHash: keyHash,
+        definitionVersion: 1,
         createdBy: 'user-1',
       });
       created = { runId: record.id };
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('IDEMPOTENCY_REPLAY')) {
         const existing = await store.findByIdempotencyKeyHash(keyHash);
-        if (existing) return { outcome: 'replayed', runId: existing.id } as const;
+        if (existing) {
+          const stored = (
+            JSON.parse(existing.triggerReferenceJson) as { requestFingerprint?: string }
+          ).requestFingerprint;
+          if (stored === fingerprint) return { outcome: 'replayed', runId: existing.id } as const;
+          throw new Error('IDEMPOTENCY_KEY_CONFLICT', { cause: error });
+        }
       }
       throw error;
     }
     await new OutboxWriter().append(
       {
+        // canonical C004 workflow.queued payload.
         eventType: 'workflow.queued',
         schemaVersion: 1,
-        payload: { commandId: 'review_remediation', repositoryId: 'repo-1', originSurface: 'cli' },
+        payload: { repositoryId: REPO, trigger: 'manual', requestedBy: 'user-1' },
         correlation: { runId: created.runId, commandId: 'review_remediation' },
         aggregateType: 'workflow_run',
         aggregateId: created.runId,
@@ -79,7 +95,7 @@ async function createQueuedRun(runId: string, keyHash: string) {
 
 describeDb('CP006 command-bus durable persistence', () => {
   it('persists a queued run AND the outbox event in one transaction', async () => {
-    const result = await createQueuedRun(RUN_ID, KEY_HASH);
+    const result = await createQueuedRun(RUN_ID, KEY_HASH, FINGERPRINT);
     expect(result.outcome).toBe('created');
 
     const runs = await pool.query<{ n: string }>({
@@ -96,7 +112,7 @@ describeDb('CP006 command-bus durable persistence', () => {
   });
 
   it('replaying the same idempotency key returns the existing run with no duplicate outbox event', async () => {
-    const replay = await createQueuedRun(RUN_ID, KEY_HASH);
+    const replay = await createQueuedRun(RUN_ID, KEY_HASH, FINGERPRINT);
     expect(replay.outcome).toBe('replayed');
     expect(replay.runId).toBe(RUN_ID);
 
@@ -112,5 +128,15 @@ describeDb('CP006 command-bus durable persistence', () => {
       values: [RUN_ID],
     });
     expect(Number(outbox[0]?.n ?? '0')).toBe(1);
+  });
+
+  it('conflicts when an idempotency key is reused with a DIFFERENT request fingerprint', async () => {
+    let thrown: string | undefined;
+    try {
+      await createQueuedRun(RUN_ID, KEY_HASH, '{"commandId":"implement_issue","different":true}');
+    } catch (error) {
+      thrown = (error as { message?: string }).message ?? '';
+    }
+    expect(thrown).toContain('IDEMPOTENCY_KEY_CONFLICT');
   });
 });

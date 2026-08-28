@@ -14,6 +14,7 @@
  */
 import type { ApiContainer } from '../composition/container.js';
 import {
+  commandReceiptSchema,
   IDEMPOTENCY_KEY_HEADER,
   idempotencyKeySchema,
   submitCommandRequestSchema,
@@ -85,7 +86,13 @@ export function registerRepositoryCommandRoutes(
       let result;
       try {
         result = await container.commandBus.submit({
-          command: { commandId: parsed.data.commandId, input: parsed.data.input },
+          command: {
+            commandId: parsed.data.commandId,
+            ...(parsed.data.definitionVersion !== undefined
+              ? { definitionVersion: parsed.data.definitionVersion }
+              : {}),
+            input: parsed.data.input,
+          },
           repositoryId,
           originSurface: parsed.data.originSurface,
           idempotencyKey: parsedKey.data,
@@ -95,10 +102,25 @@ export function registerRepositoryCommandRoutes(
         return renderCommandError(c, error);
       }
 
+      // Canonical C069 CommandReceiptV1 on both created (202) and replayed (200).
+      const receipt = commandReceiptSchema.parse({
+        id: result.runId,
+        repositoryId,
+        commandId: result.commandId,
+        originSurface: result.originSurface,
+        status: 'accepted',
+        workflowRunId: result.runId,
+        createdAt: result.createdAt,
+        links: {
+          run: `/api/v1/workflows/${result.runId}`,
+          self: `/api/v1/repositories/${repositoryId}/commands`,
+        },
+      });
+
       if (result.replayed) {
-        return c.json({ data: { runId: result.runId, replayed: true, status: 'accepted' } }, 200);
+        return c.json({ data: receipt }, 200);
       }
-      return c.json({ data: { runId: result.runId, replayed: false, status: 'accepted' } }, 202);
+      return c.json({ data: receipt }, 202);
     },
   );
 }
