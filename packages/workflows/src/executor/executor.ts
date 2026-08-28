@@ -91,29 +91,32 @@ export class RetryClassifier {
     if (code === 'RATE_LIMITED' || code === 'TRANSIENT_PROVIDER_FAULT') {
       return { kind: 'safe', delayMs: 2_000 };
     }
-    return { kind: 'safe', delayMs: 1_000 };
+    return { kind: 'reconcile', reconcilerId: code };
   }
 }
 
 export class InMemoryLockManager {
-  readonly locks = new Map<string, { state: LockState; ownerRunId: string; untilIso: string }>();
+  readonly locks = new Map<string, { state: LockState; ownerRunId: string; token: string; untilIso: string }>();
 
   async acquire(canonicalKey: string, ownerRunId: string, ttlMs: number): Promise<LockResult> {
     const existing = this.locks.get(canonicalKey);
     if (existing !== undefined && existing.state === 'HELD') {
       return { ok: false, code: 'RESOURCE_LOCKED', detail: `held by ${existing.ownerRunId}` };
     }
+    const token = `lock:${ownerRunId}:${canonicalKey}:${Date.now()}:${Math.random()}`;
     this.locks.set(canonicalKey, {
       state: 'HELD',
       ownerRunId,
+      token,
       untilIso: new Date(Date.now() + ttlMs).toISOString(),
     });
-    return { ok: true, lockId: `lock:${canonicalKey}` };
+    return { ok: true, lockId: token };
   }
 
-  async release(canonicalKey: string): Promise<void> {
+  async release(canonicalKey: string, ownerRunId: string, token: string): Promise<void> {
     const existing = this.locks.get(canonicalKey);
-    if (existing !== undefined) this.locks.set(canonicalKey, { ...existing, state: 'RELEASED' });
+    if (existing !== undefined && existing.ownerRunId === ownerRunId && existing.token === token)
+      this.locks.set(canonicalKey, { ...existing, state: 'RELEASED' });
   }
 }
 
