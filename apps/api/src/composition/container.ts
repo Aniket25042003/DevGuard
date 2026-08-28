@@ -49,12 +49,15 @@ import {
   PostgresLocalRepositoryAccessPort,
   PostgresUserIdentityLinker,
 } from '@devguard/db';
+import { CommandBus, type CommandBusPersistencePort } from '@devguard/workflows';
 import { isVolatileBinding } from './bindings.js';
+import { PostgresCommandBusPersistencePort } from './command-bus-adapter.js';
 import {
   VolatileApiTokenRepository,
   VolatileApprovals,
   VolatileArtifacts,
   VolatileAudit,
+  VolatileCommandBusPersistencePort,
   VolatileFindings,
   VolatilePolicySummaries,
   VolatileRepositoryCatalog,
@@ -135,6 +138,7 @@ export interface CompositionBindings {
   readonly identities: UserIdentityLinker;
   readonly apiTokens: ApiTokenRepository;
   readonly identityProvider: IdentityProviderClient;
+  readonly commandBus: CommandBusPersistencePort;
   readonly localAccess: LocalRepositoryAccessPort;
   readonly githubPermissions: GitHubPermissionPort;
   readonly evidence: AuthorizationEvidencePort;
@@ -157,6 +161,7 @@ export interface ApiContainer {
   readonly bindings: CompositionBindings;
   readonly auth: AuthenticationService;
   readonly apiTokens: ApiTokenService;
+  readonly commandBus: CommandBus;
   readonly authorizer: RepositoryAuthorizationService;
 }
 
@@ -203,6 +208,7 @@ export function validateReadiness(
   // Marker-based detection for every control-plane port family (CP002 §5).
   const markerBindings: ReadonlyArray<readonly [string, unknown]> = [
     ['apiTokens', bindings.apiTokens],
+    ['commandBus', bindings.commandBus],
     ['localAccess', bindings.localAccess],
     ['githubPermissions', bindings.githubPermissions],
     ['authorizationEvidence', bindings.evidence],
@@ -289,6 +295,10 @@ export function buildContainer(
   const localAccess = durableAuth
     ? new PostgresLocalRepositoryAccessPort(pool)
     : new EmptyLocalRepositoryAccessPort();
+  // CP006: command bus persistence (run + outbox atomically) when durable.
+  const commandBus = durableAuth
+    ? new PostgresCommandBusPersistencePort(pool)
+    : new VolatileCommandBusPersistencePort();
 
   const bindings: CompositionBindings = {
     sessions,
@@ -296,6 +306,7 @@ export function buildContainer(
     identities,
     apiTokens,
     identityProvider,
+    commandBus,
     localAccess,
     githubPermissions: new UnavailableGitHubPermissionPort(),
     evidence: new InMemoryAuthorizationEvidenceStore(),
@@ -331,6 +342,8 @@ export function buildContainer(
     now: () => new Date(),
   });
 
+  const commandBusService = new CommandBus({ persistence: bindings.commandBus });
+
   const authorizer = new RepositoryAuthorizationService({
     local: bindings.localAccess,
     github: bindings.githubPermissions,
@@ -352,6 +365,7 @@ export function buildContainer(
     bindings,
     auth,
     apiTokens: apiTokenService,
+    commandBus: commandBusService,
     authorizer,
     ...(pool !== undefined ? { pool } : {}),
     ...(webhookSecret !== undefined ? { webhookSecret } : {}),

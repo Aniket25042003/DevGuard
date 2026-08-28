@@ -6,6 +6,24 @@
  */
 import './errors.js';
 
+// ---- CP006 shared command bus (list + submit for every surface) ----
+export {
+  COMMAND_BUS_MVP_IDS,
+  CommandBus,
+  CommandDisabledError,
+  CommandOriginForgedError,
+  idempotencyKeyHashOf,
+  listAvailableCommands,
+  type AvailableCommand,
+  type CommandBusDeps,
+  type CommandBusPersistencePort,
+  type CreateQueuedRunInput,
+  type OriginSurfaceV1,
+  type SubmitCommandShape,
+  type SubmitResult,
+  type TriggerTypeV1,
+} from './commands/command-bus.js';
+
 // ---- C056 product workflow: manual_refactor (extension) ----
 export {
   MANUAL_REFACTOR_STEPS,

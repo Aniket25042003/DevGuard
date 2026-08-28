@@ -20,6 +20,7 @@ import {
   registerWorkflowRoutes,
   registerCommandRoutes,
 } from './routes/workflow.routes.js';
+import { registerRepositoryCommandRoutes } from './routes/commands.routes.js';
 import { registerHealthRoutes } from './routes/health.routes.js';
 import {
   registerRepositoryRoutes,
@@ -87,6 +88,8 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   registerPolicyRoutes(kernel, container.bindings.policies);
   registerWorkflowRoutes(kernel, container.bindings.workflows, container.bindings.workflows);
   registerCommandRoutes(kernel, container.bindings.workflows);
+  // CP006: repo-scoped command catalog + submit (shared command bus).
+  registerRepositoryCommandRoutes(kernel, container);
 
   // C074 health, C065 repository catalog, C075 GitHub webhook acceptance.
   registerHealthRoutes(kernel, [

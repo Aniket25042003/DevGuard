@@ -9,7 +9,9 @@
  * `UnavailableWorkflowAdapter` until a real adapter binds (CP006/CP007/CP011).
  */
 import type { TimestampIso, WorkflowStatus } from '@devguard/contracts';
+import { idempotencyKeyConflict } from '@devguard/errors';
 import type { ApiTokenRecord, ApiTokenRepository } from '@devguard/auth';
+import type { CommandBusPersistencePort, CreateQueuedRunInput } from '@devguard/workflows';
 import type {
   CommandCatalogPort,
   PolicySummaryPort,
@@ -242,5 +244,40 @@ export class VolatileApiTokenRepository implements ApiTokenRepository, VolatileB
     if (record !== undefined && record.userId === userId && record.revokedAt === undefined) {
       this.rows.set(tokenId, { ...record, revokedAt, rowVersion: record.rowVersion + 1 });
     }
+  }
+}
+
+/**
+ * In-memory command persistence (test only). Dedupes by idempotency hash like
+ * the durable port, but is not durable — flagged volatile so production refuses it.
+ */
+export class VolatileCommandBusPersistencePort
+  implements CommandBusPersistencePort, VolatileBindingMarker
+{
+  readonly bindingKind = VOLATILE_BINDING_KIND;
+  readonly bindingName = 'command_bus_in_memory';
+
+  private readonly byHash = new Map<string, { runId: string; fingerprint: string }>();
+
+  async createQueuedRun(
+    input: CreateQueuedRunInput,
+  ): Promise<
+    | { readonly outcome: 'created'; readonly runId: string }
+    | { readonly outcome: 'replayed'; readonly runId: string }
+  > {
+    const existing = this.byHash.get(input.idempotencyKeyHash);
+    if (existing !== undefined) {
+      // Mirror the durable port: an identical replay dedupes; a mismatched
+      // reuse of the same key is a conflict, never a silent wrong-run return.
+      if (existing.fingerprint === input.requestFingerprint) {
+        return { outcome: 'replayed', runId: existing.runId };
+      }
+      throw idempotencyKeyConflict(new Error('idempotency_key_reused_with_different_request'));
+    }
+    this.byHash.set(input.idempotencyKeyHash, {
+      runId: input.runId,
+      fingerprint: input.requestFingerprint,
+    });
+    return { outcome: 'created', runId: input.runId };
   }
 }
