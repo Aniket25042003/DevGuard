@@ -23,7 +23,7 @@
  *   CP006); `.strict()` in the schema is the minimum boundary guard.
  */
 import { z } from 'zod';
-import { WorkflowStatus } from '@devguard/contracts';
+import { schemas, timestampIso, WorkflowStatus } from '@devguard/contracts';
 
 /** CP001 §19/§21 — registry version used in list ETags and dedupe bindings. */
 export const COMMAND_CONTRACT_VERSION = 'command-contract.v1';
@@ -73,14 +73,14 @@ export const MVP_COMMAND_IDS_V1 = [
 
 export const commandMvpFlags: Readonly<Record<CanonicalCommandId, { readonly mvp: boolean }>> =
   Object.freeze({
-    implement_issue: { mvp: true },
-    diagnose_failure: { mvp: true },
-    security_audit: { mvp: true },
-    security_patch: { mvp: true },
-    review_remediation: { mvp: true },
-    dependency_upgrade: { mvp: false },
-    repository_health_check: { mvp: false },
-    manual_refactor: { mvp: false },
+    implement_issue: Object.freeze({ mvp: true }),
+    diagnose_failure: Object.freeze({ mvp: true }),
+    security_audit: Object.freeze({ mvp: true }),
+    security_patch: Object.freeze({ mvp: true }),
+    review_remediation: Object.freeze({ mvp: true }),
+    dependency_upgrade: Object.freeze({ mvp: false }),
+    repository_health_check: Object.freeze({ mvp: false }),
+    manual_refactor: Object.freeze({ mvp: false }),
   });
 
 /**
@@ -133,13 +133,13 @@ export type SubmitCommandRequestV1 = z.infer<typeof submitCommandRequestSchema>;
 /** CP001 §8 / C069 — durable async acceptance receipt (`202`). */
 export const commandReceiptSchema = z
   .object({
-    id: z.string().min(1).max(128),
-    repositoryId: z.string().min(1).max(128),
+    id: schemas.workflowRunId,
+    repositoryId: schemas.repositoryId,
     commandId: canonicalCommandIdSchema,
     originSurface: originSurfaceSchema,
     status: z.literal('accepted'),
-    workflowRunId: z.string().min(1).max(128),
-    createdAt: z.string().min(1).max(64),
+    workflowRunId: schemas.workflowRunId,
+    createdAt: timestampIso,
     links: z
       .object({
         run: z.string().min(1).max(2048),
@@ -158,8 +158,8 @@ export type CommandReceiptV1 = z.infer<typeof commandReceiptSchema>;
  */
 export const workflowRunDtoSchema = z
   .object({
-    id: z.string().min(1).max(128),
-    repositoryId: z.string().min(1).max(128),
+    id: schemas.workflowRunId,
+    repositoryId: schemas.repositoryId,
     workflowType: canonicalCommandIdSchema,
     definitionVersion: z.string().min(1).max(64),
     status: WorkflowStatus,
@@ -175,11 +175,11 @@ export const workflowRunDtoSchema = z
     branchName: z.string().max(256).optional(),
     pullRequestNumber: z.number().int().positive().optional(),
     queuePosition: z.number().int().nonnegative().optional(),
-    startedAt: z.string().max(64).optional(),
-    completedAt: z.string().max(64).optional(),
+    startedAt: timestampIso.optional(),
+    completedAt: timestampIso.optional(),
     failure: z.string().max(2000).optional(),
-    createdAt: z.string().max(64),
-    updatedAt: z.string().max(64),
+    createdAt: timestampIso,
+    updatedAt: timestampIso,
     version: z.number().int().nonnegative(),
     links: z
       .object({
@@ -195,14 +195,33 @@ export type WorkflowRunDtoV1 = z.infer<typeof workflowRunDtoSchema>;
  * and `GET .../runs`. `originSurface` and `triggerType` filter independently;
  * `triggerSource` is the deprecated OpenAPI alias of `originSurface` (C079).
  */
+const workflowStatusFilterSchema = z
+  .string()
+  .max(256)
+  .refine(
+    (value) => value.split(',').every((status) => WorkflowStatus.options.includes(status as never)),
+    'expected comma-separated workflow statuses',
+  );
+
+const positiveQueryIntegerSchema = z.preprocess(
+  (value) =>
+    typeof value === 'string' && /^[1-9]\d*$/.test(value) ? Number(value) : value,
+  z.number().int().positive(),
+);
+
 export const workflowRunListQuerySchema = z
   .object({
     originSurface: originSurfaceSchema.optional(),
     triggerSource: originSurfaceSchema.optional(),
     triggerType: triggerTypeSchema.optional(),
-    status: z.string().max(256).optional(),
+    status: workflowStatusFilterSchema.optional(),
     workflowType: canonicalCommandIdSchema.optional(),
-    pullRequestNumber: z.number().int().positive().optional(),
+    pullRequestNumber: positiveQueryIntegerSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((query, context) => {
+    if (query.originSurface !== undefined && query.triggerSource !== undefined && query.originSurface !== query.triggerSource) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['triggerSource'], message: 'conflicts with originSurface' });
+    }
+  });
 export type WorkflowRunListQueryV1 = z.infer<typeof workflowRunListQuerySchema>;
