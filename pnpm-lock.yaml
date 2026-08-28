@@ -208,6 +208,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@devguard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@devguard/errors':
         specifier: workspace:*
         version: link:../errors
