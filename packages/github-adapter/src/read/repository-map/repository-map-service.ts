@@ -76,9 +76,15 @@ export class RepositoryMapServiceGate implements RepositoryMapService {
     }
     const operation = parsed.data;
 
-    // Idempotency (C015 §20): same operation key returns the existing map ref.
+    // Idempotency (C015 §20): same operation key + same repository returns the
+    // existing map ref. A key collision for a DIFFERENT repository is never
+    // replayed (defensive; operation keys are globally unique in practice).
     const existingByOp = await this.#store.findByOperationKey(operation.operationKey);
-    if (existingByOp !== undefined && existingByOp.status !== 'superseded') {
+    if (
+      existingByOp !== undefined &&
+      existingByOp.status !== 'superseded' &&
+      existingByOp.repositoryDevguardId === operation.repositoryId
+    ) {
       return {
         ok: true,
         value: {
@@ -314,7 +320,13 @@ export class RepositoryMapServiceGate implements RepositoryMapService {
     aggregateId: string,
     payload: Readonly<Record<string, unknown>>,
   ): Promise<void> {
-    await this.#emit.emit({ type, aggregateId, payload });
+    // Event emission is best-effort domain signaling (shared.ts): a sink
+    // failure must never reject build() after the map was already saved.
+    try {
+      await this.#emit.emit({ type, aggregateId, payload });
+    } catch {
+      /* non-blocking; never surfaces as a build failure */
+    }
   }
 }
 
