@@ -121,9 +121,16 @@ export class WorkspaceManager {
     this.assertBoundaryIds(input);
     const { runId, repositoryId } = input;
 
-    // Unique run ownership: replay returns the existing reservation.
+    // Unique run ownership: replay returns the existing reservation only when
+    // the full creation request still matches that reservation's binding.
+    // Reusing a run ID with different repository/selector/session/limit inputs
+    // is a conflict, never a silent redirect to an existing workspace.
     const existing = await this.options.ports.store.loadByRunId(runId);
     if (existing !== undefined) {
+      const mismatch = bindingMismatch(existing, input);
+      if (mismatch !== undefined) {
+        throw makeError('WORKSPACE_REPLAY_MISMATCH', { details: { field: mismatch } });
+      }
       this.info('sandbox.workspace.replayed', { runId, status: existing.status });
       return toRef(existing);
     }
@@ -623,6 +630,23 @@ function fenceOf(record: WorkspaceRecord): WorkspaceFence {
     leaseToken: record.leaseToken ?? '',
     leaseExpiresAtMs: record.leaseExpiresAtMs ?? 0,
   };
+}
+
+/**
+ * A request replay for an already-reserved run is only idempotent when every
+ * binding field matches the original. Selector comparison is canonical-shape
+ * (both stored/parsed through `parseCheckoutSelector`), so equal requests
+ * replay while diverging requests fail closed with a named field.
+ */
+function bindingMismatch(
+  existing: WorkspaceRecord,
+  input: CreateWorkspaceInput,
+): string | undefined {
+  if (existing.repositoryId !== input.repositoryId) return 'repositoryId';
+  if (existing.limitProfileId !== input.limitProfileId) return 'limitProfileId';
+  if ((existing.sessionId ?? null) !== (input.sessionId ?? null)) return 'sessionId';
+  if (JSON.stringify(existing.selector) !== JSON.stringify(input.selector)) return 'selector';
+  return undefined;
 }
 
 function toRef(record: WorkspaceRecord): WorkspaceRef {

@@ -90,6 +90,15 @@ registerError({
   detailSchema: detailSchema(['reason']),
 });
 
+registerError({
+  code: 'WORKSPACE_REPLAY_MISMATCH',
+  category: 'concurrency',
+  httpStatus: 409,
+  retryClass: 'no_retry',
+  safeMessage: 'Idempotent workspace replay does not match the original create-request binding.',
+  detailSchema: detailSchema(['field']),
+});
+
 // ---------------------------------------------------------------------------
 // C042 — command execution and timeouts
 // ---------------------------------------------------------------------------

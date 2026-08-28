@@ -260,6 +260,14 @@ describe('WorkspaceManager.create (C041 §12/§23)', () => {
     expect(events.filter((event) => event.type === 'sandbox.workspace.created')).toHaveLength(1);
   });
 
+  it('rejects a replay whose repository binding differs from the original (no silent redirect)', async () => {
+    const { manager, input } = makeHarness();
+    await manager.create(input());
+    await expect(
+      manager.create(input({ repositoryId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' })),
+    ).rejects.toThrowError(/WORKSPACE_REPLAY_MISMATCH/);
+  });
+
   it('fails closed when a required isolation capability is missing', async () => {
     const { manager, input } = makeHarness({
       manifest: {
