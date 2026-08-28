@@ -74,7 +74,6 @@ export class McpPolicyGateway {
   readonly #registry: ToolProfileRegistry;
   readonly #decisions: PolicyDecisionPort;
   readonly #intents: ToolIntentStorePort;
-  readonly #toolProfileId: string;
   readonly #clock: { readonly nowIso: () => string };
   readonly #emit: PolicyGatewayEventSinkPort;
 
@@ -82,7 +81,7 @@ export class McpPolicyGateway {
     this.#registry = deps.registry;
     this.#decisions = deps.decisions;
     this.#intents = deps.intents;
-    this.#toolProfileId = deps.toolProfileId;
+    void deps.toolProfileId;
     this.#clock = deps.clock ?? { nowIso: () => new Date().toISOString() };
     this.#emit = deps.emit ?? { emit: async () => undefined };
   }

@@ -26,7 +26,9 @@ export class ToolProfileRegistry {
   }
 
   lookup(toolName: string, toolProfileId: string): ToolProfileLookup {
-    const entry = this.entries.find((e) => e.toolName === toolName && e.profileId === toolProfileId);
+    const entry = this.entries.find(
+      (e) => e.toolName === toolName && e.profileId === toolProfileId,
+    );
     if (entry === undefined) return { ok: false, code: 'UNKNOWN_TOOL_DENIED' };
     if (!entry.enabled) return { ok: false, code: 'PROFILE_DISABLED' };
     if (entry.directMutative) return { ok: false, code: 'DIRECT_MUTATIVE_DENIED' };
