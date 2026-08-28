@@ -82,9 +82,15 @@ function mapRunProjection(row: Record<string, unknown>): WorkflowRunProjection {
     status: String(row['status']),
     triggerType: String(row['trigger_type']),
     originSurface,
-    definitionVersion: Number.isFinite(Number(row['definition_version']))
-      ? Number(row['definition_version'])
-      : 1,
+    definitionVersion: (() => {
+        try {
+          const ref = JSON.parse(String(row['trigger_reference_json'] ?? '{}')) as { definitionVersion?: unknown };
+          if (typeof ref.definitionVersion === 'string' && ref.definitionVersion.length > 0) return ref.definitionVersion;
+        } catch {
+          // Legacy rows may not contain valid trigger metadata.
+        }
+        return row['definition_version'] !== undefined ? String(row['definition_version']) : '1';
+      })(),
     createdAtIso: String(row['created_at'] ?? ''),
     updatedAtIso: String(row['updated_at'] ?? ''),
     startedAtIso: iso(row['started_at']),
