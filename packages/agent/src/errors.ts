@@ -113,3 +113,84 @@ registerError({
   safeMessage: 'Authorized execution requires an explicit approved grant.',
   detailSchema: detailSchema([]),
 });
+// ---- C037/C038 session/turn lifecycle error codes ----
+registerError({
+  code: 'SESSION_NOT_FOUND',
+  category: 'domain',
+  httpStatus: 404,
+  retryClass: 'no_retry',
+  safeMessage: 'The requested agent session does not exist.',
+  detailSchema: detailSchema(['sessionId']),
+});
+registerError({
+  code: 'SESSION_FAILED',
+  category: 'domain',
+  httpStatus: 409,
+  retryClass: 'no_retry',
+  safeMessage: 'The agent session ended in a failed state and cannot be reused.',
+  detailSchema: detailSchema(['sessionId']),
+});
+registerError({
+  code: 'SESSION_TERMINAL',
+  category: 'domain',
+  httpStatus: 409,
+  retryClass: 'no_retry',
+  safeMessage: 'The agent session is terminal and cannot accept new turns.',
+  detailSchema: detailSchema(['status']),
+});
+registerError({
+  code: 'SESSION_VERSION_CONFLICT',
+  category: 'domain',
+  httpStatus: 409,
+  retryClass: 'reconcile_then_retry',
+  safeMessage: 'The agent session version changed under a concurrent worker.',
+  detailSchema: detailSchema([]),
+});
+registerError({
+  code: 'SESSION_CREATE_FAILED',
+  category: 'integration',
+  httpStatus: 503,
+  retryClass: 'reconcile_then_retry',
+  safeMessage: 'The agent runtime could not create the session.',
+  detailSchema: detailSchema(['code']),
+});
+registerError({
+  code: 'SESSION_TURN_ACTIVE',
+  category: 'domain',
+  httpStatus: 409,
+  retryClass: 'no_retry',
+  safeMessage: 'A turn is already active for this agent session.',
+  detailSchema: detailSchema(['sessionId']),
+});
+registerError({
+  code: 'TURN_NOT_FOUND',
+  category: 'domain',
+  httpStatus: 404,
+  retryClass: 'no_retry',
+  safeMessage: 'The requested agent turn does not exist.',
+  detailSchema: detailSchema(['turnId']),
+});
+registerError({
+  code: 'TURN_GENERATION_STALE',
+  category: 'domain',
+  httpStatus: 409,
+  retryClass: 'no_retry',
+  safeMessage: 'The turn was submitted against a stale cancellation generation.',
+  detailSchema: detailSchema(['actual']),
+});
+registerError({
+  code: 'TURN_COMMAND_DIGEST_CONFLICT',
+  category: 'domain',
+  httpStatus: 409,
+  retryClass: 'no_retry',
+  safeMessage: 'The turn command id was reused with different inputs.',
+  detailSchema: detailSchema([]),
+});
+registerError({
+  code: 'REQUIRED_ACTION_RESULT_LINK_REQUIRED',
+  category: 'domain',
+  httpStatus: 422,
+  retryClass: 'no_retry',
+  safeMessage: 'A required-action result must reference the paused turn it continues.',
+  detailSchema: detailSchema([]),
+});
