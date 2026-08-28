@@ -49,6 +49,10 @@ export class AppJwtSigner {
     const nowSeconds = Math.floor(this.#options.nowMs() / 1000);
     const backdate = this.#options.backdateSeconds ?? 60;
     const lifetime = this.#options.lifetimeSeconds ?? 10 * 60;
+    if (!Number.isFinite(backdate) || backdate < 0) throw new Error('invalid JWT backdate');
+    if (!Number.isFinite(lifetime) || lifetime <= 0 || lifetime > 600) {
+      throw new Error('invalid JWT lifetime');
+    }
     const iat = nowSeconds - backdate;
     const exp = iat + lifetime;
 

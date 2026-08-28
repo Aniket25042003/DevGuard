@@ -86,3 +86,84 @@ export {
   type RepositoryLifecyclePersistencePort,
   type RepositoryLifecycleStatus,
 } from './read/lifecycle.js';
+
+// ---- C014 repository metadata/health ----
+export {
+  DIMENSION_STATUSES,
+  FIELD_OBSERVATION_STATUSES,
+  getSnapshotInputSchema,
+  HEALTH_DIMENSIONS,
+  HEALTH_REASON_CODES,
+  HEALTH_SCHEMA_VERSION,
+  HEALTH_STATUSES,
+  HINT_CAUSES,
+  HINT_RESOURCES,
+  METADATA_FIELDS,
+  METADATA_SCHEMA_VERSION,
+  READINESS_STATUSES,
+  refreshMetadataInputSchema,
+  REFRESH_CAUSES,
+  repositoryRefreshHintSchema,
+  REQUIRED_READ_PERMISSIONS,
+  type CiDescriptor,
+  type DimensionStatus,
+  type EffectivePermissions,
+  type FieldFailure,
+  type FieldObservationStatus,
+  type GetSnapshotInput,
+  type HealthDimension,
+  type HealthDimensions,
+  type HealthReasonCode,
+  type HealthStatus,
+  type HintCause,
+  type HintResource,
+  type LanguageCount,
+  type MetadataDimensionId,
+  type MetadataField,
+  type MetadataHealthView,
+  type ReadinessStatus,
+  type RefreshCause,
+  type RefreshRepositoryMetadata,
+  type RefreshRepositoryMetadataInput,
+  type RepositoryHealthSnapshot,
+  type RepositoryMetadataSnapshot,
+  type RepositoryRefreshHint,
+  type RepositoryRefreshHintInput,
+  type ResourceEtag,
+} from './read/metadata-health/contracts.js';
+export {
+  RepositoryMetadataHealthService,
+  type LifecycleReadPort,
+  type MetadataHealthServiceOptions,
+} from './read/metadata-health/service.js';
+export {
+  InMemoryMetadataProvider,
+  type IdentityObservation,
+  type ProviderErrorCode,
+  type ProviderRateState,
+  type ProviderReadContext,
+  type ProviderReadResult,
+  type RepositoryMetadataProviderPort,
+} from './read/metadata-health/provider-port.js';
+export type { CollectedFields } from './read/metadata-health/collectors.js';
+export { HealthEvaluator } from './read/metadata-health/health-evaluator.js';
+export {
+  evaluateHealthTransition,
+  evaluateReadiness,
+  type HealthTransitionEvidence,
+  type HealthTransitionVerdict,
+} from './read/metadata-health/state-machine.js';
+export {
+  InMemoryMetadataSnapshotStore,
+  type MetadataSnapshotStorePort,
+  type SaveResult,
+} from './read/ports/metadata-snapshot-store.js';
+export {
+  InMemoryEventSink,
+  NoopLogPort,
+  READ_COMPONENT_EVENTS,
+  type ComponentLogPort,
+  type EmittedReadEvent,
+  type EventSinkPort,
+  type ReadComponentEventType,
+} from './read/ports/shared.js';
