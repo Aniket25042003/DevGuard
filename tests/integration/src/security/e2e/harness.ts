@@ -55,6 +55,8 @@ export interface ScenarioEvidence {
   readonly canaryLeaks: readonly string[];
   readonly canariesScanned: readonly string[];
   readonly passed: boolean;
+  /** SHA-256 digest of the canonical, immutable evidence snapshot. */
+  readonly digest: string;
 }
 
 export interface ScenarioResult {
@@ -96,15 +98,20 @@ export async function runScenario(
     if (evidence.some((blob) => blob.includes(canary))) canaryLeaks.push(canary);
   }
 
-  const evidenceBundle: ScenarioEvidence = {
-    scenario: spec,
+  const snapshot = {
+    scenario: { ...spec, tags: [...spec.tags] },
     startIso,
     endIso,
-    states,
-    forbiddenViolations,
-    canaryLeaks,
+    states: [...states],
+    forbiddenViolations: [...forbiddenViolations],
+    canaryLeaks: [...canaryLeaks],
     canariesScanned: [...options.canaries],
     passed: forbiddenViolations.length === 0 && canaryLeaks.length === 0,
-  };
+  } as const;
+  const { createHash } = await import('node:crypto');
+  const digest = createHash('sha256')
+    .update(JSON.stringify(snapshot))
+    .digest('hex');
+  const evidenceBundle: ScenarioEvidence = Object.freeze({ ...snapshot, digest });
   return { evidence: evidenceBundle, forbiddenEffectChecks: options.forbiddenEffects };
 }
