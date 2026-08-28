@@ -6,6 +6,17 @@
  */
 import './errors.js';
 
+// ---- C053 product workflow: dependency_upgrade (extension) ----
+export {
+  DEPENDENCY_UPGRADE_STEPS,
+  DEPENDENCY_UPGRADE_ALLOWED_ACTIONS,
+  DEPENDENCY_UPGRADE_CANDIDATE_BUDGET,
+  DEPENDENCY_UPGRADE_DEFINITION_ID,
+  DEPENDENCY_UPGRADE_DEFINITION_VERSION,
+  dependencyUpgradeDefinition,
+  type UpgradeStep,
+} from './product/dependency-upgrade.js';
+
 // ---- C052 product workflow: security_patch ----
 export {
   SECURITY_PATCH_STEPS,
