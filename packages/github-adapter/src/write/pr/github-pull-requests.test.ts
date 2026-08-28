@@ -218,4 +218,82 @@ describe('C021 PR adapter', () => {
       ),
     ).rejects.toThrow();
   });
+
+  it('replays a prior rejected operation as rejected, not success', async () => {
+    const { provider, service } = setup();
+    seedPr(provider);
+    const input = {
+      repository: REPO,
+      prNumber: 1,
+      expectedHeadSha: SHA_B,
+      expectedBaseSha: SHA_A,
+      patch: { title: 'new title' },
+      workflowRunId: RUN,
+      operationKey: OP1,
+    };
+    await service.updatePullRequest(input, ctx());
+    // A conflicting update (head moved) is rejected and persisted as conflicted.
+    const conflicting = { ...input, expectedHeadSha: 'c'.repeat(40), operationKey: OP2 };
+    const rejected = await service.updatePullRequest(conflicting, ctx());
+    expect(rejected.status).toBe('conflict');
+    // Retrying the SAME rejected operation must not claim an applied replay.
+    const retry = await service.updatePullRequest(conflicting, ctx());
+    expect(retry.status).toBe('conflict');
+  });
+
+  it('persists uncertain outcomes so reconciliation can resolve them', async () => {
+    const { provider, service } = setup();
+    provider.failNext = { op: 'comment', code: 'TIMEOUT' };
+    const input = {
+      repository: REPO,
+      prNumber: 1,
+      body: 'hi',
+      workflowRunId: RUN,
+      operationKey: OP1,
+    };
+    const r = await service.postPullRequestComment(input, ctx());
+    expect(r.status).toBe('outcome_unknown');
+    const op = await service.operationStore().findByIdempotency(OP1);
+    expect(op?.state).toBe('outcome_unknown');
+    if (op === undefined) return;
+    const rec = await service.reconcile({ operationId: op.id });
+    expect(rec.state).toBe('reconciling');
+  });
+
+  it('event sink failure does not corrupt a committed mutation', async () => {
+    const provider = new InMemoryPrProvider();
+    const store = new InMemoryPrOperationStore();
+    const service = new GitHubPullRequestsReviewsChecksAdapter({
+      provider,
+      store,
+      clock: { nowIso: () => '2026-08-28T00:00:00.000Z' },
+      emit: {
+        emit: async () => {
+          throw new Error('sink down');
+        },
+      },
+    });
+    const input = {
+      repository: REPO,
+      ownedHeadBranch: 'agent/x/1',
+      headSha: SHA_B,
+      baseBranch: 'main',
+      baseSha: SHA_A,
+      title: 'feat: doc',
+      body: 'adds docs',
+      draft: false,
+      workflowRunId: RUN,
+      operationKey: OP1,
+    };
+    const r = await service.createPullRequest(input, ctx());
+    expect(r.status).toBe('applied');
+  });
+
+  it('does not report applied for a merge the provider has not confirmed', async () => {
+    const { provider, service } = setup();
+    const pr = seedPr(provider);
+    provider.mergeNoApply = true;
+    const result = await service.mergePullRequest(mergeInput(pr), ctx2());
+    expect(result.status).toBe('outcome_unknown');
+  });
 });

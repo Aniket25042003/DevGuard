@@ -167,12 +167,7 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     const op = this.#op('pr_create', req.operationKey, digest, req.workflowRunId);
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return fail('conflict', claimed.detail, op.id);
-    if (claimed.replayed)
-      return {
-        status: 'replayed',
-        detail: 'PR already created',
-        operationId: claimed.operation.id,
-      };
+    if (claimed.replayed) return replayStatus(claimed.operation);
 
     const created = await this.#provider.createPullRequest({ ...req, body });
     if (created.ok) {
@@ -183,7 +178,11 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
       });
       return { status: 'applied', value: created.value, operationId: op.id };
     }
-    if (created.code === 'CONFLICT') return fail('conflict', created.detail, op.id);
+    if (created.code === 'CONFLICT') {
+      await this.#persist(claimed.operation, 'conflicted');
+      return fail('conflict', created.detail, op.id);
+    }
+    await this.#persist(claimed.operation, 'outcome_unknown');
     return { status: 'outcome_unknown', detail: `create ${created.code}`, operationId: op.id };
   }
 
@@ -205,12 +204,7 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     const op = this.#op('pr_update', req.operationKey, digest, req.workflowRunId);
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return fail('conflict', claimed.detail, op.id);
-    if (claimed.replayed)
-      return {
-        status: 'replayed',
-        detail: 'PR update already applied',
-        operationId: claimed.operation.id,
-      };
+    if (claimed.replayed) return replayStatus(claimed.operation);
 
     const updated = await this.#provider.updatePullRequest({ ...req, patch });
     if (updated.ok) {
@@ -218,7 +212,11 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
       await this.#event('pull_request.updated', op, { repo: req.repository, pr: req.prNumber });
       return { status: 'applied', value: updated.value, operationId: op.id };
     }
-    if (updated.code === 'CONFLICT') return fail('conflict', 'PR moved', op.id);
+    if (updated.code === 'CONFLICT') {
+      await this.#persist(claimed.operation, 'conflicted');
+      return fail('conflict', 'PR moved', op.id);
+    }
+    await this.#persist(claimed.operation, 'outcome_unknown');
     return { status: 'outcome_unknown', detail: `update ${updated.code}`, operationId: op.id };
   }
 
@@ -241,12 +239,7 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     const op = this.#op('pr_comment', req.operationKey, digest, req.workflowRunId);
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return fail('conflict', claimed.detail, op.id);
-    if (claimed.replayed)
-      return {
-        status: 'replayed',
-        detail: 'comment already posted',
-        operationId: claimed.operation.id,
-      };
+    if (claimed.replayed) return replayStatus(claimed.operation);
 
     const posted = await this.#provider.postComment({ ...req, body });
     if (posted.ok) {
@@ -257,9 +250,12 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
       });
       return { status: 'applied', value: posted.value, operationId: op.id };
     }
-    return posted.code === 'CONFLICT'
-      ? fail('conflict', posedetail(posted.detail), op.id)
-      : { status: 'outcome_unknown', detail: `comment ${posted.code}`, operationId: op.id };
+    if (posted.code === 'CONFLICT') {
+      await this.#persist(claimed.operation, 'conflicted');
+      return fail('conflict', posedetail(posted.detail), op.id);
+    }
+    await this.#persist(claimed.operation, 'outcome_unknown');
+    return { status: 'outcome_unknown', detail: `comment ${posted.code}`, operationId: op.id };
   }
 
   async requestReview(input: RequestReview, ctx: PrWriteContext): Promise<PrMutationResult<void>> {
@@ -272,17 +268,13 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     const op = this.#op('pr_request_review', req.operationKey, digest, req.workflowRunId);
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return fail('conflict', claimed.detail, op.id);
-    if (claimed.replayed)
-      return {
-        status: 'replayed',
-        detail: 'review already requested',
-        operationId: claimed.operation.id,
-      };
+    if (claimed.replayed) return replayStatus(claimed.operation);
     const result = await this.#provider.requestReview(req.repository, req.prNumber, req.reviewers);
     if (result.ok) {
       await this.#record(claimed.operation, 'applied', []);
       return { status: 'applied', value: undefined, operationId: op.id };
     }
+    await this.#persist(claimed.operation, 'outcome_unknown');
     return {
       status: 'outcome_unknown',
       detail: `requestReview ${result.code}`,
@@ -303,12 +295,7 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     const op = this.#op('pr_merge', req.operationKey, digest, req.workflowRunId);
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return fail('conflict', claimed.detail, op.id);
-    if (claimed.replayed)
-      return {
-        status: 'replayed',
-        detail: 'merge already reconciled',
-        operationId: claimed.operation.id,
-      };
+    if (claimed.replayed) return replayStatus(claimed.operation);
 
     // Revalidate exact current state against the approved fingerprint.
     if (resolvePrMergeEdge('approved', 'revalidate').allowed === false)
@@ -341,6 +328,7 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
       return { status: 'stale', detail: 'PR moved since approval', operationId: op.id };
     }
     if (current.value.mergeable === 'conflicting') {
+      await this.#persist(claimed.operation, 'blocked');
       await this.#event('pull_request.merge.blocked', op, {
         repo: req.repository,
         pr: req.prNumber,
@@ -352,23 +340,46 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     await this.#event('pull_request.merge.started', op, { repo: req.repository, pr: req.prNumber });
     const merged = await this.#provider.mergePullRequest({ ...req });
     if (merged.ok) {
-      await this.#record(claimed.operation, 'applied', [merged.value.mergeSha]);
-      await this.#event('pull_request.merged', op, {
+      // Verify the PR actually reached the merged state rather than trusting the
+      // provider's acknowledgement alone.
+      const verified = await this.#provider.getPullRequest(prRef);
+      if (verified.ok && verified.value.state === 'merged') {
+        await this.#record(claimed.operation, 'applied', [merged.value.mergeSha]);
+        await this.#event('pull_request.merged', op, {
+          repo: req.repository,
+          pr: req.prNumber,
+          mergeSha: merged.value.mergeSha,
+        });
+        return {
+          status: 'applied',
+          value: {
+            prNumber: req.prNumber,
+            mergeSha: merged.value.mergeSha,
+            mergedAtIso: verified.value.mergedAtIso ?? this.#clock.nowIso(),
+          },
+          operationId: op.id,
+        };
+      }
+      // The provider acknowledged but the PR is not yet confirmed merged — the
+      // merge may be in flight or the verification read failed. Surface an
+      // uncertain outcome so reconciliation can resolve it.
+      await this.#persist(claimed.operation, 'outcome_unknown');
+      await this.#event('pull_request.merge.started', op, {
         repo: req.repository,
         pr: req.prNumber,
-        mergeSha: merged.value.mergeSha,
+        reason: 'verifying',
       });
       return {
-        status: 'applied',
-        value: {
-          prNumber: req.prNumber,
-          mergeSha: merged.value.mergeSha,
-          mergedAtIso: this.#clock.nowIso(),
-        },
+        status: 'outcome_unknown',
+        detail: 'merge requested but not confirmed merged',
         operationId: op.id,
       };
     }
-    if (merged.code === 'CONFLICT') return fail('stale', merged.detail, op.id);
+    if (merged.code === 'CONFLICT') {
+      await this.#persist(claimed.operation, 'stale');
+      return fail('stale', merged.detail, op.id);
+    }
+    await this.#persist(claimed.operation, 'outcome_unknown');
     return { status: 'outcome_unknown', detail: `merge ${merged.code}`, operationId: op.id };
   }
 
@@ -426,13 +437,43 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     op: { operationKey: string; id: string },
     payload: Record<string, unknown>,
   ): Promise<void> {
-    await this.#emit.emit({ type, aggregateId: op.operationKey, operationId: op.id, payload });
+    try {
+      await this.#emit.emit({ type, aggregateId: op.operationKey, operationId: op.id, payload });
+    } catch {
+      // Delivery is retried by outbox/reconciliation infrastructure; the
+      // durable mutation is already committed and must not surface an error.
+    }
+  }
+
+  async #persist(op: PrOperation, state: string): Promise<void> {
+    await this.#record(op, state);
   }
 }
 
 function authorize(ctx: PrWriteContext): void {
   if (!ctx.authorization)
     throw makeError('REPOSITORY_FORBIDDEN', { details: { reasonCode: 'WRITE_NOT_AUTHORIZED' } });
+}
+
+/** Re-surface a prior operation's durable outcome instead of replaying it as success. */
+function replayStatus(op: PrOperation): PrMutationResult<never> {
+  const status =
+    op.state === 'applied' || op.state === 'not_applied'
+      ? 'replayed'
+      : op.state === 'outcome_unknown' || op.state === 'reconciling'
+        ? 'outcome_unknown'
+        : op.state === 'stale'
+          ? 'stale'
+          : op.state === 'blocked'
+            ? 'blocked'
+            : op.state === 'failed'
+              ? 'failed'
+              : 'conflict';
+  const detail =
+    status === 'replayed'
+      ? 'operation already applied'
+      : `prior attempt left operation ${op.state}; not applied`;
+  return { status, detail, operationId: op.id } as PrMutationResult<never>;
 }
 
 function fail(

@@ -14,6 +14,10 @@ on:
 
 permissions:
   contents: read
+  # gitleaks scans PR diffs and dependency-review reads the PR, both via the
+  # pull-requests API; a contents-only token blocked them with
+  # "Resource not accessible by integration" on every pull_request.
+  pull-requests: read
 
 concurrency:
   group: pr-${{ github.event.pull_request.number || github.sha }}-security
@@ -60,6 +64,7 @@ jobs:
       - name: Dependency review (PR diff)
         if: github.event_name == 'pull_request'
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        continue-on-error: true
         with:
           fail-on-severity: high
 

@@ -52,6 +52,8 @@ export class InMemoryPrProvider implements PrProviderPort {
   commentsPosted: number = 0;
   requests = 0;
   failNext: { op: 'merge' | 'comment' | 'create'; code: PrProviderErrorCode } | undefined;
+  /** When true, mergePullRequest acks without actually transitioning the PR. */
+  mergeNoApply = false;
 
   key(repository: GitRepoRef, number: number): string {
     return `${repository.owner}/${repository.repo}#${number}`;
@@ -171,6 +173,14 @@ export class InMemoryPrProvider implements PrProviderPort {
     if (pr === undefined) return { ok: false, code: 'NOT_FOUND', detail: 'PR not found' };
     if (pr.headSha !== input.expectedHeadSha || pr.baseSha !== input.expectedBaseSha) {
       return { ok: false, code: 'CONFLICT', detail: 'PR moved; merge stale' };
+    }
+    if (this.mergeNoApply) {
+      // Provider acknowledges the merge but the PR has not (yet) transitioned.
+      return {
+        ok: true,
+        value: { mergeSha: `${input.expectedHeadSha}` },
+        fetchedAtIso: new Date().toISOString(),
+      };
     }
     const merged: PullRequest = {
       ...pr,
