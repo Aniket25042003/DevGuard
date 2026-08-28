@@ -85,7 +85,10 @@ export type {
 } from './repositories/workflow-evidence.js';
 
 // ---- CP009 durable policy decisions ----
-export { PostgresPolicyDecisionStore, type PolicyDecisionRecord } from './repositories/policy-decisions.js';
+export {
+  PostgresPolicyDecisionStore,
+  type PolicyDecisionRecord,
+} from './repositories/policy-decisions.js';
 
 // ---- C012 retention/storage ----
 export { RetentionResolver, StorageOperationRepository } from './repositories/retention.js';

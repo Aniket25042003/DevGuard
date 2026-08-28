@@ -32,6 +32,7 @@ import {
 import { createPool, type DevGuardPool } from '@devguard/db';
 import {
   durableRunTransitions,
+  registerApprovalResume,
   registerFailClosedHandlers,
   registerWorkflowExecute,
   volatileRunTransitions,
@@ -109,6 +110,7 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
     registry,
     pool !== undefined ? durableRunTransitions(pool) : volatileRunTransitions(),
   );
+  registerApprovalResume(registry);
   registerFailClosedHandlers(registry);
 
   const runtime = new WorkerRuntime(

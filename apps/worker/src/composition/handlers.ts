@@ -8,7 +8,14 @@
  * FAIL CLOSED (never silently succeed) until those mount.
  */
 import { WorkflowRunStore } from '@devguard/db';
-import type { JobEnvelope, JobHandler, JobRegistry, JobTypeV1 } from '@devguard/queue';
+import {
+  ApprovalResumeService,
+  InMemoryApprovalStore,
+  type JobEnvelope,
+  type JobHandler,
+  type JobRegistry,
+  type JobTypeV1,
+} from '@devguard/queue';
 
 export interface RunStoreExecutor {
   query<T>(config: { text: string; values?: readonly unknown[] }): Promise<T[]>;
@@ -52,7 +59,6 @@ export function registerWorkflowExecute(registry: JobRegistry, runStore: RunTran
 export function registerFailClosedHandlers(registry: JobRegistry): void {
   const closed: Array<[JobTypeV1, string]> = [
     ['webhook.process', 'webhook_processor_unavailable_until_cp011'],
-    ['approval.resume', 'approval_resume_unavailable_until_cp009'],
     ['outbox.publish', 'outbox_publish_unavailable_until_cp008'],
     ['sandbox.monitor', 'sandbox_monitor_unavailable_until_cp013'],
     ['cleanup.retention', 'cleanup_unavailable_until_cp012'],
@@ -68,4 +74,33 @@ export function fail(errorCode: string): {
   errorCode: string;
 } {
   return { outcome: 'PERMANENT_FAILURE', errorCode };
+}
+
+/**
+ * CP009 — wire `approval.resume` to the C059 resume state machine.
+ * The executor (real approved-action execution) mounts at CP013; until then it
+ * fails CLOSED so an approved approval is never silently resumed-as-done.
+ */
+export function registerApprovalResume(registry: JobRegistry): void {
+  const service = new ApprovalResumeService({
+    store: new InMemoryApprovalStore(),
+    executor: {
+      execute: async () => ({
+        ok: false,
+        code: 'approved_action_executor_unavailable_until_cp013',
+      }),
+    },
+  });
+  registry.register('approval.resume', 1, async (envelope: JobEnvelope) => {
+    const approvalId = String(envelope.payload['approvalId'] ?? '');
+    const resolutionVersion = Number(
+      envelope.payload['resolutionVersion'] ?? envelope.payload['resolution_version'] ?? 1,
+    );
+    if (approvalId === '') return fail('approval_job_missing_id');
+    const outcome = await service.resume(approvalId, resolutionVersion);
+    if (outcome.ok) return { outcome: 'SUCCEEDED' as const, detail: outcome.state };
+    return outcome.state === 'RETRY_WAIT'
+      ? { outcome: 'RETRYABLE_FAILURE' as const, errorCode: 'RATE_LIMITED', detail: outcome.detail }
+      : fail('APPROVAL_RESUME_FAILED');
+  });
 }

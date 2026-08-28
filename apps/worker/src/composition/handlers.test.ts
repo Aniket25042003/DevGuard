@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildEnvelope, JobRegistry } from '@devguard/queue';
 import {
+  registerApprovalResume,
   registerFailClosedHandlers,
   registerWorkflowExecute,
   volatileRunTransitions,
@@ -51,7 +52,6 @@ describe('worker handlers (CP008)', () => {
     registerFailClosedHandlers(registry);
     for (const jobType of [
       'webhook.process',
-      'approval.resume',
       'outbox.publish',
       'sandbox.monitor',
       'cleanup.retention',
@@ -75,5 +75,24 @@ describe('worker handlers (CP008)', () => {
       );
       expect(result.outcome).toBe('PERMANENT_FAILURE');
     }
+  });
+
+  it('approval.resume is wired to the resume state machine and DLQs unknown approvals', async () => {
+    const registry = new JobRegistry();
+    registerApprovalResume(registry);
+    const handler = registry.resolve('approval.resume', 1);
+    const result = await handler(
+      buildEnvelope({
+        jobType: 'approval.resume',
+        schemaVersion: 1,
+        queue: 'approval-resume',
+        uniqueKey: 'app-1',
+        payload: { approvalId: 'unknown-1', resolutionVersion: 1 },
+        correlationId: 'c',
+      }),
+      { attempt: 1, maxAttempts: 12, leaseToken: 'w', signal: undefined },
+    );
+    // Unknown approval → the resume machine fails CLOSED (no silent success).
+    expect(result.outcome).toBe('PERMANENT_FAILURE');
   });
 });

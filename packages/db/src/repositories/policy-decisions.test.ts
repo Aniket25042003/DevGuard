@@ -19,7 +19,16 @@ function stubPool(rows: unknown[] = []) {
 describe('PostgresPolicyDecisionStore (CP009)', () => {
   it('maps a written decision row', async () => {
     const pool = stubPool([
-      [{ run_id: 'r1', policy_version: 'v1', effect: 'allow', reason_code: 'allow_standard', decided_at: '2026-01-01T00:00:00Z', row_version: '1' }],
+      [
+        {
+          run_id: 'r1',
+          policy_version: 'v1',
+          effect: 'allow',
+          reason_code: 'allow_standard',
+          decided_at: '2026-01-01T00:00:00Z',
+          row_version: '1',
+        },
+      ],
     ]);
     const store = new PostgresPolicyDecisionStore(pool);
     const record = await store.recordDecision({
@@ -38,7 +47,16 @@ describe('PostgresPolicyDecisionStore (CP009)', () => {
     expect(await store.getDecision('r-missing')).toBeNull();
 
     const filled = stubPool([
-      [{ run_id: 'r1', policy_version: 'v2', effect: 'require_approval', reason_code: 'dangerous_action', decided_at: '2026-01-02T00:00:00Z', row_version: '3' }],
+      [
+        {
+          run_id: 'r1',
+          policy_version: 'v2',
+          effect: 'require_approval',
+          reason_code: 'dangerous_action',
+          decided_at: '2026-01-02T00:00:00Z',
+          row_version: '3',
+        },
+      ],
     ]);
     const rec = await new PostgresPolicyDecisionStore(filled).getDecision('r1');
     expect(rec?.effect).toBe('require_approval');
