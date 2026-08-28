@@ -33,7 +33,7 @@ export class RetryClassifier {
       code === 'SIDE_EFFECT_OUTCOME_UNKNOWN' ||
       code === 'COMMAND_OUTCOME_UNKNOWN' ||
       code === 'AGENT_OUTCOME_UNKNOWN' ||
-        code === 'OUTCOME_UNKNOWN'
+      code === 'OUTCOME_UNKNOWN'
     ) {
       return {
         kind: 'reconcile',
@@ -68,7 +68,7 @@ export interface OutboxStorePort {
   list(limit: number): Promise<readonly OutboxRow[]>;
   mark(rowId: string, updates: Partial<OutboxRow>): Promise<void>;
   moveToDlq(rowId: string, reason: string): Promise<void>;
-    delete(rowId: string): Promise<void>;
+  delete(rowId: string): Promise<void>;
 }
 
 export class InMemoryOutboxStore implements OutboxStorePort {
@@ -82,9 +82,9 @@ export class InMemoryOutboxStore implements OutboxStorePort {
     if (row !== undefined) this.rows.set(rowId, { ...row, ...updates });
   }
   async delete(rowId: string): Promise<void> {
-      this.rows.delete(rowId);
-    }
-    async moveToDlq(rowId: string, reason: string): Promise<void> {
+    this.rows.delete(rowId);
+  }
+  async moveToDlq(rowId: string, reason: string): Promise<void> {
     this.dlq.push({ rowId, reason });
     this.rows.delete(rowId);
   }

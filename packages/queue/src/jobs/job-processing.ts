@@ -37,30 +37,36 @@ export class WebhookProcessingService {
     if (!claimed.ok) return { ok: false, retryable: true, detail: 'delivery unavailable' };
 
     try {
-        const routed = await this.deps.router.route({
-      repositoryId: job.payload.repositoryId,
-      event: job.payload.payloadRef,
-    });
-    await this.deps.store.transition(deliveryId, claimed.state, 'PROCESSING');
+      const routed = await this.deps.router.route({
+        repositoryId: job.payload.repositoryId,
+        event: job.payload.payloadRef,
+      });
+      await this.deps.store.transition(deliveryId, claimed.state, 'PROCESSING');
 
-    if (!routed.matched) {
-      await this.deps.store.transition(deliveryId, 'PROCESSING', 'IGNORED');
-      return { ok: true };
-    }
-    const created = await this.deps.creator.createRuns({
-      repositoryId: job.payload.repositoryId,
-      triggerKeys: routed.triggerKeys,
-    });
-    await this.deps.store.transition(deliveryId, 'PROCESSING', 'ROUTED');
-    return { ok: true, nextRun: created.runIds[0] };
-      } catch (error) {
-        try {
-          const state = await this.deps.store.state(deliveryId);
-          if (state === 'ACCEPTED' || state === 'PROCESSING')
-            await this.deps.store.transition(deliveryId, state, 'FAILED_RETRYABLE');
-        } catch { /* retain the original failure */ }
-        return { ok: false, retryable: true, detail: error instanceof Error ? error.message : 'processing failed' };
+      if (!routed.matched) {
+        await this.deps.store.transition(deliveryId, 'PROCESSING', 'IGNORED');
+        return { ok: true };
       }
+      const created = await this.deps.creator.createRuns({
+        repositoryId: job.payload.repositoryId,
+        triggerKeys: routed.triggerKeys,
+      });
+      await this.deps.store.transition(deliveryId, 'PROCESSING', 'ROUTED');
+      return { ok: true, nextRun: created.runIds[0] };
+    } catch (error) {
+      try {
+        const state = await this.deps.store.state(deliveryId);
+        if (state === 'ACCEPTED' || state === 'PROCESSING')
+          await this.deps.store.transition(deliveryId, state, 'FAILED_RETRYABLE');
+      } catch {
+        /* retain the original failure */
+      }
+      return {
+        ok: false,
+        retryable: true,
+        detail: error instanceof Error ? error.message : 'processing failed',
+      };
+    }
   }
 }
 
@@ -104,7 +110,8 @@ export class InMemoryDeliveryStore implements DeliveryStorePort {
   readonly claims = new Set<string>();
 
   async claim(deliveryId: string): Promise<{ ok: true; state: 'ACCEPTED' } | { ok: false }> {
-    if (this.claims.has(deliveryId) && this.states.get(deliveryId) !== 'FAILED_RETRYABLE') return { ok: false };
+    if (this.claims.has(deliveryId) && this.states.get(deliveryId) !== 'FAILED_RETRYABLE')
+      return { ok: false };
     this.claims.add(deliveryId);
     return { ok: true, state: 'ACCEPTED' };
   }
