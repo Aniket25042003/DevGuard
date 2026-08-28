@@ -1,3 +1,5 @@
+import { findActionDefinition } from '@devguard/policy-engine';
+
 /**
  * C050 — `diagnose_failure` product workflow definition.
  *
@@ -28,7 +30,7 @@ export const DIAGNOSE_FAILURE_STEPS: readonly FailureStep[] = [
   {
     id: 'resolve_target',
     kind: 'turn',
-    actionTypes: ['action:pr_read', 'action:run_read'],
+    actionTypes: ['pull_request_read', 'workflow_logs_read'],
     maxRetries: 1,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
@@ -46,7 +48,7 @@ export const DIAGNOSE_FAILURE_STEPS: readonly FailureStep[] = [
   {
     id: 'context',
     kind: 'turn',
-    actionTypes: ['action:repo_map'],
+    actionTypes: ['repository_read', 'tree_list'],
     maxRetries: 1,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
@@ -55,7 +57,7 @@ export const DIAGNOSE_FAILURE_STEPS: readonly FailureStep[] = [
   {
     id: 'recipe',
     kind: 'turn',
-    actionTypes: ['action:sandbox_reproduce'],
+    actionTypes: ['sandbox_run_test'],
     maxRetries: 1,
     maxWallMillis: 300_000,
     failureBehavior: 'stop',
@@ -64,7 +66,7 @@ export const DIAGNOSE_FAILURE_STEPS: readonly FailureStep[] = [
   {
     id: 'hypotheses',
     kind: 'turn',
-    actionTypes: ['action:root_cause'],
+    actionTypes: ['workflow_logs_read'],
     maxRetries: 1,
     maxWallMillis: 120_000,
     failureBehavior: 'stop',
@@ -73,7 +75,7 @@ export const DIAGNOSE_FAILURE_STEPS: readonly FailureStep[] = [
   {
     id: 'repair',
     kind: 'turn',
-    actionTypes: ['action:edit_patch'],
+    actionTypes: ['workspace_apply_patch'],
     maxRetries: 2,
     maxWallMillis: 600_000,
     failureBehavior: 'repair_turn',
@@ -82,7 +84,7 @@ export const DIAGNOSE_FAILURE_STEPS: readonly FailureStep[] = [
   {
     id: 'focused_rerun',
     kind: 'command',
-    actionTypes: ['action:sandbox_test'],
+    actionTypes: ['sandbox_run_test'],
     maxRetries: 2,
     maxWallMillis: 600_000,
     failureBehavior: 'repair_turn',
@@ -91,7 +93,7 @@ export const DIAGNOSE_FAILURE_STEPS: readonly FailureStep[] = [
   {
     id: 'regressions',
     kind: 'command',
-    actionTypes: ['action:sandbox_test'],
+    actionTypes: ['sandbox_run_test'],
     maxRetries: 1,
     maxWallMillis: 900_000,
     failureBehavior: 'fail_run',
@@ -100,25 +102,24 @@ export const DIAGNOSE_FAILURE_STEPS: readonly FailureStep[] = [
   {
     id: 'push_evidence',
     kind: 'published',
-    actionTypes: ['action:commit', 'action:push_branch', 'action:create_pr'],
+    actionTypes: ['commit_create', 'branch_push', 'pull_request_create'],
     maxRetries: 2,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
-    validatorIds: [],
+    validatorIds: ['v_current_head_evidence', 'v_branch_ownership'],
   },
 ];
 
 export const DIAGNOSE_FAILURE_ALLOWED_ACTIONS: readonly string[] = [
-  'action:pr_read',
-  'action:run_read',
-  'action:repo_map',
-  'action:sandbox_reproduce',
-  'action:root_cause',
-  'action:edit_patch',
-  'action:sandbox_test',
-  'action:commit',
-  'action:push_branch',
-  'action:create_pr',
+  'pull_request_read',
+  'workflow_logs_read',
+  'repository_read',
+  'tree_list',
+  'sandbox_run_test',
+  'workspace_apply_patch',
+  'commit_create',
+  'branch_push',
+  'pull_request_create',
 ];
 
 export type DefinitionValidation =
@@ -131,10 +132,10 @@ export function validateDefinition(): DefinitionValidation {
     if (step.maxWallMillis <= 0 || step.maxWallMillis > 24 * 60 * 60_000)
       return { ok: false, violation: `wall ${step.id}` };
     for (const action of step.actionTypes)
-      if (!DIAGNOSE_FAILURE_ALLOWED_ACTIONS.includes(action))
+      if (!findActionDefinition(action) !== undefined)
         return { ok: false, violation: `unallowed action ${action}` };
   }
-  if (!DIAGNOSE_FAILURE_STEPS.some((s) => s.actionTypes.includes('action:sandbox_reproduce')))
+  if (!DIAGNOSE_FAILURE_STEPS.some((s) => s.actionTypes.includes('sandbox_run_test')))
     return { ok: false, violation: 'reproduction required' };
   return { ok: true };
 }
