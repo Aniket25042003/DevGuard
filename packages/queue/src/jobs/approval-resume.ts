@@ -21,6 +21,7 @@ export const APPROVAL_RESUME_STATES = [
   'STALE_NOOP',
   'CANCELLED_FENCED',
   'DEAD_LETTERED',
+  'EXPIRED',
 ] as const;
 export type ApprovalResumeState = (typeof APPROVAL_RESUME_STATES)[number];
 
@@ -56,28 +57,36 @@ export class InMemoryApprovalStore implements ApprovalStorePort {
   readonly resume = new Map<string, ApprovalResumeState>();
   readonly expired = new Set<string>();
 
+  private key(approvalId: string, resolutionVersion: number): string {
+    return `${approvalId}:${resolutionVersion}`;
+  }
+
   async get(approvalId: string): Promise<ApprovalRecord | undefined> {
-    return this.approvals.get(approvalId);
+    const approval = this.approvals.get(approvalId);
+    if (approval !== undefined && this.expired.has(approvalId)) {
+      return { ...approval, resolution: 'stale' };
+    }
+    return approval;
   }
   async resumeState(
     approvalId: string,
     resolutionVersion: number,
   ): Promise<ApprovalResumeState | undefined> {
-    void resolutionVersion;
-    return this.resume.get(approvalId);
+    return this.resume.get(this.key(approvalId, resolutionVersion));
   }
   async setResumeState(
     approvalId: string,
     resolutionVersion: number,
     state: ApprovalResumeState,
   ): Promise<void> {
-    void resolutionVersion;
-    this.resume.set(approvalId, state);
+    this.resume.set(this.key(approvalId, resolutionVersion), state);
   }
   async markExpired(approvalId: string): Promise<void> {
     this.expired.add(approvalId);
   }
 }
+
+import { RetryClassifier } from './cleanup.js';
 
 export interface ResumeExecutorPort {
   execute(runId: string, approvalId: string): Promise<{ ok: true } | { ok: false; code: string }>;
