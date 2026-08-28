@@ -40,3 +40,38 @@ export {
   type QueuePortShape,
   type WorkerRuntimeOptions,
 } from './runtime.js';
+
+// ---- C058 webhook + workflow processing jobs ----
+export {
+  WEBHOOK_DELIVERY_STATES,
+  resolveDeliveryEdge,
+  type DeliveryStorePort,
+  type DeliveryVerdict,
+  type JobOutcome,
+  type TriggerRouter,
+  type WebhookDeliveryState,
+  type WebhookProcessingJob,
+  type WorkflowCreator,
+  type WorkflowExecutionJob,
+} from './jobs/contracts.js';
+export {
+  WebhookProcessingService,
+  WorkflowExecutionJobService,
+  InMemoryDeliveryStore,
+  type StepExecutor,
+  type WebhookProcessingDeps,
+  type WorkflowExecutionDeps,
+} from './jobs/job-processing.js';
+
+// ---- C060 retry / DLQ / outbox cleanup ----
+export {
+  RETRY_CLASSES,
+  RetryClassifier,
+  OutboxCleanupService,
+  InMemoryOutboxStore,
+  type OutboxCleanupDeps,
+  type OutboxRow,
+  type OutboxStorePort,
+  type RetryClass,
+  type RetryDecision,
+} from './jobs/cleanup.js';
