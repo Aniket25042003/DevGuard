@@ -16,6 +16,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@devguard/errors": "workspace:*"
+    "@devguard/errors": "workspace:*",
+    "@devguard/security": "workspace:*"
   }
 }

@@ -8,8 +8,9 @@
  * same `ObjectStore` port.
  */
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { normalize, resolve } from 'node:path';
+import { mkdir, readFile, rm, stat, lstat, open, link, unlink } from 'node:fs/promises';
+import { relative, resolve, sep } from 'node:path';
+import { DETECTOR_REGISTRY } from '@devguard/security';
 
 /** Typed, transport-mappable storage error (CP012 §23). */
 export class ArtifactStorageError extends Error {
@@ -41,9 +42,11 @@ export const OBJECT_KEY_PATTERN =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 /** Rejects obvious secret-bearing payloads before they are persisted (C093). */
-const SECRET_PATTERNS = [
-  /(?:password|passwd|api[_-]?key|secret|token|authorization)\s*[:=]\s*["']?[A-Za-z0-9_-]{12,}/i,
-];
+const containsSecret = (text: string): boolean =>
+  DETECTOR_REGISTRY.some((detector) => {
+    detector.pattern.lastIndex = 0;
+    return detector.pattern.test(text);
+  });
 
 export class LocalObjectStore implements ObjectStore {
   private readonly root: string;
@@ -57,7 +60,7 @@ export class LocalObjectStore implements ObjectStore {
       throw new ArtifactStorageError('OBJECT_KEY_INVALID', 'object key must be a UUID');
     }
     const full = resolve(this.root, objectKey);
-    if (!full.startsWith(normalize(this.root) + '/') && full !== normalize(this.root)) {
+    if ((relative(this.root, full) === '') || relative(this.root, full).startsWith('..' + sep) || relative(this.root, full) === '..') {
       throw new ArtifactStorageError('OBJECT_KEY_PATH_TRAVERSAL', 'path traversal rejected');
     }
     return full;
@@ -65,7 +68,7 @@ export class LocalObjectStore implements ObjectStore {
 
   async put(objectKey: string, bytes: Uint8Array): Promise<ObjectStoreResult> {
     const text = Buffer.from(bytes).toString('utf8');
-    if (SECRET_PATTERNS.some((p) => p.test(text))) {
+    if (containsSecret(text)) {
       throw new ArtifactStorageError(
         'ARTIFACT_CONTAINS_SECRET',
         'secret-bearing artifact rejected',
@@ -73,7 +76,16 @@ export class LocalObjectStore implements ObjectStore {
     }
     await mkdir(this.root, { recursive: true });
     const full = this.resolveKey(objectKey);
-    await writeFile(full, bytes);
+    const temp = `${full}.${process.pid}.${Date.now()}.tmp`;
+      const handle = await open(temp, 'wx', 0o600);
+      try {
+        await handle.writeFile(bytes);
+        await handle.sync();
+        await link(temp, full);
+      } finally {
+        await handle.close();
+        await unlink(temp).catch(() => undefined);
+      }
     const sha256 = createHash('sha256').update(bytes).digest('hex');
     return { objectKey, sizeBytes: bytes.byteLength, sha256 };
   }
@@ -83,7 +95,9 @@ export class LocalObjectStore implements ObjectStore {
   ): Promise<{ bytes: Uint8Array; contentType?: string | undefined } | null> {
     const full = this.resolveKey(objectKey);
     try {
-      const bytes = await readFile(full);
+      const info = await lstat(full);
+        if (!info.isFile()) throw new ArtifactStorageError('OBJECT_TYPE_INVALID', 'object is not a regular file');
+        const bytes = await readFile(full);
       return { bytes: new Uint8Array(bytes) };
     } catch (error) {
       if (error instanceof Object && (error as { code?: string }).code === 'ENOENT') return null;
