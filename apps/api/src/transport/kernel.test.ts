@@ -159,6 +159,20 @@ describe('CP005 repository-capability route metadata (registry contract)', () =>
     ).toThrow(/capability and repositoryIdParam together/);
   });
 
+  it('rejects a repository-scoped route that omits BOTH capability and repositoryIdParam', () => {
+    const k = kernelWith(async () => ({ status: 'anonymous' }));
+    // A path with a :repositoryId segment must authorize — even if the author
+    // "forgot" both fields (CP005 finding: silent authz bypass).
+    expect(() =>
+      k.registerV1Route(
+        'get',
+        '/api/v1/repositories/:repositoryId/workflows',
+        { rateLimitClass: 'default', authClass: 'required_session' },
+        async (c) => c.json({}),
+      ),
+    ).toThrow(/repository-scoped and must declare capability/);
+  });
+
   it('502 when a capability-gated route is registered but no authorize hook is wired', async () => {
     const k = createTransportKernel({
       rateLimiter: new InMemoryRateLimiter(),
