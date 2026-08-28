@@ -23,6 +23,14 @@ export function readCookie(c: Context<AppEnv>, name: string): string | undefined
 
 export interface OriginCheckInput {
   readonly publicOrigin?: string | undefined;
+  /**
+   * True when the request is authenticated via a VALIDATED `Authorization:
+   * Bearer` API token (Principal.authMethod === 'api_token'). A validated
+   * bearer skips BOTH the CSRF token pair and the Origin/Referer gate
+   * (CP004 §6 locked; CLI clients cannot hold a browser CSRF cookie and must
+   * not be blocked by a stray Origin header). Cookie sessions keep both.
+   */
+  readonly mutationsViaBearer?: boolean | undefined;
 }
 
 /** Returns an error response for rejected mutations, or undefined to proceed. */
@@ -33,6 +41,10 @@ export function enforceCsrfAndOrigin(
   const method = c.req.method.toUpperCase();
   if (SAFE_METHODS.has(method)) return undefined;
   if (c.req.path.startsWith('/api/v1/webhooks/')) return undefined;
+  // Validated bearer credentials are credential-proof (a cross-site attacker
+  // cannot set the Authorization header), so they do not need the browser
+  // double-submit pair nor the Origin gate (locked, CP004 §6/G6).
+  if (input.mutationsViaBearer === true) return undefined;
 
   // Same-origin check when the browser sent Origin/Referer.
   const origin = c.req.header('origin') ?? stripPath(c.req.header('referer'));

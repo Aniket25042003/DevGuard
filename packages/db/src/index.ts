@@ -99,3 +99,8 @@ export type {
   IdentityProfileInput,
 } from './repositories/auth-sessions.js';
 export { mapAuthSessionRow, mapAuthTransactionRow } from './repositories/auth-sessions.js';
+
+// ---- CP004 CLI/API bearer tokens ----
+export { PostgresApiTokenRepository } from './repositories/api-tokens.js';
+export type { ApiTokenRecord } from './repositories/api-tokens.js';
+export { mapApiTokenRow } from './repositories/api-tokens.js';

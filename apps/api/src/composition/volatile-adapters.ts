@@ -8,7 +8,8 @@
  * in-memory fakes; every durable environment gets the fail-closed
  * `UnavailableWorkflowAdapter` until a real adapter binds (CP006/CP007/CP011).
  */
-import type { WorkflowStatus } from '@devguard/contracts';
+import type { TimestampIso, WorkflowStatus } from '@devguard/contracts';
+import type { ApiTokenRecord, ApiTokenRepository } from '@devguard/auth';
 import type {
   CommandCatalogPort,
   PolicySummaryPort,
@@ -210,3 +211,36 @@ export const VolatileApprovals: ApprovalPort & VolatileBindingMarker = {
     return { ok: false, code: 'APPROVAL_UNKNOWN', detail: 'no approval store wired' };
   },
 };
+
+/** In-memory CLI/API token store (test only) — durable store lands in CP004/db. */
+export class VolatileApiTokenRepository implements ApiTokenRepository, VolatileBindingMarker {
+  readonly bindingKind = VOLATILE_BINDING_KIND;
+  readonly bindingName = 'api_tokens_in_memory';
+
+  private readonly rows = new Map<string, ApiTokenRecord>();
+
+  async insert(record: ApiTokenRecord): Promise<void> {
+    this.rows.set(record.tokenId, { ...record });
+  }
+
+  async findByTokenHash(tokenHash: string): Promise<ApiTokenRecord | undefined> {
+    for (const record of this.rows.values()) {
+      if (record.tokenHash === tokenHash) return { ...record };
+    }
+    return undefined;
+  }
+
+  async listByOwner(userId: string): Promise<readonly ApiTokenRecord[]> {
+    return [...this.rows.values()]
+      .filter((record) => record.userId === userId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((record) => ({ ...record }));
+  }
+
+  async revoke(tokenId: string, userId: string, revokedAt: TimestampIso): Promise<void> {
+    const record = this.rows.get(tokenId);
+    if (record !== undefined && record.userId === userId && record.revokedAt === undefined) {
+      this.rows.set(tokenId, { ...record, revokedAt, rowVersion: record.rowVersion + 1 });
+    }
+  }
+}

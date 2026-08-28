@@ -5,6 +5,9 @@
  * @devguard/authorization and runs AFTER a principal exists.
  */
 export type {
+  ApiTokenRecord,
+  ApiTokenRepository,
+  AuthMethod,
   AuthSessionRecord,
   AuthSessionRepository,
   AuthTransactionRecord,
@@ -15,6 +18,14 @@ export type {
   SessionPolicyInput,
   UserIdentityLinker,
 } from './principal.js';
+
+export {
+  ApiTokenService,
+  type ApiTokenServiceDeps,
+  type ApiTokenSummary,
+  type IssuedApiToken,
+  normalizeTokenLabel,
+} from './api-tokens.js';
 
 export {
   AuthenticationService,
@@ -36,9 +47,13 @@ export {
 } from './memory-store.js';
 
 export {
+  API_TOKEN_PREFIX,
   constantTimeEquals,
   deriveCsrfToken,
+  generateApiToken,
   generateOpaqueToken,
+  hashApiToken,
   hashToken,
+  isApiTokenShape,
   sha256Hex,
 } from './tokens.js';

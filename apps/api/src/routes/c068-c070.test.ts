@@ -7,10 +7,20 @@ import { registerApprovalRoutes, type ApprovalPort } from './approval.routes.js'
 function kernel() {
   return createTransportKernel({
     rateLimiter: new InMemoryRateLimiter(),
-    authenticate: async (token: string | undefined) =>
-      token === 'session-1'
-        ? ({ userId: 'user-1', issuer: 'github', providerSubject: 'octo' } as never)
-        : undefined,
+    authenticate: async ({ sessionToken, bearerToken }) => {
+      const token = bearerToken ?? sessionToken;
+      return token === 'session-1'
+        ? {
+            status: 'authenticated',
+            principal: {
+              userId: 'user-1',
+              issuer: 'github',
+              providerSubject: 'octo',
+              authMethod: 'session',
+            } as never,
+          }
+        : { status: 'anonymous' };
+    },
   });
 }
 

@@ -33,6 +33,7 @@ export const PORT_FAMILIES = [
   'sessions',
   'transactions',
   'identities',
+  'apiTokens',
   'localAccess',
   'githubPermissions',
   'authorizationEvidence',

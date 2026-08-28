@@ -11,6 +11,7 @@ import { createTransportKernel, type AppEnv, type RouteMetadata } from './transp
 import { InMemoryRateLimiter } from './transport/rate-limit.js';
 import { enforceCsrfAndOrigin } from './transport/security.js';
 import { registerAuthRoutes } from './routes/auth.routes.js';
+import { registerApiTokenRoutes } from './routes/auth-tokens.routes.js';
 import { registerSessionRoutes } from './routes/session.routes.js';
 import { registerApprovalRoutes } from './routes/approval.routes.js';
 import {
@@ -36,16 +37,32 @@ export interface AssembledApi {
 export function assembleApi(container: ApiContainer): AssembledApi {
   const kernel = createTransportKernel({
     rateLimiter: new InMemoryRateLimiter(),
-    authenticate: (sessionToken) => container.auth.resolvePrincipal(sessionToken),
+    authenticate: async ({ sessionToken, bearerToken }) => {
+      // CP004: a bearer is resolved against the API-token store; a cookie is
+      // resolved against sessions. Never both — the kernel already rejects the
+      // ambiguous combination with 400 AUTH_AMBIGUOUS before calling us.
+      if (bearerToken !== undefined) {
+        const principal = await container.apiTokens.authenticate(bearerToken);
+        return principal !== undefined
+          ? { status: 'authenticated', principal }
+          : { status: 'anonymous' };
+      }
+      const principal = await container.auth.resolvePrincipal(sessionToken);
+      return principal !== undefined
+        ? { status: 'authenticated', principal }
+        : { status: 'anonymous' };
+    },
     trustedProxy: container.config.trustedProxyEnabled,
     webhookMaxBodyBytes: container.config.limits.webhookMaxBodyBytes,
   });
 
   // 4.5) CSRF + same-origin for state-changing requests (after authentication,
-  //      before controllers; webhooks exempt inside the check).
+  //      before controllers; webhooks exempt inside the check). A validated
+  //      bearer skips both gates (CP004 §6), cookie sessions keep them.
   kernel.app.use('/api/v1/*', async (c, next) => {
     const rejection = enforceCsrfAndOrigin(c, {
       publicOrigin: container.config.publicOrigin,
+      mutationsViaBearer: c.get('requestContext').principal?.authMethod === 'api_token',
     });
     if (rejection !== undefined) return rejection;
     await next();
@@ -53,6 +70,7 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   });
 
   registerAuthRoutes(kernel, container);
+  registerApiTokenRoutes(kernel, container);
 
   // C071 safe artifacts, C072 audit, C073 security findings.
   registerArtifactRoutes(kernel, container.bindings.artifacts);

@@ -6,7 +6,13 @@
  */
 import type { TimestampIso } from '@devguard/contracts';
 
-/** Authenticated principal bound to a server-side session. */
+/** How a principal authenticated. Session principals are browser cookie
+ * sessions (CP003); API-token principals are CLI device/bearer credentials
+ * (CP004). The GitHub App installation is never a principal (C005).
+ */
+export type AuthMethod = 'session' | 'api_token';
+
+/** Authenticated principal bound to either a session or an API token. */
 export interface Principal {
   readonly userId: string;
   readonly issuer: string;
@@ -14,8 +20,17 @@ export interface Principal {
   /** Stable identity key above; presentation values below. */
   readonly providerLogin?: string | undefined;
   readonly providerDisplayName?: string | undefined;
-  /** Reference of the hashed session id (never the raw token). */
-  readonly sessionIdHash: string;
+  readonly authMethod: AuthMethod;
+  /**
+   * Reference of the hashed session id (never the raw token). Present only
+   * when `authMethod === 'session'` (CP003).
+   */
+  readonly sessionIdHash?: string | undefined;
+  /**
+   * Reference of the hashed API token id (never the raw token). Present only
+   * when `authMethod === 'api_token'` (CP004).
+   */
+  readonly tokenIdHash?: string | undefined;
   readonly authenticatedAt: TimestampIso;
 }
 
@@ -109,4 +124,31 @@ export interface UserIdentityLinker {
     providerSubject: string,
     profile: { login: string; displayName?: string },
   ): Promise<string>;
+}
+
+/**
+ * Persisted API token row (CP004). Stores the SHA-256 HASH of the raw token
+ * only; the plaintext is handed to the caller exactly once at issuance.
+ */
+export interface ApiTokenRecord {
+  readonly tokenId: string;
+  readonly userId: string;
+  readonly tokenHash: string;
+  readonly label: string;
+  readonly createdAt: TimestampIso;
+  readonly lastUsedAt?: TimestampIso | undefined;
+  readonly expiresAt: TimestampIso;
+  readonly revokedAt?: TimestampIso | undefined;
+  readonly rowVersion: number;
+}
+
+/** Durable CLI/API token store port (PostgreSQL adapter in @devguard/db). */
+export interface ApiTokenRepository {
+  insert(record: ApiTokenRecord): Promise<void>;
+  /** Lookup by the SHA-256 hash used at authenticate time. */
+  findByTokenHash(tokenHash: string): Promise<ApiTokenRecord | undefined>;
+  /** Metadata for one owner's tokens, newest first (never includes hashes). */
+  listByOwner(userId: string): Promise<readonly ApiTokenRecord[]>;
+  /** Mark an owner's token revoked; unknown/other-owner is a no-op. */
+  revoke(tokenId: string, userId: string, revokedAt: TimestampIso): Promise<void>;
 }
