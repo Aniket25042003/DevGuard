@@ -328,7 +328,6 @@ export function buildContainer(
     : new VolatileCommandBusPersistencePort();
   // CP007: durable run store (query + cancel); honest empty reads without one.
   const workflowRuns = durableAuth ? new WorkflowRunStore(pool) : new EmptyRunQueryStore();
-  const workflowQueries = new WorkflowQueryService({ runs: workflowRuns });
 
   const bindings: CompositionBindings = {
     sessions,
@@ -352,6 +351,8 @@ export function buildContainer(
     findings: VolatileFindings,
     ...overrides,
   };
+
+  const workflowQueries = new WorkflowQueryService({ runs: bindings.workflowRuns });
 
   const redirectUri =
     config.auth.mode === 'github_oauth'
