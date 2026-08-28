@@ -28,6 +28,7 @@
     "@devguard/policy-engine": "workspace:*",
     "@devguard/queue": "workspace:*",
     "@devguard/sandbox": "workspace:*",
-    "@devguard/workflows": "workspace:*"
+    "@devguard/workflows": "workspace:*",
+    "ioredis": "^5.4.1"
   }
 }

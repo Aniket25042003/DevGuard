@@ -264,7 +264,7 @@ UPDATE workflow_runs SET
   row_version = row_version + 1
 WHERE id = $1 AND row_version = $3 AND status = $4
 RETURNING ${RUN_COLS}`,
-      values: [id, next, expectedVersion],
+      values: [id, next, expectedVersion, expectedStatus],
     });
     const row = rows[0];
     if (!row) throw new Error(`VERSION_CONFLICT:expected=${expectedVersion}`);
