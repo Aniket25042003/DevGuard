@@ -19,7 +19,8 @@
  */
 import { makeError } from '@devguard/errors';
 import { digestJson } from '../canonical.js';
-import { computeSkillAssetDigest, type SkillAssetShape } from '../schemas/skill-asset.js';
+import { computeSkillAssetDigest, skillAssetSchema, type SkillAssetShape } from '../schemas/skill-asset.js';
+import { detectMutablePolicy } from '../skills/mutable-policy-detector.js';
 import { semverRangeSchema } from '../schemas/semver.js';
 import type { Semver } from '../schemas/semver.js';
 import { type SchemaRef, type WorkflowDefinitionSource } from '../schemas/workflow-definition.js';
@@ -111,7 +112,7 @@ function canonicalDefinitionPayload(source: WorkflowDefinitionSource): unknown {
 
 function versionString(version: Semver | undefined): string {
   if (version === undefined) return '';
-  return `${version.major}.${version.minor}.${version.patch}`;
+  return `${version.major}.${version.minor}.${version.patch}${version.prerelease !== undefined ? `-${version.prerelease}` : ''}${version.build !== undefined ? `+${version.build}` : ''}`;
 }
 
 function compareVersionStrings(left: string, right: string): number {
@@ -240,7 +241,12 @@ export function validateDefinition(options: ValidateDefinitionOptions): SealedDe
           },
         ),
       );
-    } else if (asset.digest !== computeSkillAssetDigest(asset)) {
+    } else if (!skillAssetSchema.safeParse(asset).success) {
+        issues.push(issue('WORKFLOW_DEFINITION_INVALID', `skills.${skill.id}`, 'sealed skill asset failed schema validation'));
+      } else if (detectMutablePolicy(asset)[0] !== undefined) {
+        const scanIssue = detectMutablePolicy(asset)[0]!;
+        issues.push(issue('WORKFLOW_DEFINITION_INVALID', `skills.${skill.id}`, `skill rejected by static scan: ${scanIssue.detail} (line ${scanIssue.line})`));
+      } else if (asset.digest !== computeSkillAssetDigest(asset)) {
       issues.push(
         issue(
           'WORKFLOW_SKILL_DIGEST_MISMATCH',
