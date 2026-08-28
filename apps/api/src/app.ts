@@ -7,6 +7,29 @@ import { createTransportKernel, type AppEnv, type RouteMetadata } from './transp
 import { InMemoryRateLimiter } from './transport/rate-limit.js';
 import { enforceCsrfAndOrigin } from './transport/security.js';
 import { registerAuthRoutes } from './routes/auth.routes.js';
+import { registerArtifactRoutes, type ArtifactPort } from './routes/artifact.routes.js';
+import { registerAuditRoutes, type AuditPort } from './routes/audit.routes.js';
+import { registerFindingsRoutes, type FindingsPort } from './routes/findings.routes.js';
+
+/** In-memory safe-artifact/audit/findings projections until C044/C064/C051. */
+const VolatileArtifacts: ArtifactPort = {
+  async listFor(_runId: string) {
+    return [];
+  },
+  async getSafe(_id: string) {
+    return undefined;
+  },
+};
+const VolatileAudit: AuditPort = {
+  async list(_userId: string) {
+    return { verified: true, rows: [] };
+  },
+};
+const VolatileFindings: FindingsPort = {
+  async listFor(_runId: string) {
+    return [];
+  },
+};
 
 export interface AssembledApi {
   readonly app: Hono<AppEnv>;
@@ -33,6 +56,11 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   });
 
   registerAuthRoutes(kernel, container);
+
+  // C071 safe artifacts, C072 audit, C073 security findings.
+  registerArtifactRoutes(kernel, VolatileArtifacts);
+  registerAuditRoutes(kernel, VolatileAudit);
+  registerFindingsRoutes(kernel, VolatileFindings);
 
   return { app: kernel.app, routeMetadata: kernel.routeMetadata };
 }
