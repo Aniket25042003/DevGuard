@@ -15,7 +15,7 @@
  */
 import { WorkflowStatus } from '@devguard/contracts';
 import { requireAllow } from '@devguard/authorization';
-import { repositoryForbidden } from '@devguard/errors';
+import { DevGuardError, repositoryForbidden } from '@devguard/errors';
 import {
   canonicalCommandIdSchema,
   commandReceiptSchema,
@@ -253,7 +253,7 @@ export function registerWorkflowRoutes(
           runs: page.runs.map(toRunDto),
           hasMore: page.hasMore,
           ...(page.nextCursor !== undefined
-            ? { nextCursor: `${page.nextCursor.id}:${page.nextCursor.createdAtIso}` }
+            ? { nextCursor: `${page.nextCursor.createdAtIso},${page.nextCursor.id}` }
             : {}),
         },
       });
@@ -277,8 +277,9 @@ export function registerWorkflowRoutes(
           run.repositoryId,
           'repository:read',
         );
-      } catch {
-        return workflowUnknown(c);
+      } catch (error) {
+        if (error instanceof DevGuardError && error.code === 'REPOSITORY_FORBIDDEN') return workflowUnknown(c);
+        throw error;
       }
       return c.json({ data: toRunDto(run) });
     },
@@ -315,8 +316,9 @@ export function registerWorkflowRoutes(
           run.repositoryId,
           'workflow:cancel',
         );
-      } catch {
-        return workflowUnknown(c);
+      } catch (error) {
+        if (error instanceof DevGuardError && error.code === 'REPOSITORY_FORBIDDEN') return workflowUnknown(c);
+        throw error;
       }
       const outcome = await container.workflowQueries.cancel(runId, Number(ifMatch));
       if (!outcome.ok) {
@@ -359,12 +361,10 @@ function workflowUnknown(c: {
 }
 
 function parseCursor(value: string): { cursor?: { createdAtIso: string; id: string } } {
-  const [, second] = value.split(':');
-  const [createdAt, ...rest] = (second ?? value).split(',');
+  const [createdAt, ...rest] = value.split(',');
   const id = rest.join(',');
-  return createdAt !== undefined && id !== undefined
-    ? { cursor: { createdAtIso: createdAt, id } }
-    : {};
+  if (!createdAt || !id || Number.isNaN(Date.parse(createdAt))) return {};
+  return { cursor: { createdAtIso: createdAt, id } };
 }
 
 /** Map command-domain failures to stable HTTP envelopes (never 500). */
