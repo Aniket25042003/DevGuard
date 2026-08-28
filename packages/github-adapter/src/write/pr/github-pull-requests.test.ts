@@ -107,7 +107,9 @@ describe('C021 PR/merge FSM', () => {
 
 describe('C021 PR content safety', () => {
   it('sanitizes and rejects secrets in PR/comment body', () => {
-    expect(sanitizePrContent('  hello  world  ')).toBe('hello world');
+    // Markdown structure (internal whitespace/newlines) is preserved; only
+    // unsafe controls are replaced and ends trimmed.
+    expect(sanitizePrContent('  hello  world  ')).toBe('hello  world');
     expect(() => sanitizePrContent('token = abc123def456ghi')).toThrow();
     expect(() => sanitizePrContent('   ')).toThrow();
   });
@@ -199,11 +201,12 @@ describe('C021 PR adapter', () => {
     expect(result.status).toBe('stale');
   });
 
-  it('blocks an approved merge when the PR is conflicting', async () => {
+  it('marks merge stale when mergeability changed after approval (never executes)', async () => {
     const { provider, service } = setup();
+    // Approved fingerprint was mergeable; now the PR is conflicting.
     const pr = seedPr(provider, { mergeable: 'conflicting' });
     const result = await service.mergePullRequest(mergeInput(pr), ctx2());
-    expect(result.status).toBe('blocked');
+    expect(result.status).toBe('stale');
   });
 
   it('refuses an unauthenticated write', async () => {

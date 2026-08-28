@@ -197,11 +197,11 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     authorize(ctx);
     const req = parsed.data;
     const patch = {
-        ...req.patch,
-        ...(req.patch.title !== undefined ? { title: sanitizePrContent(req.patch.title, 200) } : {}),
-        ...(req.patch.body !== undefined ? { body: sanitizePrContent(req.patch.body) } : {}),
-      };
-      const digest = mutationInputDigest({ kind: 'pr_update', ...req, patch });
+      ...req.patch,
+      ...(req.patch.title !== undefined ? { title: sanitizePrContent(req.patch.title, 200) } : {}),
+      ...(req.patch.body !== undefined ? { body: sanitizePrContent(req.patch.body) } : {}),
+    };
+    const digest = mutationInputDigest({ kind: 'pr_update', ...req, patch });
     const op = this.#op('pr_update', req.operationKey, digest, req.workflowRunId);
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return fail('conflict', claimed.detail, op.id);
@@ -326,11 +326,11 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
       current.value.baseSha !== req.expectedBaseSha ||
       current.value.headSha !== fingerprint.headSha ||
       current.value.baseSha !== fingerprint.baseSha ||
-        current.value.number !== fingerprint.prNumber ||
-        current.value.state !== fingerprint.state ||
-        current.value.draft !== fingerprint.draft ||
-        current.value.mergeable !== fingerprint.mergeable ||
-        fingerprint.prNumber !== req.prNumber
+      current.value.number !== fingerprint.prNumber ||
+      current.value.state !== fingerprint.state ||
+      current.value.draft !== fingerprint.draft ||
+      current.value.mergeable !== fingerprint.mergeable ||
+      fingerprint.prNumber !== req.prNumber
     ) {
       await this.#record(claimed.operation, 'stale');
       await this.#event('pull_request.merge.blocked', op, {

@@ -26,8 +26,8 @@ export function mutationInputDigest(input: unknown): string {
 
 const SECRET_INLINE =
   /(?:api[-_ .]?key|access[-_ .]?token|refresh[-_ .]?token|token|password|passwd|secret|private[-_ .]?key|credentials)\s*[:=]\s*["']?[^"'\s,;&]{6,}/i;
-const SECRET_STANDALONE = /(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/;
-
+const SECRET_STANDALONE =
+  /(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/;
 
 export function sanitizePrContent(raw: string, max = 256_000): string {
   const normalized = Array.from(raw)
