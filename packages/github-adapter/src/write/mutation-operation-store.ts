@@ -26,7 +26,7 @@ export interface MutationOperationStorePort {
 
 export class InMemoryMutationOperationStore implements MutationOperationStorePort {
   readonly ops = new Map<string, GitMutationOperation>();
-  readonly ownership = new Map<string, string>(); // branchKey -> operationKey
+  readonly ownership = new Map<string, string>(); // branchKey -> workflowRunId
 
   keyOf(repository: GitRepoRef, branch: string): string {
     return `${repository.owner}/${repository.repo}/heads/${branch}`;
@@ -47,7 +47,7 @@ export class InMemoryMutationOperationStore implements MutationOperationStorePor
     }
     const branchKey = this.keyOf(operation.repository, operation.branch);
     const owner = this.ownership.get(branchKey);
-    if (owner !== undefined && owner !== operation.operationKey) {
+    if (owner !== undefined && owner !== operation.workflowRunId) {
       return {
         ok: false,
         code: 'OWNERSHIP_CONFLICT',
@@ -55,7 +55,7 @@ export class InMemoryMutationOperationStore implements MutationOperationStorePor
         existing: undefined,
       };
     }
-    this.ownership.set(branchKey, operation.operationKey);
+    this.ownership.set(branchKey, operation.workflowRunId);
     this.ops.set(operation.id, operation);
     return { ok: true, operation, replayed: false };
   }
