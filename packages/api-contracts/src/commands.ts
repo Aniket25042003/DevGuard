@@ -23,7 +23,7 @@
  *   CP006); `.strict()` in the schema is the minimum boundary guard.
  */
 import { z } from 'zod';
-import { schemas, timestampIso, WorkflowStatus } from '@devguard/contracts';
+import { idSchemas, timestampIso, WorkflowStatus } from '@devguard/contracts';
 
 /** CP001 §19/§21 — registry version used in list ETags and dedupe bindings. */
 export const COMMAND_CONTRACT_VERSION = 'command-contract.v1';
@@ -133,12 +133,12 @@ export type SubmitCommandRequestV1 = z.infer<typeof submitCommandRequestSchema>;
 /** CP001 §8 / C069 — durable async acceptance receipt (`202`). */
 export const commandReceiptSchema = z
   .object({
-    id: schemas.workflowRunId,
-    repositoryId: schemas.repositoryId,
+    id: idSchemas.workflowRunId,
+    repositoryId: idSchemas.repositoryId,
     commandId: canonicalCommandIdSchema,
     originSurface: originSurfaceSchema,
     status: z.literal('accepted'),
-    workflowRunId: schemas.workflowRunId,
+    workflowRunId: idSchemas.workflowRunId,
     createdAt: timestampIso,
     links: z
       .object({
@@ -158,8 +158,8 @@ export type CommandReceiptV1 = z.infer<typeof commandReceiptSchema>;
  */
 export const workflowRunDtoSchema = z
   .object({
-    id: schemas.workflowRunId,
-    repositoryId: schemas.repositoryId,
+    id: idSchemas.workflowRunId,
+    repositoryId: idSchemas.repositoryId,
     workflowType: canonicalCommandIdSchema,
     definitionVersion: z.string().min(1).max(64),
     status: WorkflowStatus,
@@ -204,8 +204,7 @@ const workflowStatusFilterSchema = z
   );
 
 const positiveQueryIntegerSchema = z.preprocess(
-  (value) =>
-    typeof value === 'string' && /^[1-9]\d*$/.test(value) ? Number(value) : value,
+  (value) => (typeof value === 'string' && /^[1-9]\d*$/.test(value) ? Number(value) : value),
   z.number().int().positive(),
 );
 
@@ -220,8 +219,16 @@ export const workflowRunListQuerySchema = z
   })
   .strict()
   .superRefine((query, context) => {
-    if (query.originSurface !== undefined && query.triggerSource !== undefined && query.originSurface !== query.triggerSource) {
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ['triggerSource'], message: 'conflicts with originSurface' });
+    if (
+      query.originSurface !== undefined &&
+      query.triggerSource !== undefined &&
+      query.originSurface !== query.triggerSource
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['triggerSource'],
+        message: 'conflicts with originSurface',
+      });
     }
   });
 export type WorkflowRunListQueryV1 = z.infer<typeof workflowRunListQuerySchema>;
