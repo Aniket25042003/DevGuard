@@ -29,6 +29,9 @@ coverage/
 .env.*
 !.env.example
 
+# Local scratch / preserved-not-shipped scaffolding (e.g. C015 partial work)
+.scratch/
+
 # Editor / OS noise
 .DS_Store
 .idea/
