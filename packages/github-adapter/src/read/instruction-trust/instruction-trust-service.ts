@@ -100,7 +100,16 @@ export class InstructionTrustServiceGate implements InstructionTrustService {
     const operation = parsed.data;
 
     const existing = await this.#store.findByOperationKey(operation.operationKey);
-    if (existing !== undefined && existing.status !== 'superseded') return existing;
+    if (existing !== undefined && existing.status !== 'superseded') {
+      const sameBinding = existing.repositoryId === operation.repositoryId &&
+        existing.workflowRunId === operation.workflowRunId &&
+        existing.headSha === operation.headSha &&
+        existing.policyVersionId === operation.policyVersionId &&
+        existing.workflowDefinitionVersion === operation.workflowDefinitionVersion &&
+        existing.taskRequestRef === operation.taskRequestRef;
+      if (sameBinding) return existing;
+      throw makeError('CONFLICT', { details: { reasonCode: 'OPERATION_KEY_BINDING_MISMATCH' } });
+    }
 
     // 1. Load authoritative tiers; a missing authoritative tier rejects.
     const [global, policy, workflow] = await Promise.all([
@@ -336,7 +345,9 @@ export class InstructionTrustServiceGate implements InstructionTrustService {
         headSha: operation.headSha,
         policyVersionId: operation.policyVersionId,
         workflowDefinitionVersion: operation.workflowDefinitionVersion,
-        segments: segments.map((s) => sha256Hex(`${s.tier}:${s.sourceId}:${s.text}`)),
+        segments: segments.map((s) => sha256Hex(canonicalize({ tier: s.tier, sourceId: s.sourceId, category: s.category, text: s.text, applicablePaths: s.applicablePaths ?? [] }))),
+          conflicts,
+          truncation: { truncated, reason },
         rejected: (rejected.length > 0 ? rejected : rejections).map((r) => r.reasonCode),
       }),
     );
