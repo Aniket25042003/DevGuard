@@ -13,6 +13,8 @@ import {
   VOLATILE_STORE_NAME,
 } from '@devguard/auth';
 import { EnvironmentSecretProvider } from '@devguard/config';
+import type { SessionPort } from '../routes/session.routes.js';
+import type { ApprovalPort } from '../routes/approval.routes.js';
 import type {
   AuthSessionRepository,
   AuthTransactionRepository,
@@ -103,10 +105,13 @@ export interface CompositionBindings {
   readonly localAccess: LocalRepositoryAccessPort;
   readonly githubPermissions: GitHubPermissionPort;
   readonly evidence: AuthorizationEvidencePort;
+  readonly sessionEvents: SessionPort;
+  readonly approvals: ApprovalPort;
 }
 
 export interface ApiContainer {
   readonly config: ApiConfigSnapshot;
+  readonly webhookSecret?: string;
   readonly bindings: CompositionBindings;
   readonly auth: AuthenticationService;
   readonly authorizer: RepositoryAuthorizationService;
@@ -176,6 +181,22 @@ export function buildContainer(
     localAccess: new EmptyLocalRepositoryAccessPort(),
     githubPermissions: new UnavailableGitHubPermissionPort(),
     evidence: new InMemoryAuthorizationEvidenceStore(),
+    sessionEvents: {
+      async get() {
+        return undefined;
+      },
+      async events() {
+        return [];
+      },
+    },
+    approvals: {
+      async listFor() {
+        return [];
+      },
+      async resolve() {
+        return { ok: false, code: 'APPROVAL_UNKNOWN', detail: 'no approval store wired' };
+      },
+    },
     ...overrides,
   };
 
@@ -204,7 +225,18 @@ export function buildContainer(
     now: () => new Date(),
   });
 
-  return { config, bindings, auth, authorizer };
+  const webhookSecret =
+    config.github?.webhookSecretRef === undefined
+      ? undefined
+      : secretProvider.peek({ name: config.github.webhookSecretRef });
+
+  return {
+    config,
+    bindings,
+    auth,
+    authorizer,
+    ...(webhookSecret !== undefined ? { webhookSecret } : {}),
+  };
 }
 
 /** Synchronous resolution from the same env snapshot given to loadConfig. */

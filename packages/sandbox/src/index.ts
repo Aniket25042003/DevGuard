@@ -168,3 +168,99 @@ export {
 
 // Redaction helper (secrets never logged/persisted).
 export { redactValue } from './redact.js';
+
+// ---- C043 containment (resource/network) controls ----
+export {
+  CONTAINMENT_SCHEMA_VERSION,
+  NETWORK_POLICY,
+  PROFILE_STATES,
+  DEFAULT_GLOBAL_CEILINGS,
+  effectiveContainmentProfileSchema,
+  resolveProfileEdge,
+  type ControlAttestation,
+  type EffectiveContainmentProfile,
+  type NetworkPolicy,
+  type ProfileCommandClass,
+  type ProfileState,
+} from './controls/contracts.js';
+export {
+  ContainmentController,
+  compileNetworkPolicy,
+  type ApplyResult,
+  type CompileResult,
+  type ContainmentProvider,
+  type ProfileSourceConstraints,
+  type ProviderCapabilityProbe,
+} from './controls/containment-controller.js';
+
+// ---- C044 artifacts / cleanup / telemetry ----
+export {
+  SANDBOX_ARTIFACT_SCHEMA_VERSION,
+  ARTIFACT_STATES,
+  CLEANUP_STATES,
+  artifactSchema,
+  type ArtifactManifest,
+  type ArtifactState,
+  type CleanupReason,
+  type CleanupState,
+  type SandboxArtifact,
+} from './artifacts/contracts.js';
+export {
+  ArtifactCollector,
+  CleanupCoordinator,
+  DefaultArtifactSafetyScan,
+  InMemoryArtifactStore,
+  InMemoryTelemetryRecorder,
+  type ArtifactCollectorDeps,
+  type ArtifactPolicy,
+  type ArtifactSafetyScan,
+  type ArtifactStorePort,
+  type CollectOutcome,
+  type TelemetryRecorder,
+  type WorkspaceDestroyPort,
+} from './artifacts/artifact-lifecycle.js';
+// ---- C042 sandbox command execution ----
+export {
+  SANDBOX_COMMAND_SCHEMA_VERSION,
+  COMMAND_CLASSES,
+  COMMAND_RESULT_STATUSES,
+  COMMAND_STATES,
+  DEFAULT_CEILINGS_MS,
+  sandboxCommandSchema,
+  sandboxResultSchema,
+  type CommandClass,
+  type CommandResultStatus,
+  type CommandState,
+  type EnvValue,
+  type OutputRef,
+  type SandboxCommand,
+  type SandboxResult,
+} from './commands/contracts.js';
+export {
+  resolveCommandEdge,
+  isTerminalCommand,
+  type CommandTrigger,
+  type CommandVerdict,
+} from './commands/command-fsm.js';
+export {
+  canonicalDigest,
+  assertSafeArgv,
+  commandIdempotencyKey,
+  sha256Hex,
+} from './commands/command-identity.js';
+export {
+  GovernedCommandRunner,
+  InMemoryCommandStore,
+  requireTerminal,
+  type CommandRunnerDeps,
+  type CommandStorePort,
+  type CommandStoreRecord,
+} from './commands/command-runner.js';
+export {
+  InMemoryCommandProvider,
+  type CommandProviderResult,
+  type ProviderOutputChunk,
+  type ProviderStreamSlice,
+  type TrueForgeCommandPort,
+} from './commands/command-provider-port.js';
+export { OutputNormalizer, type OutputStreamState } from './commands/output-normalizer.js';

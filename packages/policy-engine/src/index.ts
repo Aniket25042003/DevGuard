@@ -69,6 +69,7 @@ export {
   findActionDefinition,
   validateCatalog,
   type ActionCategory,
+  type CanonicalActionId,
   type ActionDefinition,
   type ExecutionObligation,
 } from './actions/catalog.js';

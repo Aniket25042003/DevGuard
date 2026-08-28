@@ -91,6 +91,7 @@ export type {
   AgentSessionRefShape,
   TriggerKind,
   WorkflowCompletionShape,
+  WorkflowProductOutcome,
   WorkflowRunShape,
 } from './workflows.js';
 
