@@ -16,8 +16,9 @@ import {
   apiTokenCreateRequestSchema,
   apiTokenCreateResponseSchema,
   apiTokenListResponseSchema,
+  apiTokenIdSchema,
 } from '@devguard/api-contracts';
-import { unauthenticated } from '@devguard/errors';
+import { unauthenticated, validationFailed } from '@devguard/errors';
 import type { RegisterV1Route, RouteMetadata } from '../transport/kernel.js';
 
 export function registerApiTokenRoutes(
@@ -40,7 +41,7 @@ export function registerApiTokenRoutes(
     }
     const parsed = apiTokenCreateRequestSchema.safeParse(await c.req.json().catch(() => undefined));
     if (!parsed.success) {
-      throw unauthenticated(new Error('invalid_token_issue_request'));
+      throw validationFailed([{ path: 'body', constraint: 'invalid token issue request' }]);
     }
     const issued = await apiTokens.issue({
       ownerUserId: principal.userId,
@@ -64,8 +65,8 @@ export function registerApiTokenRoutes(
       throw unauthenticated(new Error('no_principal_presented'));
     }
     const tokenId = c.req.param('id');
-    if (tokenId === undefined || tokenId.length === 0) {
-      throw unauthenticated(new Error('no_token_id'));
+    if (tokenId === undefined || !apiTokenIdSchema.safeParse(tokenId).success) {
+      throw validationFailed([{ path: 'id', constraint: 'must be a UUID' }]);
     }
     await apiTokens.revoke(tokenId, principal.userId);
     return c.body(null, 204);

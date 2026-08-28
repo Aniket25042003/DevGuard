@@ -14,6 +14,8 @@ export const apiTokenCreateRequestSchema = z
   .strict();
 export type ApiTokenCreateRequest = z.infer<typeof apiTokenCreateRequestSchema>;
 
+export const apiTokenIdSchema = z.string().uuid();
+
 export const apiTokenCreateResponseSchema = z
   .object({
     data: z
