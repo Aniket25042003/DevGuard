@@ -27,12 +27,12 @@ function sign(body: string): string {
 class InMemoryDeliveryStore implements WebhookDeliveryStore {
   private readonly rows = new Map<string, WebhookDeliveryRecord>();
   private readonly enqueueIntent = new Set<string>();
-    readonly drain = (effect: (deliveryId: string) => void): void => {
-      for (const key of this.enqueueIntent) {
-        this.enqueueIntent.delete(key);
-        effect(key.slice(key.indexOf(':') + 1));
-      }
-    };
+  readonly drain = (effect: (deliveryId: string) => void): void => {
+    for (const key of this.enqueueIntent) {
+      this.enqueueIntent.delete(key);
+      effect(key.slice(key.indexOf(':') + 1));
+    }
+  };
   async acceptDelivery(record: WebhookDeliveryRecord): Promise<AcceptanceOutcome> {
     const key = `${record.provider}:${record.deliveryId}`;
     const existing = this.rows.get(key);
@@ -43,8 +43,8 @@ class InMemoryDeliveryStore implements WebhookDeliveryStore {
       return { outcome: 'conflict', existingStatus: existing.status };
     }
     // Persist the row and enqueue intent together, before acknowledgement.
-      this.rows.set(key, { ...record, status: 'PERSISTED' });
-      this.enqueueIntent.add(key);
+    this.rows.set(key, { ...record, status: 'PERSISTED' });
+    this.enqueueIntent.add(key);
     return { outcome: 'accepted_new', status: 'PERSISTED' };
   }
 }
@@ -65,7 +65,7 @@ describe('C097 E06 webhook durability', () => {
     const header = sign(body);
 
     let acceptedNew = 0;
-      const effects = new Set<string>();
+    const effects = new Set<string>();
     const outcome = await runScenario(
       E06_SPEC,
       async () => {
@@ -79,7 +79,7 @@ describe('C097 E06 webhook durability', () => {
           const result = await acceptance.accept(envelope, { repositoryExternalId: 'repo-1' });
           states.push(`${result.outcome}:${result.httpStatus}`);
           if (result.outcome === 'accepted_new') acceptedNew += 1;
-            await store.drain((id) => effects.add(id));
+          await store.drain((id) => effects.add(id));
         }
         return { states, evidence: [body, header, ...states] };
       },
@@ -97,7 +97,7 @@ describe('C097 E06 webhook durability', () => {
     expect(outcome.evidence.passed).toBe(true);
     expect(outcome.evidence.states).toEqual(['accepted_new:202', 'duplicate:200']);
     expect(acceptedNew).toBe(1);
-      expect(effects).toEqual(new Set([deliveryId]));
+    expect(effects).toEqual(new Set([deliveryId]));
   });
 
   it('rejects the same delivery id with a different body as a conflict', async () => {

@@ -109,9 +109,7 @@ export async function runScenario(
     passed: forbiddenViolations.length === 0 && canaryLeaks.length === 0,
   } as const;
   const { createHash } = await import('node:crypto');
-  const digest = createHash('sha256')
-    .update(JSON.stringify(snapshot))
-    .digest('hex');
+  const digest = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
   const evidenceBundle: ScenarioEvidence = Object.freeze({ ...snapshot, digest });
   return { evidence: evidenceBundle, forbiddenEffectChecks: options.forbiddenEffects };
 }
