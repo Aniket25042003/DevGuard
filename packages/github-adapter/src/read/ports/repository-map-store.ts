@@ -34,8 +34,6 @@ export class InMemoryRepositoryMapStore implements RepositoryMapStorePort {
     if (existing !== undefined && existing.status === 'superseded') {
       return { ok: false, code: 'SUPERSEDED_TARGET', current: existing };
     }
-    this.maps.set(map.id, map);
-
     const current = this.current.get(map.repositoryDevguardId);
     if (map.status === 'superseded' || map.status === 'failed') {
       // Terminal-failure/superseded maps never become the current pointer.
@@ -52,6 +50,7 @@ export class InMemoryRepositoryMapStore implements RepositoryMapStorePort {
     }
     // Same head or no current: republish with the fresher generation.
     if (current === undefined || current.headSha === map.headSha) {
+      this.maps.set(map.id, map);
       this.current.set(map.repositoryDevguardId, map);
       return { ok: true, code: 'SAVED', current: map };
     }
