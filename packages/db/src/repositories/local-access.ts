@@ -14,6 +14,8 @@ export type LocalLinkageStatus = 'pending' | 'active' | 'degraded' | 'disconnect
 export interface LocalRepositoryLinkage {
   readonly status: LocalLinkageStatus;
   readonly installationRef: string;
+  /** Repo-specific identity so the GitHub role lookup is repository-scoped. */
+  readonly repositoryExternalIdHint?: string | undefined;
 }
 
 export class PostgresLocalRepositoryAccessPort {
@@ -25,7 +27,7 @@ export class PostgresLocalRepositoryAccessPort {
 
   async findLinkage(repositoryId: string): Promise<LocalRepositoryLinkage | undefined> {
     const rows = await this.poolLike.query<Record<string, unknown>>({
-      text: 'SELECT status, installation_id FROM repositories WHERE id = $1',
+      text: 'SELECT status, installation_id, github_repository_id FROM repositories WHERE id = $1',
       values: [repositoryId],
     });
     const row = rows[0];
@@ -39,7 +41,13 @@ export class PostgresLocalRepositoryAccessPort {
       // deny rather than guess. Defensive: the DB CHECK constrains values.
       return { status: 'disconnected', installationRef: String(row['installation_id'] ?? '') };
     }
-    return { status, installationRef: String(row['installation_id'] ?? '') };
+    return {
+      status,
+      installationRef: String(row['installation_id'] ?? ''),
+      ...(row['github_repository_id'] !== null && row['github_repository_id'] !== undefined
+        ? { repositoryExternalIdHint: String(row['github_repository_id']) }
+        : {}),
+    };
   }
 
   async isConnectingOwner(repositoryId: string, userId: string): Promise<boolean> {

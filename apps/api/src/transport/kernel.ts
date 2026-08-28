@@ -185,6 +185,19 @@ export type AuthorizeHook = (
   repositoryId: string,
 ) => Promise<void>;
 
+/**
+ * Canonical repository id shape — a UUID v1–v8 (the persistence layer stores
+ * `repositories.id` as uuidv7). Non-matching path values are rejected as
+ * `VALIDATION_FAILED` BEFORE authorization so they never reach PostgreSQL.
+ */
+const CANONICAL_REPOSITORY_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** True when a route path declares the given `:param` segment. */
+function pathHasParam(path: string, segment: string): boolean {
+  return path.split('/').includes(segment);
+}
+
 /** Build the /api/v1 kernel shell. `registerV1Route` is the only way in. */
 export function createTransportKernel(input: {
   readonly rateLimiter: RateLimiterPort;
@@ -305,15 +318,22 @@ export function createTransportKernel(input: {
         `Route ${key} must declare capability and repositoryIdParam together (CP005).`,
       );
     }
+    // Any route whose path is repository-scoped MUST authorize: a `:repositoryId`
+    // segment is a strong signal that a capability was accidentally omitted.
+    if (pathHasParam(path, ':repositoryId') && metadata.capability === undefined) {
+      throw new Error(
+        `Route ${key} is repository-scoped and must declare capability + repositoryIdParam (CP005).`,
+      );
+    }
     if (
-        metadata.repositoryIdParam !== undefined &&
-        !path.split('/').some((segment) => segment === `:${metadata.repositoryIdParam}`)
-      ) {
-        throw new Error(
-          `Route ${key} must include repositoryIdParam ${metadata.repositoryIdParam} in its path (CP005).`,
-        );
-      }
-      registry.set(key, metadata);
+      metadata.repositoryIdParam !== undefined &&
+      !pathHasParam(path, `:${metadata.repositoryIdParam}`)
+    ) {
+      throw new Error(
+        `Route ${key} must include repositoryIdParam ${metadata.repositoryIdParam} in its path (CP005).`,
+      );
+    }
+    registry.set(key, metadata);
     app.on(method, path, async (c) => {
       const context = c.get('requestContext');
       if (metadata.authClass === 'required_session' && context.principal === undefined) {
@@ -343,11 +363,8 @@ export function createTransportKernel(input: {
             );
           }
           const repositoryId = c.req.param(metadata.repositoryIdParam);
-          if (repositoryId === undefined ||
-              !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-                repositoryId,
-              )) {
-            return fail(c, 400, 'VALIDATION_FAILED', 'Repository id is required.');
+          if (repositoryId === undefined || !CANONICAL_REPOSITORY_ID_PATTERN.test(repositoryId)) {
+            return fail(c, 400, 'VALIDATION_FAILED', 'Repository id must be a valid UUID.');
           }
           await input.authorize(c, metadata.capability, repositoryId);
         }

@@ -135,6 +135,13 @@ export interface LocalRepositoryAccessPort {
     | {
         readonly status: 'pending' | 'active' | 'degraded' | 'disconnected';
         readonly installationRef: string;
+        /**
+         * Repository-specific identity (owner/name or GitHub id) so the
+         * provider adapter can do a REPOSITORY-scoped role lookup. GitHub
+         * permissions are per-repository even under a shared installation
+         * (CP005 §16), so authorization cannot be correct without it.
+         */
+        readonly repositoryExternalIdHint?: string | undefined;
       }
     | undefined
   >;
