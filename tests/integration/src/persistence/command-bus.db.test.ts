@@ -7,8 +7,10 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  ConnectedRepositoryStore,
   createPool,
   createUnitOfWork,
+  InstallationStore,
   OutboxWriter,
   WorkflowRunStore,
   type DevGuardPool,
@@ -30,6 +32,32 @@ beforeAll(async () => {
   await handle.pool.drain();
   dbUrl = handle.url;
   pool = createPool({ connectionString: dbUrl });
+  // workflow_runs.repository_id is an FK to repositories, which itself FKs to a
+  // github_installation; seed both (CP006 durable test runs in CI with a DB).
+  const installationId = 'aaaaaaaa-1111-4222-8333-444444444444';
+  await new InstallationStore(pool).upsertSnapshot({
+    githubInstallationId: '777',
+    accountType: 'User',
+    accountId: 777,
+    accountLogin: 'octo',
+    status: 'active',
+    permissionsJson: '{}',
+    repositorySelection: 'selected',
+  });
+  // github_installations.id is auto-generated; read it back for the FK.
+  const installRows = await pool.query<{ id: string }>({
+    text: 'SELECT id::text AS id FROM github_installations WHERE github_installation_id = $1',
+    values: ['777'],
+  });
+  const realInstallationId = String(installRows[0]?.id ?? installationId);
+  await new ConnectedRepositoryStore(pool).insert({
+    id: REPO,
+    githubRepositoryId: '123456',
+    installationId: realInstallationId,
+    owner: 'octo',
+    name: 'demo',
+    fullName: 'octo/demo',
+  });
 });
 
 afterAll(async () => {
