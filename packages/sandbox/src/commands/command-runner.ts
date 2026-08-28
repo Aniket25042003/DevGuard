@@ -97,6 +97,7 @@ export class GovernedCommandRunner {
     const key = commandIdempotencyKey(cmd.commandId, cmd.generation);
     const existing = await this.#store.getByKey(key);
     if (existing !== undefined) {
+      if (existing.digest !== digest) return { ok: false, status: 'blocked', detail: 'COMMAND_IDEMPOTENCY_CONFLICT' };
       return existing.state === 'SUCCEEDED'
         ? { ok: true, providerCommandId: existing.providerRefs[0] ?? '' }
         : { ok: false, status: 'blocked', detail: `already ${existing.state}` };
@@ -211,8 +212,11 @@ export class GovernedCommandRunner {
     const key = commandIdempotencyKey(commandId, generation);
     const record = await this.#store.getByKey(key);
     if (record === undefined) return 'cancelled_unsupported';
+    if (isTerminalCommand(record.state as never) || record.state !== 'RUNNING') return 'cancelled_unsupported';
     const result = await this.#provider.terminate();
-    if (!result.ok) return 'cancelled_unsupported';
+    if (!result.ok || !result.value.terminated) return 'cancelled_unsupported';
+    const inspected = await this.#provider.inspect();
+    if (!inspected.ok || inspected.value.running) return 'cancelled_unsupported';
     await this.#store.save({
       ...record,
       state: 'CANCELLED',
