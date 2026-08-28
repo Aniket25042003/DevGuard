@@ -17,6 +17,7 @@
     { "path": "../../packages/authorization" },
     { "path": "../../packages/security" },
     { "path": "../../packages/config" },
+    { "path": "../../packages/policy-engine" },
     { "path": "../../packages/db" },
     { "path": "../../packages/test-harness" },
     { "path": "../../apps/api" },

@@ -91,6 +91,9 @@ importers:
 
   packages/api-contracts:
     dependencies:
+      '@devguard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       zod:
         specifier: ^4.1.12
         version: 4.4.3
@@ -335,6 +338,9 @@ importers:
       '@devguard/logging':
         specifier: workspace:*
         version: link:../../packages/logging
+      '@devguard/policy-engine':
+        specifier: workspace:*
+        version: link:../../packages/policy-engine
       '@devguard/queue':
         specifier: workspace:*
         version: link:../../packages/queue

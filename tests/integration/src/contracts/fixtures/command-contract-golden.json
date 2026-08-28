@@ -1,0 +1,130 @@
+{
+  "version": "command-contract.v1",
+  "note": "CP001 golden fixtures: canonical SubmitCommandRequest / CommandReceipt / WorkflowRunDto payloads plus fail-closed negative fixtures. Validated in tests/integration/src/contracts/command-contract.test.ts.",
+  "examples": {
+    "submitCommandCanonical": {
+      "commandId": "security_audit",
+      "definitionVersion": "1",
+      "input": { "ref": "main", "scopes": ["dependencies", "secrets"] },
+      "clientReference": "audit-weekly-42",
+      "originSurface": "cli"
+    },
+    "submitCommandAliasWithGithub": {
+      "commandId": "review",
+      "definitionVersion": "2",
+      "input": { "pullRequestNumber": 7 },
+      "originSurface": "github_comment",
+      "github": {
+        "installationId": "inst-1",
+        "repositoryNodeId": "R_kgDOI",
+        "issueOrPrNumber": 7,
+        "commentId": "ic_1",
+        "htmlUrl": "https://github.com/acme/widget/pull/7#issuecomment-1"
+      }
+    },
+    "receipt": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "repositoryId": "00000000-0000-4000-8000-000000000002",
+      "commandId": "review_remediation",
+      "originSurface": "cli",
+      "status": "accepted",
+      "workflowRunId": "00000000-0000-4000-8000-000000000003",
+      "createdAt": "2026-08-28T00:00:00Z",
+      "links": {
+        "run": "/api/v1/workflows/00000000-0000-4000-8000-000000000003",
+        "self": "/api/v1/repositories/00000000-0000-4000-8000-000000000002/commands/00000000-0000-4000-8000-000000000001"
+      }
+    },
+    "workflowRun": {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "repositoryId": "00000000-0000-4000-8000-000000000002",
+      "workflowType": "review_remediation",
+      "definitionVersion": "2",
+      "status": "waiting_for_approval",
+      "trigger": { "triggerType": "manual", "originSurface": "web" },
+      "requestSummary": "review remediation for PR #7",
+      "policyVersion": 3,
+      "sessionId": "sess-1",
+      "branchName": "refs/heads/devguard/feat",
+      "pullRequestNumber": 7,
+      "queuePosition": 0,
+      "startedAt": "2026-08-28T00:01:00Z",
+      "createdAt": "2026-08-28T00:00:00Z",
+      "updatedAt": "2026-08-28T00:01:00Z",
+      "version": 2,
+      "links": { "self": "/api/v1/workflows/00000000-0000-4000-8000-000000000004" }
+    }
+  },
+  "mustReject": [
+    {
+      "schema": "submitCommandRequest",
+      "label": "missing originSurface",
+      "payload": {
+        "commandId": "implement_issue",
+        "definitionVersion": "1",
+        "input": { "issueNumber": 3 }
+      }
+    },
+    {
+      "schema": "submitCommandRequest",
+      "label": "extra property not allowed",
+      "payload": {
+        "commandId": "review",
+        "definitionVersion": "1",
+        "input": {},
+        "originSurface": "web",
+        "sneaky": true
+      }
+    },
+    {
+      "schema": "receipt",
+      "label": "status other than accepted",
+      "payload": {
+        "id": "r",
+        "repositoryId": "repo",
+        "commandId": "security_audit",
+        "originSurface": "cli",
+        "status": "queued",
+        "workflowRunId": "run",
+        "createdAt": "2026-08-28T00:00:00Z",
+        "links": { "run": "/x", "self": "/y" }
+      }
+    },
+    {
+      "schema": "receipt",
+      "label": "alias not allowed on a receipt",
+      "payload": {
+        "id": "r",
+        "repositoryId": "repo",
+        "commandId": "review",
+        "originSurface": "cli",
+        "status": "accepted",
+        "workflowRunId": "run",
+        "createdAt": "2026-08-28T00:00:00Z",
+        "links": { "run": "/x", "self": "/y" }
+      }
+    },
+    {
+      "schema": "workflowRun",
+      "label": "unknown status",
+      "payload": {
+        "id": "run",
+        "repositoryId": "repo",
+        "workflowType": "security_audit",
+        "definitionVersion": "1",
+        "status": "sneaky",
+        "trigger": { "triggerType": "api", "originSurface": "cli" },
+        "createdAt": "2026-08-28T00:00:00Z",
+        "updatedAt": "2026-08-28T00:00:00Z",
+        "version": 1,
+        "links": { "self": "/api/v1/workflows/run" }
+      }
+    },
+    {
+      "schema": "workflowRunListQuery",
+      "label": "unknown query key",
+      "payload": { "originSurface": "cli", "unknownFilter": "x" }
+    }
+  ],
+  "unknownVerbs": ["make_money_fast", "Review", "REVIEW", "implement issue", "run_tests"]
+}

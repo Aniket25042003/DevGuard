@@ -149,10 +149,13 @@ export {
 
 // ---- C028 invocation policy ----
 export {
+  COMMAND_ALIASES_V1,
+  CommandUnknownError,
   INVOCATION_REGISTRY_VERSION,
   MANUAL_COMMANDS_V1,
   TRIGGER_IDS_V1,
   WORKFLOW_IDS_V1,
+  normalizeCommandId,
   normalizeWorkflowId,
   triggerFilter,
   type ManualCommandDefinition,

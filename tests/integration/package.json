@@ -23,6 +23,7 @@
     "@devguard/errors": "workspace:*",
     "@devguard/github-adapter": "workspace:*",
     "@devguard/logging": "workspace:*",
+    "@devguard/policy-engine": "workspace:*",
     "@devguard/queue": "workspace:*",
     "@devguard/security": "workspace:*",
     "@devguard/test-harness": "workspace:*",

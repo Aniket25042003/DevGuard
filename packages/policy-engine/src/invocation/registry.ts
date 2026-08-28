@@ -32,13 +32,30 @@ export const TRIGGER_IDS_V1 = [
 
 export type TriggerIdV1 = (typeof TRIGGER_IDS_V1)[number];
 
-/** PRD §5.1/UI alias table (C028 §8). Validation-step names are NOT aliases. */
-const ALIASES: Readonly<Record<string, WorkflowIdV1>> = Object.freeze({
+/** C028 §8 base surface aliases (PRD §5.1). Validation-step names are NOT aliases. */
+const BASE_SURFACE_ALIASES: Readonly<Record<string, WorkflowIdV1>> = Object.freeze({
   fix_tests: 'diagnose_failure',
   diagnose_bug: 'diagnose_failure',
   security_scan: 'security_audit',
   dependency_update: 'dependency_upgrade',
   refactor: 'manual_refactor',
+});
+
+/**
+ * CP001 §8 — merged alias table used by EVERY client surface (CLI flags, web
+ * buttons, GitHub `@devguard` verbs). Merges the C028 base aliases with the
+ * CP001 surface verbs. Bijective by construction: one alias maps to exactly
+ * ONE canonical workflow ID. Case is significant — `Review` is rejected,
+ * never case-folded. `status` / `help` are GitHub *meta* verbs and are NOT
+ * aliases (CP019 handles them without SubmitCommand).
+ */
+export const COMMAND_ALIASES_V1: Readonly<Record<string, WorkflowIdV1>> = Object.freeze({
+  ...BASE_SURFACE_ALIASES,
+  review: 'review_remediation',
+  fix: 'diagnose_failure',
+  audit: 'security_audit',
+  patch: 'security_patch',
+  implement: 'implement_issue',
 });
 
 /** Names that look like workflows but are validation steps (C023/C028 note). */
@@ -73,9 +90,39 @@ export function normalizeWorkflowId(input: string): WorkflowIdResult {
     };
   }
   // Case-sensitive alias lookup only — no case folding, no fuzzy matching.
-  const alias = ALIASES[trimmed];
+  const alias = COMMAND_ALIASES_V1[trimmed];
   if (alias) return { outcome: 'RESOLVED', workflowId: alias, viaAlias: trimmed };
   return { outcome: 'UNKNOWN', input };
+}
+
+/**
+ * CP001 §10/§18 — typed "unknown command" failure (`COMMAND_UNKNOWN`). Thrown
+ * by `normalizeCommandId` when a client supplies a verb that is not a
+ * canonical command and not a registered alias. Fail closed: the caller can
+ * never fall back to a guessed workflow.
+ */
+export class CommandUnknownError extends Error {
+  readonly code = 'COMMAND_UNKNOWN' as const;
+  constructor(
+    readonly rawInput: string,
+    readonly hint?: string,
+  ) {
+    super(hint ? `Unknown command '${rawInput}': ${hint}` : `Unknown command '${rawInput}'`);
+    this.name = 'CommandUnknownError';
+  }
+}
+
+/**
+ * CP001 §10 — resolve a client-supplied command reference to its canonical
+ * workflow ID, or throw `CommandUnknownError`. Accepts exact canonical IDs and
+ * every `COMMAND_ALIASES_V1` alias. Unknown / non-workflow names (`run_tests`)
+ * and mixed-case inputs fail closed (`COMMAND_UNKNOWN`).
+ */
+export function normalizeCommandId(input: string): WorkflowIdV1 {
+  const result = normalizeWorkflowId(input);
+  if (result.outcome === 'RESOLVED') return result.workflowId;
+  if (result.outcome === 'NOT_A_WORKFLOW') throw new CommandUnknownError(input, result.hint);
+  throw new CommandUnknownError(input);
 }
 
 /** Registry version participates in dedupe keys and snapshot bindings. */
