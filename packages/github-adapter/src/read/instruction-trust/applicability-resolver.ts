@@ -20,7 +20,7 @@ export function pathMatchesScope(path: string, scope: string): boolean {
  */
 export function globMatch(path: string, scope: string): boolean {
   const trimmed = scope.trim();
-  if (trimmed === '**' || trimmed === '*') return true;
+  if (trimmed === '**') return true;
   const pathSegments = path.split('/');
   const scopeSegments = scope.split('/');
 
