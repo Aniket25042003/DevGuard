@@ -51,7 +51,16 @@ export class PostgresArtifactStore {
       text: `INSERT INTO artifacts (id, run_id, filename, content_type, size_bytes, sha256, object_key, scan_state)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING
 RETURNING ${COLS}`,
-      values: [input.id, input.runId, input.filename, input.contentType ?? 'application/octet-stream', input.sizeBytes, input.sha256, input.objectKey, input.scanState ?? 'SAFE'],
+      values: [
+        input.id,
+        input.runId,
+        input.filename,
+        input.contentType ?? 'application/octet-stream',
+        input.sizeBytes,
+        input.sha256,
+        input.objectKey,
+        input.scanState ?? 'SAFE',
+      ],
     });
     const row = rows[0];
     if (row === undefined) throw new Error('ARTIFACT_WRITE_CONFLICT');

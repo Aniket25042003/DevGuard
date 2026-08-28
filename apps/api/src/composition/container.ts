@@ -149,7 +149,9 @@ export class DurableArtifactsAdapter implements ArtifactPort {
   }
   async getSafe(id: string): Promise<SafeArtifact | undefined> {
     const a = await this.store.getSafe(id);
-    return a === undefined ? undefined : { id: a.id, path: a.filename, sizeBytes: a.sizeBytes, scanState: 'SAFE' as const };
+    return a === undefined
+      ? undefined
+      : { id: a.id, path: a.filename, sizeBytes: a.sizeBytes, scanState: 'SAFE' as const };
   }
 }
 

@@ -28,16 +28,21 @@ export interface ObjectStoreResult {
 }
 
 export interface ObjectStore {
-  put(objectKey: string, bytes: Uint8Array, contentType?: string | undefined): Promise<ObjectStoreResult>;
+  put(
+    objectKey: string,
+    bytes: Uint8Array,
+    contentType?: string | undefined,
+  ): Promise<ObjectStoreResult>;
   get(objectKey: string): Promise<{ bytes: Uint8Array; contentType?: string | undefined } | null>;
   delete(objectKey: string): Promise<boolean>;
 }
 
-export const OBJECT_KEY_PATTERN = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+export const OBJECT_KEY_PATTERN =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 /** Rejects obvious secret-bearing payloads before they are persisted (C093). */
 const SECRET_PATTERNS = [
-  /(?:password|passwd|api[_-]?key|secret|token|authorization)\s*[:=]\s*["']?[A-Za-z0-9_\-]{12,}/i,
+  /(?:password|passwd|api[_-]?key|secret|token|authorization)\s*[:=]\s*["']?[A-Za-z0-9_-]{12,}/i,
 ];
 
 export class LocalObjectStore implements ObjectStore {
@@ -61,7 +66,10 @@ export class LocalObjectStore implements ObjectStore {
   async put(objectKey: string, bytes: Uint8Array): Promise<ObjectStoreResult> {
     const text = Buffer.from(bytes).toString('utf8');
     if (SECRET_PATTERNS.some((p) => p.test(text))) {
-      throw new ArtifactStorageError('ARTIFACT_CONTAINS_SECRET', 'secret-bearing artifact rejected');
+      throw new ArtifactStorageError(
+        'ARTIFACT_CONTAINS_SECRET',
+        'secret-bearing artifact rejected',
+      );
     }
     await mkdir(this.root, { recursive: true });
     const full = this.resolveKey(objectKey);
@@ -70,7 +78,9 @@ export class LocalObjectStore implements ObjectStore {
     return { objectKey, sizeBytes: bytes.byteLength, sha256 };
   }
 
-  async get(objectKey: string): Promise<{ bytes: Uint8Array; contentType?: string | undefined } | null> {
+  async get(
+    objectKey: string,
+  ): Promise<{ bytes: Uint8Array; contentType?: string | undefined } | null> {
     const full = this.resolveKey(objectKey);
     try {
       const bytes = await readFile(full);
