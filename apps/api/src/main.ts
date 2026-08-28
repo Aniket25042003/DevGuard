@@ -13,7 +13,11 @@ import { assembleApi } from './app.js';
 const bootstrap = async (): Promise<void> => {
   const config = await Promise.resolve(loadConfig('api'));
   const container = buildContainer(config);
-  validateReadiness(config, container.bindings);
+  // Fail closed: volatile bindings are refused in production and in development
+  // unless the operator explicitly opts in (DEVGUARD_ALLOW_VOLATILE_AUTH=true).
+  validateReadiness(config, container.bindings, {
+    allowVolatileDevelopment: globalThis.process?.env?.['DEVGUARD_ALLOW_VOLATILE_AUTH'] === 'true',
+  });
   const api = assembleApi(container);
   console.info(
     JSON.stringify({
@@ -28,11 +32,13 @@ const bootstrap = async (): Promise<void> => {
     const port = Number.parseInt(globalThis.process?.env?.['PORT'] ?? '4000', 10);
     const server = serve({ fetch: api.app.fetch, port });
     console.info(JSON.stringify({ msg: 'http.listening', port }));
-    const shutdown = (): void => {
-      server.close(() => globalThis.process?.exit(0));
+    const shutdown = async (): Promise<void> => {
+      server.close(() => {
+        void container.pool?.drain().finally(() => globalThis.process?.exit(0));
+      });
     };
-    globalThis.process?.once('SIGTERM', shutdown);
-    globalThis.process?.once('SIGINT', shutdown);
+    globalThis.process?.once('SIGTERM', () => void shutdown());
+    globalThis.process?.once('SIGINT', () => void shutdown());
   }
 };
 

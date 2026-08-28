@@ -17,12 +17,21 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@devguard/agent": "workspace:*",
     "@devguard/api-contracts": "workspace:*",
+    "@devguard/approvals": "workspace:*",
     "@devguard/auth": "workspace:*",
     "@devguard/authorization": "workspace:*",
     "@devguard/config": "workspace:*",
     "@devguard/contracts": "workspace:*",
+    "@devguard/db": "workspace:*",
     "@devguard/errors": "workspace:*",
+    "@devguard/github-adapter": "workspace:*",
+    "@devguard/logging": "workspace:*",
+    "@devguard/policy-engine": "workspace:*",
+    "@devguard/queue": "workspace:*",
+    "@devguard/sandbox": "workspace:*",
+    "@devguard/workflows": "workspace:*",
     "@hono/node-server": "^1.14.4",
     "hono": "^4.9.7"
   }

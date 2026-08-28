@@ -8,8 +8,30 @@ export {
   buildContainer,
   validateReadiness,
   InMemoryAuthorizationEvidenceStore,
+  type ReadinessOptions,
 } from './composition/container.js';
 export type { ApiContainer, CompositionBindings } from './composition/container.js';
+// CP002 binding marker + volatile-adapters matrix (test/diagnostics).
+export {
+  isVolatileBinding,
+  VOLATILE_BINDING_KIND,
+  PORT_FAMILIES,
+  type PortFamily,
+  type VolatileBindingMarker,
+} from './composition/bindings.js';
+export {
+  UnavailableWorkflowAdapter,
+  VolatileApprovals,
+  VolatileArtifacts,
+  VolatileAudit,
+  VolatileFindings,
+  VolatilePolicySummaries,
+  VolatileRepositoryCatalog,
+  VolatileSessionEvents,
+  VolatileWebhookAcceptance,
+  VolatileWorkflowService,
+  type WorkflowPorts,
+} from './composition/volatile-adapters.js';
 export { createRequestContext, createTransportKernel, RATE_LIMITS } from './transport/kernel.js';
 export type {
   AppEnv,

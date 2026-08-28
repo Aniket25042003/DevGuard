@@ -11,6 +11,15 @@
     { "path": "../../packages/api-contracts" },
     { "path": "../../packages/auth" },
     { "path": "../../packages/authorization" },
-    { "path": "../../packages/config" }
+    { "path": "../../packages/config" },
+    { "path": "../../packages/db" },
+    { "path": "../../packages/logging" },
+    { "path": "../../packages/policy-engine" },
+    { "path": "../../packages/queue" },
+    { "path": "../../packages/approvals" },
+    { "path": "../../packages/github-adapter" },
+    { "path": "../../packages/agent" },
+    { "path": "../../packages/sandbox" },
+    { "path": "../../packages/workflows" }
   ]
 }
