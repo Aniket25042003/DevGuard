@@ -38,7 +38,7 @@ export class InMemoryPrOperationStore implements PrOperationStorePort {
   readonly ops = new Map<string, PrOperation>();
 
   async claim(operation: PrOperation): Promise<PrClaimResult> {
-    const existing = await this.findByIdempotency(operation.operationKey);
+    const existing = this.findByIdempotencySync(operation.operationKey);
     if (existing !== undefined) {
       if (existing.kind === operation.kind && existing.inputDigest === operation.inputDigest) {
         return { ok: true, operation: existing, replayed: true };
@@ -63,6 +63,10 @@ export class InMemoryPrOperationStore implements PrOperationStorePort {
   }
 
   async findByIdempotency(operationKey: string): Promise<PrOperation | undefined> {
+    return this.findByIdempotencySync(operationKey);
+  }
+
+  private findByIdempotencySync(operationKey: string): PrOperation | undefined {
     for (const op of this.ops.values()) {
       if (op.operationKey === operationKey) return op;
     }
