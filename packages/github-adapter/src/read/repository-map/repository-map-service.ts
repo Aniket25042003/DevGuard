@@ -119,7 +119,8 @@ export class RepositoryMapServiceGate implements RepositoryMapService {
       current.status === 'complete' &&
       current.headSha === headSha &&
       current.taskFingerprint === fingerprint &&
-      current.schemaVersion === 1
+      current.schemaVersion === 1 &&
+      Date.parse(current.expiresAtIso) > this.#clock.nowMs()
     ) {
       return {
         ok: true,
