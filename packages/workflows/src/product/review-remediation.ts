@@ -125,7 +125,7 @@ export function validateDefinition(): DefinitionValidation {
     for (const action of step.actionTypes) {
       if (!REVIEW_REMEDIATION_ALLOWED_ACTIONS.includes(action) || !findActionDefinition(action))
         return { ok: false, violation: `unregistered action ${action}` };
-      }
+    }
   }
   // Remediation must be bounded (never endless re-review loops).
   if (REVIEW_REMEDIATION_CYCLE_BUDGET <= 0)
