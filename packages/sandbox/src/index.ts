@@ -168,3 +168,54 @@ export {
 
 // Redaction helper (secrets never logged/persisted).
 export { redactValue } from './redact.js';
+
+// ---- C043 containment (resource/network) controls ----
+export {
+  CONTAINMENT_SCHEMA_VERSION,
+  NETWORK_POLICY,
+  PROFILE_STATES,
+  DEFAULT_GLOBAL_CEILINGS,
+  effectiveContainmentProfileSchema,
+  resolveProfileEdge,
+  type ControlAttestation,
+  type EffectiveContainmentProfile,
+  type NetworkPolicy,
+  type ProfileCommandClass,
+  type ProfileState,
+} from './controls/contracts.js';
+export {
+  ContainmentController,
+  compileNetworkPolicy,
+  type ApplyResult,
+  type CompileResult,
+  type ContainmentProvider,
+  type ProfileSourceConstraints,
+  type ProviderCapabilityProbe,
+} from './controls/containment-controller.js';
+
+// ---- C044 artifacts / cleanup / telemetry ----
+export {
+  SANDBOX_ARTIFACT_SCHEMA_VERSION,
+  ARTIFACT_STATES,
+  CLEANUP_STATES,
+  artifactSchema,
+  type ArtifactManifest,
+  type ArtifactState,
+  type CleanupReason,
+  type CleanupState,
+  type SandboxArtifact,
+} from './artifacts/contracts.js';
+export {
+  ArtifactCollector,
+  CleanupCoordinator,
+  DefaultArtifactSafetyScan,
+  InMemoryArtifactStore,
+  InMemoryTelemetryRecorder,
+  type ArtifactCollectorDeps,
+  type ArtifactPolicy,
+  type ArtifactSafetyScan,
+  type ArtifactStorePort,
+  type CollectOutcome,
+  type TelemetryRecorder,
+  type WorkspaceDestroyPort,
+} from './artifacts/artifact-lifecycle.js';
