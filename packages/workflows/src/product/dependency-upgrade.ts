@@ -26,10 +26,18 @@ export const DEPENDENCY_UPGRADE_INPUT_SCHEMA_ID = 'dependency_upgrade_input@1';
 export const DEPENDENCY_UPGRADE_OUTPUT_SCHEMA_ID = 'dependency_upgrade_output@1';
 
 /**
+ * Candidate identity is persisted by the run orchestrator (not an attempt
+ * count) so alternate-candidate rework stays bounded and a changed candidate/
+ * fingerprint invalidates the loop.
+ */
+export const DEPENDENCY_UPGRADE_CANDIDATE_STATE_KEY = 'dependency_upgrade.candidates';
+
+/**
  * Bounded alternate-candidate rework loop. This is ENFORCED, not advisory: the
  * FSM's `INSTALL_UPDATE → CANDIDATE_RESOLUTION` rework maps to the `install`
  * repair step, whose maxRetries equals this budget (a real runtime counter the
- * executor enforces). A changed candidate/fingerprint invalidates the loop.
+ * executor enforces) and whose candidate identity is tracked under the state
+ * key above.
  */
 export const DEPENDENCY_UPGRADE_CANDIDATE_BUDGET = 2;
 
@@ -266,7 +274,8 @@ export function validateDefinition(): DefinitionValidation {
     return { ok: false, violation: 'comparable security re-scan required' };
 
   // Candidate rework budget is ENFORCED by the install repair step's retry
-  // counter — positivity alone is not sufficient.
+  // counter (with candidate identity tracked under the state key) — positivity
+  // alone is not sufficient.
   const install = DEPENDENCY_UPGRADE_STEPS.find((s) =>
     s.actionTypes.includes('sandbox_install_dependency'),
   );
@@ -275,6 +284,8 @@ export function validateDefinition(): DefinitionValidation {
     return { ok: false, violation: 'install must repair-turn for bounded candidate rework' };
   if (install.maxRetries !== DEPENDENCY_UPGRADE_CANDIDATE_BUDGET)
     return { ok: false, violation: 'candidate budget must equal install retry ceiling' };
+  if (DEPENDENCY_UPGRADE_CANDIDATE_STATE_KEY.length === 0)
+    return { ok: false, violation: 'candidate state key required' };
 
   // Every git-write publish step must carry ownership + evidence-current gates.
   for (const step of DEPENDENCY_UPGRADE_STEPS) {
