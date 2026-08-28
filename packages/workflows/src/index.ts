@@ -6,6 +6,18 @@
  */
 import './errors.js';
 
+// ---- C056 product workflow: manual_refactor (extension) ----
+export {
+  MANUAL_REFACTOR_STEPS,
+  MANUAL_REFACTOR_ALLOWED_ACTIONS,
+  MANUAL_REFACTOR_PLAN_BUDGET,
+  MANUAL_REFACTOR_ALLOW_PUBLIC_API_CHANGE,
+  MANUAL_REFACTOR_DEFINITION_ID,
+  MANUAL_REFACTOR_DEFINITION_VERSION,
+  manualRefactorDefinition,
+  type RefactorStep,
+} from './product/manual-refactor.js';
+
 // ---- C055 product workflow: repository_health_check (extension) ----
 export {
   REPOSITORY_HEALTH_STEPS,
