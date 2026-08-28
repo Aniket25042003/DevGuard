@@ -114,6 +114,16 @@ export const MANUAL_REFACTOR_STEPS: readonly RefactorStep[] = [
     validatorIds: ['v_incremental'],
   },
   {
+    // Materialize the transformed workspace before commit comparison.
+    id: 'validation_commit',
+    kind: 'command',
+    actionTypes: ['commit_create'],
+    maxRetries: 1,
+    maxWallMillis: 120_000,
+    failureBehavior: 'fail_run',
+    validatorIds: ['v_workspace_committed'],
+  },
+  {
     id: 'diff_invariant',
     kind: 'validator',
     actionTypes: ['commit_compare'],
@@ -147,7 +157,7 @@ export const MANUAL_REFACTOR_STEPS: readonly RefactorStep[] = [
     maxRetries: 2,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
-    validatorIds: [],
+    validatorIds: ['v_branch_owned', 'v_expected_head', 'v_validation_current'],
   },
   {
     id: 'finalize',
@@ -156,7 +166,7 @@ export const MANUAL_REFACTOR_STEPS: readonly RefactorStep[] = [
     maxRetries: 1,
     maxWallMillis: 60_000,
     failureBehavior: 'fail_run',
-    validatorIds: [],
+    validatorIds: ['v_branch_owned', 'v_expected_head'],
   },
 ];
 
