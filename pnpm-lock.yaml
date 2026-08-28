@@ -153,6 +153,21 @@ importers:
         specifier: ^4.1.12
         version: 4.4.3
 
+  packages/github-adapter:
+    dependencies:
+      '@devguard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@devguard/errors':
+        specifier: workspace:*
+        version: link:../errors
+      '@devguard/logging':
+        specifier: workspace:*
+        version: link:../logging
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
+
   packages/logging:
     dependencies:
       '@devguard/errors':
@@ -266,6 +281,9 @@ importers:
       '@devguard/errors':
         specifier: workspace:*
         version: link:../../packages/errors
+      '@devguard/github-adapter':
+        specifier: workspace:*
+        version: link:../../packages/github-adapter
       '@devguard/logging':
         specifier: workspace:*
         version: link:../../packages/logging

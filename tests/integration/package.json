@@ -21,6 +21,7 @@
     "@devguard/contracts": "workspace:*",
     "@devguard/db": "workspace:*",
     "@devguard/errors": "workspace:*",
+    "@devguard/github-adapter": "workspace:*",
     "@devguard/logging": "workspace:*",
     "@devguard/queue": "workspace:*",
     "@devguard/security": "workspace:*",
