@@ -13,12 +13,19 @@
  * Extension: disabled by default (feature/policy gated) per C053 acceptance.
  */
 import { findActionDefinition } from '@devguard/policy-engine';
+import { canonicalDigest } from '../definitions/registry.js';
+import type { WorkflowDefinition } from '../definitions/contracts.js';
+
+const DEPENDENCY_UPGRADE_AGENT_ID = 'agent:dependency-upgrade';
+const DEPENDENCY_UPGRADE_INPUT_SCHEMA_ID = 'schema:dependency-upgrade-input@1';
+const DEPENDENCY_UPGRADE_OUTPUT_SCHEMA_ID = 'schema:dependency-upgrade-output@1';
+
+// Candidate identity is persisted by the run orchestrator; it is not an attempt count.
+export const DEPENDENCY_UPGRADE_CANDIDATE_STATE_KEY = 'dependency_upgrade.candidates';
+export const DEPENDENCY_UPGRADE_CANDIDATE_BUDGET = 2;
 
 export const DEPENDENCY_UPGRADE_DEFINITION_ID = 'dependency_upgrade';
 export const DEPENDENCY_UPGRADE_DEFINITION_VERSION = '1.0.0';
-
-/** Bounded alternate-candidate rework loop (never endless retries). */
-export const DEPENDENCY_UPGRADE_CANDIDATE_BUDGET = 2;
 
 export interface UpgradeStep {
   readonly id: string;
@@ -137,7 +144,7 @@ export const DEPENDENCY_UPGRADE_STEPS: readonly UpgradeStep[] = [
     maxRetries: 2,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
-    validatorIds: [],
+    validatorIds: ['v_current_head_evidence', 'v_branch_ownership'],
   },
   {
     id: 'finalize',
@@ -201,12 +208,15 @@ export function validateDefinition(): DefinitionValidation {
   return { ok: true };
 }
 
-export const dependencyUpgradeDefinition = {
+const dependencyUpgradeDefinitionWithoutDigest = {
   id: DEPENDENCY_UPGRADE_DEFINITION_ID,
   semanticVersion: DEPENDENCY_UPGRADE_DEFINITION_VERSION,
-  status: 'ACTIVE',
+  status: 'ACTIVE' as const,
   // Extension: disabled by default; launches only through feature/policy gates.
   enabled: false,
+  agentDefinitionId: DEPENDENCY_UPGRADE_AGENT_ID,
+  inputSchemaId: DEPENDENCY_UPGRADE_INPUT_SCHEMA_ID,
+  outputSchemaId: DEPENDENCY_UPGRADE_OUTPUT_SCHEMA_ID,
   steps: DEPENDENCY_UPGRADE_STEPS,
   allowedActionTypes: DEPENDENCY_UPGRADE_ALLOWED_ACTIONS,
   requiredCapabilities: ['cap:trueforge_agent', 'cap:sandbox_exec', 'cap:github_write'],
@@ -220,4 +230,9 @@ export const dependencyUpgradeDefinition = {
   ],
   skillBundleRefs: ['skill:core@1'],
   compatibilityRange: '>=1.0.0',
+} as const;
+
+export const dependencyUpgradeDefinition = {
+  ...dependencyUpgradeDefinitionWithoutDigest,
+  digest: canonicalDigest(dependencyUpgradeDefinitionWithoutDigest as unknown as WorkflowDefinition),
 } as const;
