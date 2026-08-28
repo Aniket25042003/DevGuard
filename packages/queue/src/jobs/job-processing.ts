@@ -41,7 +41,9 @@ export class WebhookProcessingService {
         repositoryId: job.payload.repositoryId,
         event: job.payload.payloadRef,
       });
-      await this.deps.store.transition(deliveryId, claimed.state, 'PROCESSING');
+      // PostgreSQL claims atomically move the row to PROCESSING.
+      if (claimed.state !== 'PROCESSING')
+        await this.deps.store.transition(deliveryId, claimed.state, 'PROCESSING');
 
       if (!routed.matched) {
         await this.deps.store.transition(deliveryId, 'PROCESSING', 'IGNORED');
