@@ -21,7 +21,12 @@ import type { QueueTransport } from './retry.js';
 export interface RedisLikeClient {
   zadd(key: string, score: number, member: string): Promise<unknown>;
   zrem(key: string, member: string): Promise<unknown>;
-  zrangebyscore(key: string, min: number, max: number, limit: number): Promise<string[]>;
+  zrangebyscore(
+    key: string,
+    min: number,
+    max: number,
+    ...args: ['LIMIT', number, number]
+  ): Promise<string[]>;
   get(key: string): Promise<string | null>;
   set(key: string, value: string): Promise<unknown>;
   del(key: string): Promise<unknown>;
@@ -60,7 +65,7 @@ export class RedisQueueTransport implements QueueTransport {
 
   async claim(queueName: string, leaseMs: number, _workerId: string): Promise<JobEnvelope[]> {
     const now = this.clockNow();
-    const keys = await this.client.zrangebyscore(q('pending', queueName), 0, now, 10);
+    const keys = await this.client.zrangebyscore(q('pending', queueName), 0, now, 'LIMIT', 0, 10);
     const claimed: JobEnvelope[] = [];
     for (const key of keys) {
       const removed = await this.client.zrem(q('pending', queueName), key);
@@ -127,7 +132,7 @@ export class RedisQueueTransport implements QueueTransport {
       'cleanup' as const,
       'sandbox-monitoring' as const,
     ]) {
-      const stale = await this.client.zrangebyscore(q('active', queue), 0, nowMs, 100);
+      const stale = await this.client.zrangebyscore(q('active', queue), 0, nowMs, 'LIMIT', 0, 100);
       for (const key of stale) {
         const removed = await this.client.zrem(q('active', queue), key);
         if (removed === 0) continue;
