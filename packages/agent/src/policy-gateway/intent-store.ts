@@ -18,7 +18,7 @@ export class InMemoryToolIntentStore implements ToolIntentStorePort {
   readonly byCall = new Map<string, ToolCallIntent>();
 
   key(provider: string, sessionId: string, callId: string): string {
-    return `${provider}/${sessionId}/${callId}`;
+    return JSON.stringify([provider, sessionId, callId]);
   }
 
   async get(id: string): Promise<ToolCallIntent | undefined> {
