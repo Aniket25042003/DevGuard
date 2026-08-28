@@ -75,3 +75,17 @@ export {
   type RetryClass,
   type RetryDecision,
 } from './jobs/cleanup.js';
+
+// ---- C059 approval resumption / expiry ----
+export {
+  APPROVAL_RESUME_STATES,
+  ApprovalResumeService,
+  InMemoryApprovalStore,
+  type ApprovalRecord,
+  type ApprovalResolution,
+  type ApprovalResumeDeps,
+  type ApprovalResumeState,
+  type ApprovalStorePort,
+  type ResumeExecutorPort,
+  type ResumeOutcome,
+} from './jobs/approval-resume.js';
