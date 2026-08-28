@@ -261,7 +261,7 @@ export function buildContainer(
   const pool: DevGuardPool | undefined =
     databaseUrl === undefined ? undefined : createPool({ connectionString: databaseUrl });
 
-// CP003: durable auth stores in non-test environments with a pool; volatile
+  // CP003: durable auth stores in non-test environments with a pool; volatile
   // (in-memory) stores otherwise (only allowed in `test`, or `development`
   // behind DEVGUARD_ALLOW_VOLATILE_AUTH=true via validateReadiness).
   const durableAuth = config.environment !== 'test' && pool !== undefined;

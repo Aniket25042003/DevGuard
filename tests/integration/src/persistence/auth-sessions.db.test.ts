@@ -93,6 +93,8 @@ describeDb('CP003 durable auth stores', () => {
     await pool.drain();
     pool = createPool({ connectionString: dbUrl });
     sessionRepo = new PostgresAuthSessionRepository(pool);
+    transactionRepo = new PostgresAuthTransactionRepository(pool);
+    identities = new PostgresUserIdentityLinker(pool);
     const afterRestart = await sessionRepo.findBySessionIdHash('hash-002');
     expect(afterRestart?.sessionIdHash).toBe('hash-002');
     expect(afterRestart?.rowVersion).toBe(0);
