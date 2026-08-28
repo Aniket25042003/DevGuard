@@ -189,7 +189,12 @@ export const ACTION_DEFINITIONS: readonly ActionDefinition[] = Object.freeze([
 
   // Sandbox commands
   sandboxCmd('sandbox_run_readonly', 'read', [NETWORK_DENY, READ_TIMEOUT, RESOURCES_DEFAULT]),
-  sandboxCmd('sandbox_run_build', 'reversible_write', [
+  sandboxCmd('sandbox_run_dependency_freshness', 'read', [
+      { kind: 'network_policy', mode: 'allowlist', allowlist: Object.freeze(['registry.npmjs.org', 'registry.yarnpkg.com', 'pypi.org']) },
+      BUILD_TIMEOUT,
+      RESOURCES_DEFAULT,
+    ]),
+    sandboxCmd('sandbox_run_build', 'reversible_write', [
     NETWORK_DENY,
     BUILD_TIMEOUT,
     RESOURCES_DEFAULT,

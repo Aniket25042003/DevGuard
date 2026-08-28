@@ -9,6 +9,7 @@
  * a post-probe source-immutability gate invalidates any probe that altered
  * source. Missing/unavailable domains surface as unknown/blocked (never "healthy").
  */
+import { createHash } from 'node:crypto';
 import { findActionDefinition } from '@devguard/policy-engine';
 
 export const REPOSITORY_HEALTH_DEFINITION_ID = 'repository_health_check';
@@ -86,6 +87,8 @@ export const REPOSITORY_HEALTH_STEPS: readonly HealthStep[] = [
     kind: 'command',
     actionTypes: [
       'sandbox_run_readonly',
+    'sandbox_run_build',
+    'sandbox_run_dependency_freshness',
       'sandbox_run_test',
       'sandbox_run_security_scan',
       'workflow_logs_read',
@@ -155,6 +158,8 @@ export const REPOSITORY_HEALTH_ALLOWED_ACTIONS: readonly string[] = [
   'repository_metadata_read',
   'workspace_create',
   'sandbox_run_readonly',
+    'sandbox_run_build',
+    'sandbox_run_dependency_freshness',
   'sandbox_run_test',
   'sandbox_run_security_scan',
   'workspace_collect_artifact',
@@ -222,6 +227,9 @@ export const repositoryHealthDefinition = {
   id: REPOSITORY_HEALTH_DEFINITION_ID,
   semanticVersion: REPOSITORY_HEALTH_DEFINITION_VERSION,
   status: 'ACTIVE',
+    agentDefinitionId: 'ad:trueforge_agent',
+    inputSchemaId: 'schema:repository_health_check_input',
+    outputSchemaId: 'schema:repository_health_check_output',
   // Extension: disabled by default; launches only through feature/policy gates.
   enabled: false,
   steps: REPOSITORY_HEALTH_STEPS,
@@ -230,4 +238,12 @@ export const repositoryHealthDefinition = {
   artifactDeclarations: ['health_report', 'probe_evidence', 'security_evidence'],
   skillBundleRefs: ['skill:core@1'],
   compatibilityRange: '>=1.0.0',
+    digest: createHash('sha256')
+      .update(JSON.stringify({
+        id: REPOSITORY_HEALTH_DEFINITION_ID,
+        version: REPOSITORY_HEALTH_DEFINITION_VERSION,
+        steps: REPOSITORY_HEALTH_STEPS,
+        schemaOutput: 'schema:repository_health_check_output',
+      }))
+      .digest('hex'),
 } as const;
