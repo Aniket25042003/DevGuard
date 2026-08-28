@@ -143,7 +143,7 @@ export class ArtifactCollector {
         return { ok: false, code: 'UNSAFE', detail: `mime ${spec.mimeType}` };
 
       const artifact = artifactSchema.parse({
-        id: `art-${sha256(spec.path + spec.sha256Checksum).slice(0, 16)}`,
+        id: `art-${sha256(JSON.stringify({ workspaceId: input.workspaceId, commandId: input.commandId, manifestId, path: spec.path, sha256Checksum: spec.sha256Checksum })).slice(0, 16)}`,
         manifestId,
         workspaceId: input.workspaceId,
         commandId: input.commandId,
@@ -210,7 +210,14 @@ export class CleanupCoordinator {
   async reconcile(workspaceId: string): Promise<CleanupState> {
     const state = (await this.store.cleanupState(workspaceId)) ?? 'REQUESTED';
     if (state === 'COMPLETED' || state === 'QUARANTINED' || state === 'ESCALATED') return state;
-    const result = await this.destroy.destroy(workspaceId);
+    const before = await this.destroy.inspect(workspaceId);
+      if (!before.exists) {
+        await this.store.persistCleanup(workspaceId, 'COMPLETED', 'success');
+        return 'COMPLETED';
+      }
+      let result;
+      try { result = await this.destroy.destroy(workspaceId); }
+      catch { await this.store.persistCleanup(workspaceId, 'RETRY_WAIT', 'failure'); return 'RETRY_WAIT'; }
     if (!result.ok) {
       await this.store.persistCleanup(workspaceId, 'RETRY_WAIT', 'failure');
       return 'RETRY_WAIT';
