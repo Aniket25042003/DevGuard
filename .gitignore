@@ -37,3 +37,5 @@ coverage/
 .idea/
 .vscode/
 *.log
+
+var/artifacts/

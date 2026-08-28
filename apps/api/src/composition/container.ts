@@ -21,7 +21,7 @@ import type { SessionPort } from '../routes/session.routes.js';
 import type { ApprovalPort } from '../routes/approval.routes.js';
 import type { PolicySummaryPort } from '../routes/workflow.routes.js';
 import type { RepositoryCatalogPort, WebhookAcceptancePort } from '../routes/github.routes.js';
-import type { ArtifactPort } from '../routes/artifact.routes.js';
+import type { ArtifactPort, SafeArtifact } from '../routes/artifact.routes.js';
 import type { AuditPort } from '../routes/audit.routes.js';
 import type { FindingsPort } from '../routes/findings.routes.js';
 import type {
@@ -44,6 +44,7 @@ import type { ApiConfigSnapshot } from '@devguard/config';
 import { createPool, type DevGuardPool } from '@devguard/db';
 import {
   PostgresApiTokenRepository,
+  PostgresArtifactStore,
   PostgresAuthSessionRepository,
   PostgresAuthTransactionRepository,
   PostgresLocalRepositoryAccessPort,
@@ -129,6 +130,26 @@ export class EmptyRunQueryStore implements WorkflowRunStorePort {
 
   async cancel(_id: string, _expectedVersion: number): Promise<never> {
     throw new Error('WORKFLOW_UNKNOWN:no durable run store');
+  }
+}
+
+/** CP012 — durable ArtifactPort mapping the db store to the SAFE projection. */
+export class DurableArtifactsAdapter implements ArtifactPort {
+  private readonly store: PostgresArtifactStore;
+  constructor(pool: ConstructorParameters<typeof PostgresArtifactStore>[0]) {
+    this.store = new PostgresArtifactStore(pool);
+  }
+  async listFor(runId: string): Promise<readonly SafeArtifact[]> {
+    return (await this.store.listFor(runId)).map((a) => ({
+      id: a.id,
+      path: a.filename,
+      sizeBytes: a.sizeBytes,
+      scanState: 'SAFE' as const,
+    }));
+  }
+  async getSafe(id: string): Promise<SafeArtifact | undefined> {
+    const a = await this.store.getSafe(id);
+    return a === undefined ? undefined : { id: a.id, path: a.filename, sizeBytes: a.sizeBytes, scanState: 'SAFE' as const };
   }
 }
 
@@ -346,7 +367,7 @@ export function buildContainer(
     policies: VolatilePolicySummaries,
     webhooks: new VolatileWebhookAcceptance(),
     repositoryCatalog: VolatileRepositoryCatalog,
-    artifacts: VolatileArtifacts,
+    artifacts: durableAuth ? new DurableArtifactsAdapter(pool) : VolatileArtifacts,
     audit: VolatileAudit,
     findings: VolatileFindings,
     ...overrides,

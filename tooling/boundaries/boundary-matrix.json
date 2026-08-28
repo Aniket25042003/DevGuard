@@ -32,7 +32,8 @@
     "packages/db": "persistence",
     "packages/agent": "application",
     "packages/sandbox": "application",
-    "packages/workflows": "application"
+    "packages/workflows": "application",
+    "packages/artifact-storage": "adapter"
   },
   "packageScope": "@devguard",
   "domainExternalAllowlist": ["zod"],

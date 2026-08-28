@@ -84,6 +84,9 @@ export type {
   WorkflowRunRecord,
 } from './repositories/workflow-evidence.js';
 
+// ---- CP012 durable artifact metadata ----
+export { PostgresArtifactStore, type StoredArtifact } from './repositories/artifacts.js';
+
 // ---- CP011 durable webhook delivery ledger ----
 export {
   PostgresWebhookDeliveryStore,
