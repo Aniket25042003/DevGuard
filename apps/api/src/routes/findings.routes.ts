@@ -7,12 +7,13 @@
  * route surfaces only the normalized stable findings (id/severity/status/refs),
  * never raw scanner text or secrets. Session-required.
  */
+import type { FindingSeverity, FindingStatus } from '@devguard/contracts';
 import type { RegisterV1Route } from '../transport/kernel.js';
 
 export interface SecurityFinding {
   readonly id: string;
-  readonly severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
-  readonly status: 'open' | 'fixed' | 'not_fixed' | 'inconclusive' | 'superseded' | 'blocked';
+  readonly severity: FindingSeverity;
+  readonly status: FindingStatus;
   readonly rule?: string | undefined;
 }
 
