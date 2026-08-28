@@ -59,6 +59,9 @@ export function parseSemver(input: string): Semver {
   const major = Number(match[1]);
   const minor = Number(match[2]);
   const patch = Number(match[3]);
+  if (![major, minor, patch].every(Number.isSafeInteger)) {
+    throw new SemverError(`semantic version component exceeds safe integer range '${input}'`);
+  }
   const prerelease = match[4];
   const build = match[5];
   return {
