@@ -42,7 +42,7 @@ export const WEBHOOK_EVENTS = [
 ] as const;
 export type WebhookEventName = (typeof WEBHOOK_EVENTS)[number];
 
-export const eventHeaderSchema = z.enum(WEBHOOK_EVENTS);
+export const eventHeaderSchema = z.string().min(1).max(128);
 
 /** Strict normalized webhook headers (duplicates/conflicts rejected upstream). */
 export const githubWebhookHeadersSchema = z
