@@ -10,6 +10,7 @@
  */
 import type { TimestampIso, WorkflowStatus } from '@devguard/contracts';
 import type { ApiTokenRecord, ApiTokenRepository } from '@devguard/auth';
+import type { CommandBusPersistencePort, CreateQueuedRunInput } from '@devguard/workflows';
 import type {
   CommandCatalogPort,
   PolicySummaryPort,
@@ -242,5 +243,34 @@ export class VolatileApiTokenRepository implements ApiTokenRepository, VolatileB
     if (record !== undefined && record.userId === userId && record.revokedAt === undefined) {
       this.rows.set(tokenId, { ...record, revokedAt, rowVersion: record.rowVersion + 1 });
     }
+  }
+}
+
+/**
+ * In-memory command persistence (test only). Dedupes by idempotency hash like
+ * the durable port, but is not durable — flagged volatile so production refuses it.
+ */
+export class VolatileCommandBusPersistencePort
+  implements CommandBusPersistencePort, VolatileBindingMarker
+{
+  readonly bindingKind = VOLATILE_BINDING_KIND;
+  readonly bindingName = 'command_bus_in_memory';
+
+  private readonly runs = new Map<string, CreateQueuedRunInput>();
+  private readonly byHash = new Map<string, string>();
+
+  async createQueuedRun(
+    input: CreateQueuedRunInput,
+  ): Promise<
+    | { readonly outcome: 'created'; readonly runId: string }
+    | { readonly outcome: 'replayed'; readonly runId: string }
+  > {
+    const existing = this.byHash.get(input.idempotencyKeyHash);
+    if (existing !== undefined) {
+      return { outcome: 'replayed', runId: existing };
+    }
+    this.byHash.set(input.idempotencyKeyHash, input.runId);
+    this.runs.set(input.runId, { ...input });
+    return { outcome: 'created', runId: input.runId };
   }
 }
