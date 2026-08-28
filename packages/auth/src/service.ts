@@ -266,6 +266,7 @@ export class AuthenticationService {
       ...(record.providerDisplayName !== undefined
         ? { providerDisplayName: record.providerDisplayName }
         : {}),
+      authMethod: 'session',
       sessionIdHash,
       authenticatedAt: record.createdAt,
     };

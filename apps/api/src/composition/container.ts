@@ -9,6 +9,7 @@
  * FAILS, never boots pretending the store is durable.
  */
 import {
+  ApiTokenService,
   AuthenticationService,
   GitHubOAuthClient,
   InMemoryAuthSessionRepository,
@@ -24,6 +25,7 @@ import type { ArtifactPort } from '../routes/artifact.routes.js';
 import type { AuditPort } from '../routes/audit.routes.js';
 import type { FindingsPort } from '../routes/findings.routes.js';
 import type {
+  ApiTokenRepository,
   AuthSessionRepository,
   AuthTransactionRepository,
   IdentityProviderClient,
@@ -41,12 +43,14 @@ import { configurationInvalid } from '@devguard/errors';
 import type { ApiConfigSnapshot } from '@devguard/config';
 import { createPool, type DevGuardPool } from '@devguard/db';
 import {
+  PostgresApiTokenRepository,
   PostgresAuthSessionRepository,
   PostgresAuthTransactionRepository,
   PostgresUserIdentityLinker,
 } from '@devguard/db';
 import { isVolatileBinding } from './bindings.js';
 import {
+  VolatileApiTokenRepository,
   VolatileApprovals,
   VolatileArtifacts,
   VolatileAudit,
@@ -128,6 +132,7 @@ export interface CompositionBindings {
   readonly sessions: AuthSessionRepository;
   readonly transactions: AuthTransactionRepository;
   readonly identities: UserIdentityLinker;
+  readonly apiTokens: ApiTokenRepository;
   readonly identityProvider: IdentityProviderClient;
   readonly localAccess: LocalRepositoryAccessPort;
   readonly githubPermissions: GitHubPermissionPort;
@@ -150,6 +155,7 @@ export interface ApiContainer {
   readonly pool?: DevGuardPool;
   readonly bindings: CompositionBindings;
   readonly auth: AuthenticationService;
+  readonly apiTokens: ApiTokenService;
   readonly authorizer: RepositoryAuthorizationService;
 }
 
@@ -195,6 +201,7 @@ export function validateReadiness(
 
   // Marker-based detection for every control-plane port family (CP002 §5).
   const markerBindings: ReadonlyArray<readonly [string, unknown]> = [
+    ['apiTokens', bindings.apiTokens],
     ['localAccess', bindings.localAccess],
     ['githubPermissions', bindings.githubPermissions],
     ['authorizationEvidence', bindings.evidence],
@@ -274,11 +281,15 @@ export function buildContainer(
   const identities = durableAuth
     ? new PostgresUserIdentityLinker(pool)
     : new VolatileIdentityLinker();
+  const apiTokens = durableAuth
+    ? new PostgresApiTokenRepository(pool)
+    : new VolatileApiTokenRepository();
 
   const bindings: CompositionBindings = {
     sessions,
     transactions,
     identities,
+    apiTokens,
     identityProvider,
     localAccess: new EmptyLocalRepositoryAccessPort(),
     githubPermissions: new UnavailableGitHubPermissionPort(),
@@ -310,6 +321,11 @@ export function buildContainer(
     now: () => new Date(),
   });
 
+  const apiTokenService = new ApiTokenService({
+    tokens: bindings.apiTokens,
+    now: () => new Date(),
+  });
+
   const authorizer = new RepositoryAuthorizationService({
     local: bindings.localAccess,
     github: bindings.githubPermissions,
@@ -330,6 +346,7 @@ export function buildContainer(
     config,
     bindings,
     auth,
+    apiTokens: apiTokenService,
     authorizer,
     ...(pool !== undefined ? { pool } : {}),
     ...(webhookSecret !== undefined ? { webhookSecret } : {}),

@@ -14,15 +14,21 @@ import {
 function kernel() {
   return createTransportKernel({
     rateLimiter: new InMemoryRateLimiter(),
-    authenticate: async (token: string | undefined) =>
-      token === 'session-1'
-        ? ({
-            userId: 'user-1',
-            issuer: 'github',
-            providerSubject: 'octo',
-            providerLogin: 'octo',
-          } as never)
-        : undefined,
+    authenticate: async ({ sessionToken, bearerToken }) => {
+      const token = bearerToken ?? sessionToken;
+      return token === 'session-1'
+        ? {
+            status: 'authenticated',
+            principal: {
+              userId: 'user-1',
+              issuer: 'github',
+              providerSubject: 'octo',
+              providerLogin: 'octo',
+              authMethod: 'session',
+            } as never,
+          }
+        : { status: 'anonymous' };
+    },
     webhookMaxBodyBytes: 1_048_576,
   });
 }

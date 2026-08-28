@@ -157,3 +157,17 @@ export type {
   WorkflowRunDtoV1,
   WorkflowRunListQueryV1,
 } from './commands.js';
+
+// ---- CP004 CLI/API token endpoints ----
+export {
+  apiTokenCreateRequestSchema,
+  apiTokenCreateResponseSchema,
+  apiTokenListResponseSchema,
+  apiTokenSummarySchema,
+} from './tokens.js';
+export type {
+  ApiTokenCreateRequest,
+  ApiTokenCreateResponse,
+  ApiTokenListResponse,
+  ApiTokenSummary,
+} from './tokens.js';

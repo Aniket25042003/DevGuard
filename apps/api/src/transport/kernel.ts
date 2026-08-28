@@ -34,8 +34,30 @@ export type AppEnv = {
 
 export type RouteHandler = (c: Context<AppEnv>) => Promise<Response> | Response;
 
+/**
+ * Credentials present on a request. The kernel extracts the session cookie and
+ * a syntactically-valid `Authorization: Bearer` value; the injected
+ * `authenticate` resolver decides which (never both — the kernel rejects
+ * ambiguity before it is ever consulted).
+ */
+export interface AuthenticateInput {
+  readonly sessionToken?: string | undefined;
+  readonly bearerToken?: string | undefined;
+}
+
+/**
+ * Outcome of authentication. `ambiguous` means both a cookie and a bearer were
+ * presented together (CP004 §11 locked → 400 AUTH_AMBIGUOUS). `authenticated`
+ * is mutually exclusive with `anonymous`.
+ */
+export type AuthResolution =
+  | { readonly status: 'authenticated'; readonly principal: Principal }
+  | { readonly status: 'anonymous' }
+  | { readonly status: 'ambiguous' };
+
 /** Route classes drive rate limits and auth requirements. */
-export type RateLimitClass = 'auth_login' | 'auth_callback' | 'auth_logout' | 'default';
+export type RateLimitClass =
+  'auth_login' | 'auth_callback' | 'auth_logout' | 'auth_token_issue' | 'default';
 export type AuthClass = 'public' | 'optional_session' | 'required_session';
 
 export interface RouteMetadata {
@@ -53,6 +75,9 @@ export const RATE_LIMITS: Readonly<
   auth_login: { limit: 10, windowSeconds: 60 },
   auth_callback: { limit: 30, windowSeconds: 60 },
   auth_logout: { limit: 15, windowSeconds: 60 },
+  // Token issuance is gated harder than ordinary reads: a leaked page issues
+  // no tokens, and each token is a full-account credential (CP004 §17/§27).
+  auth_token_issue: { limit: 5, windowSeconds: 60 },
   default: { limit: 300, windowSeconds: 60 },
 };
 
@@ -72,6 +97,21 @@ function readCookie(c: Context<AppEnv>, name: string): string | undefined {
     if (key === name) return rest.join('=');
   }
   return undefined;
+}
+
+/**
+ * Extract a syntactically-valid `Authorization: Bearer <token>` value, or
+ * `undefined`. The `Bearer` scheme is case-insensitive (RFC 6750). A header
+ * that is present but not a valid Bearer is treated as absent for bearer-based
+ * auth — never an error and never ambiguous against a cookie.
+ */
+function readBearerToken(c: Context<AppEnv>): string | undefined {
+  const header = c.req.header('authorization');
+  if (header === undefined) return undefined;
+  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+  if (match === null) return undefined;
+  const token = match[1]?.trim() ?? '';
+  return token.length === 0 ? undefined : token;
 }
 
 /** Coarse pseudonymous client class — never a raw IP address. */
@@ -130,7 +170,7 @@ async function readBoundedRawBody(request: Request, maxBytes: number): Promise<A
 /** Build the /api/v1 kernel shell. `registerV1Route` is the only way in. */
 export function createTransportKernel(input: {
   readonly rateLimiter: RateLimiterPort;
-  readonly authenticate: (sessionToken: string | undefined) => Promise<Principal | undefined>;
+  readonly authenticate: (input: AuthenticateInput) => Promise<AuthResolution>;
   /** From config (default false): trust X-Forwarded-For for rate-limit keys. */
   readonly trustedProxy?: boolean | undefined;
   /** Webhook raw-body cap in bytes (default 1 MiB). */
@@ -195,12 +235,33 @@ export function createTransportKernel(input: {
     return undefined;
   });
 
-  // 5) authentication before controllers
+  // 5) authentication before controllers (cookie OR bearer, never both)
   app.use('/api/v1/*', async (c, next) => {
     const sessionToken = readCookie(c, 'devguard_session');
-    const principal = await input.authenticate(sessionToken);
-    if (principal !== undefined) {
-      c.set('requestContext', { ...c.get('requestContext'), principal });
+    const bearerToken = readBearerToken(c);
+    // Locked (CP004 §11): presenting BOTH a cookie and a bearer is ambiguous.
+    if (sessionToken !== undefined && bearerToken !== undefined) {
+      return fail(
+        c,
+        400,
+        'AUTH_AMBIGUOUS',
+        'Present either a session or a bearer token, not both.',
+      );
+    }
+    const resolution = await input.authenticate({ sessionToken, bearerToken });
+    if (resolution.status === 'ambiguous') {
+      return fail(
+        c,
+        400,
+        'AUTH_AMBIGUOUS',
+        'Present either a session or a bearer token, not both.',
+      );
+    }
+    if (resolution.status === 'authenticated') {
+      c.set('requestContext', {
+        ...c.get('requestContext'),
+        principal: resolution.principal,
+      });
     }
     await next();
     return undefined;
