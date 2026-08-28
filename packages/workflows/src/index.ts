@@ -1,9 +1,16 @@
 /**
- * @devguard/workflows — Durable workflow engine (C045-C056): versioned registry, run/step FSM, executor concurrency, validation/completion and product workflows.
- *
- * Provider-neutral application layer. External providers and policy/approval
- * wiring reach this package only through typed ports owned here; the
- * composition root (apps) supplies concrete implementations. Provider SDK
- * types and SQL row shapes never cross this boundary.
+ * @devguard/workflows — Durable workflow engine. This PR ships the C049
+ * `implement_issue` product workflow definition (a C045-style build asset).
  */
-export {};
+export {
+  IMPLEMENT_ISSUE_STEPS,
+  IMPLEMENT_ISSUE_ALLOWED_ACTIONS,
+  IMPLEMENT_ISSUE_ARTIFACTS,
+  IMPLEMENT_ISSUE_DEFINITION_ID,
+  IMPLEMENT_ISSUE_DEFINITION_VERSION,
+  IMPLEMENT_ISSUE_REQUIRED_CAPABILITIES,
+  implementIssueDefinition,
+  validateDefinition,
+  type DefinitionValidation,
+  type ProductStep,
+} from './product/implement-issue.js';
