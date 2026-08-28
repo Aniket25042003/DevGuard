@@ -56,7 +56,7 @@ export const githubWebhookHeadersSchema = z
   .strict();
 export interface GitHubWebhookHeaders {
   readonly deliveryId: string;
-  readonly event: WebhookEventName;
+  readonly event: string;
   readonly signature: string;
   readonly userAgent?: string | undefined;
   readonly contentType?: string | undefined;
@@ -99,7 +99,7 @@ export const deliveryLedgerRowSchema = z
   .strict();
 export interface DeliveryLedgerRow {
   readonly deliveryId: string;
-  readonly event: WebhookEventName;
+  readonly event: string;
   readonly signatureVersion: number;
   readonly payloadHash: string;
   readonly payloadBytes: number;
@@ -134,7 +134,7 @@ export const normalizedWebhookEventSchema = z
   })
   .strict();
 export interface NormalizedWebhookEvent {
-  readonly event: WebhookEventName;
+  readonly event: string;
   readonly action?: string | undefined;
   readonly repository?:
     | {

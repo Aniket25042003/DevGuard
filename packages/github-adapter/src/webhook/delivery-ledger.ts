@@ -9,7 +9,7 @@
  * ledger.
  */
 import { createHash } from 'node:crypto';
-import type { DeliveryLedgerRow, DeliveryState, WebhookEventName } from './contracts.js';
+import type { DeliveryLedgerRow, DeliveryState } from './contracts.js';
 
 export type LedgerClaimResult =
   | { readonly ok: true; readonly row: DeliveryLedgerRow; readonly created: boolean }
@@ -103,7 +103,10 @@ export class InMemoryPayloadVault implements PayloadVaultPort {
   readonly store = new Map<string, { bytes: Uint8Array; expiresAt: number }>();
   readonly ttlMs = 5 * 60 * 1000;
   put(deliveryId: string, bytes: Uint8Array): void {
-    this.store.set(deliveryId, { bytes: new Uint8Array(bytes), expiresAt: Date.now() + this.ttlMs });
+    this.store.set(deliveryId, {
+      bytes: new Uint8Array(bytes),
+      expiresAt: Date.now() + this.ttlMs,
+    });
   }
   get(deliveryId: string): Uint8Array | undefined {
     const entry = this.store.get(deliveryId);
@@ -121,7 +124,7 @@ export class InMemoryPayloadVault implements PayloadVaultPort {
 
 export function deliveryRow(
   deliveryId: string,
-  event: WebhookEventName,
+  event: string,
   signatureVersion: number,
   rawBytes: Uint8Array,
   receivedAtIso: string,

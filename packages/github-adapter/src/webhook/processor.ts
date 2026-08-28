@@ -8,7 +8,6 @@
  * become auditable `ignored`, never errors.
  */
 import {
-  bytesToString,
   resolveDeliveryTransition,
   sha256Hex,
   type DeliveryLedgerPort,
