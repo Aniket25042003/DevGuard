@@ -6,6 +6,20 @@
  */
 import './errors.js';
 
+// ---- C049 product workflow: implement_issue ----
+export {
+  IMPLEMENT_ISSUE_STEPS,
+  IMPLEMENT_ISSUE_ALLOWED_ACTIONS,
+  IMPLEMENT_ISSUE_ARTIFACTS,
+  IMPLEMENT_ISSUE_DEFINITION_ID,
+  IMPLEMENT_ISSUE_DEFINITION_VERSION,
+  IMPLEMENT_ISSUE_REQUIRED_CAPABILITIES,
+  implementIssueDefinition,
+  validateDefinition,
+  type DefinitionValidation,
+  type ProductStep,
+} from './product/implement-issue.js';
+
 // ---- C047 workflow executor ----
 export {
   EXECUTOR_SCHEMA_VERSION,
