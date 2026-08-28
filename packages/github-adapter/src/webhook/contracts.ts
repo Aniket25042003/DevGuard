@@ -31,12 +31,14 @@ export const TERMINAL_DELIVERY_STATES: readonly DeliveryState[] = [
 
 export const WEBHOOK_EVENTS = [
   'issues',
+  'issue_comment',
   'pull_request',
   'pull_request_review',
   'pull_request_review_comment',
   'check_run',
   'push',
   'workflow_run',
+  'repository',
   'installation',
   'ping',
 ] as const;
