@@ -53,3 +53,36 @@ export {
   type GitHubTransport,
   type RawTransportResponse,
 } from './core/client.js';
+
+// ---- C019 read adapter ----
+export {
+  GITHUB_API_VERSION,
+  OP_GET_FILE,
+  OP_GET_ISSUE,
+  OP_GET_REPOSITORY,
+  OP_GET_TREE,
+  OP_LIST_ISSUE_COMMENTS,
+  OP_RESOLVE_REF,
+  repoPath,
+  sha40,
+  type GitHubComment,
+  type GitHubIssue,
+  type GitHubRepository,
+  type GitFile,
+  type GitTreeEntry,
+  type GitTreePage,
+} from './read/operations.js';
+export { GitHubReadAdapter, type ReadContext, type ReadResult } from './read/read-adapter.js';
+
+// ---- C013 repository lifecycle ----
+export {
+  REPOSITORY_LIFECYCLE_STATUSES,
+  RepositoryLifecycleService,
+  type ConnectionResult,
+  type ConnectedRepositoryRecord,
+  type ConnectRepository,
+  type DefaultPolicySeeder,
+  type InstallationContextPort,
+  type RepositoryLifecyclePersistencePort,
+  type RepositoryLifecycleStatus,
+} from './read/lifecycle.js';

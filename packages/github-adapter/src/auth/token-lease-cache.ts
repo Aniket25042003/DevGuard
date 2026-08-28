@@ -119,19 +119,21 @@ export class TokenLeaseManager {
       capabilities,
     });
     const expiresAtMs = Date.parse(result.expiresAtIso);
+    const refreshAtMs = expiresAtMs - this.refreshSkewMs;
+    const digest = scopeDigest(githubRepositoryIds, capabilities as never);
     const lease: InstallationTokenLease = {
       token: result.token,
       expiresAtIso: result.expiresAtIso,
-      refreshAtIso: result.expiresAtIso, // conservatively use expiry as refresh
+      refreshAtIso: new Date(refreshAtMs).toISOString(),
       installationId,
-      scopeDigest: cacheKey,
+      scopeDigest: digest,
       credentialVersion,
     };
     const now = this.nowMs();
     this.cache.set(cacheKey, {
       lease,
       mintedAtMs: now,
-      refreshAtMs: expiresAtMs - this.refreshSkewMs,
+      refreshAtMs,
     });
     return lease;
   }

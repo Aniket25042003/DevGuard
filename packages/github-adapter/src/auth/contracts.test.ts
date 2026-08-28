@@ -174,4 +174,20 @@ describe('TokenLeaseManager (C017 §9/§19/§20)', () => {
     await manager.acquire('k4', 'inst-1', ['33333333'], CAPS as never, CRED);
     expect(mintCount.value).toBe(3);
   });
+
+  it('scopeDigest on the lease is the computed digest, not the full cache key', async () => {
+    const { manager } = makeManager();
+    const lease = await manager.acquire('k1', 'inst-1', REPOS, CAPS as never, CRED);
+    const expected = scopeDigest(REPOS, CAPS as never);
+    expect(lease.scopeDigest).toBe(expected);
+    expect(lease.scopeDigest).not.toContain('inst-1');
+  });
+
+  it('refreshAtIso reflects the actual refresh window (expiresAt minus skew), not the raw expiry', async () => {
+    const { manager } = makeManager();
+    const lease = await manager.acquire('k1', 'inst-1', REPOS, CAPS as never, CRED);
+    const expiresAtMs = Date.parse(lease.expiresAtIso);
+    const refreshAtMs = Date.parse(lease.refreshAtIso);
+    expect(expiresAtMs - refreshAtMs).toBe(60_000);
+  });
 });
