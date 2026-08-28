@@ -12,11 +12,7 @@ export const SECURITY_PATCH_DEFINITION_ID = 'security_patch';
 export const SECURITY_PATCH_DEFINITION_VERSION = '1.0.0';
 
 export type SecurityPatchOutcome =
-  | 'fixed'
-  | 'not_fixed'
-  | 'inconclusive'
-  | 'superseded'
-  | 'blocked';
+  'fixed' | 'not_fixed' | 'inconclusive' | 'superseded' | 'blocked';
 
 /** Explicit terminal mapping; runtime adapters must not collapse these to failure. */
 export const SECURITY_PATCH_OUTCOME_BY_CONDITION = Object.freeze({
@@ -48,10 +44,14 @@ export interface SecurityPatchCompletion {
 export function toSecurityPatchCompletion(outcome: SecurityPatchOutcome): SecurityPatchCompletion {
   return {
     outcome,
-    status: outcome === 'fixed' || outcome === 'superseded' ? 'success' : outcome === 'blocked' ? 'blocked' : 'partial',
+    status:
+      outcome === 'fixed' || outcome === 'superseded'
+        ? 'success'
+        : outcome === 'blocked'
+          ? 'blocked'
+          : 'partial',
   };
 }
-
 
 export const SECURITY_PATCH_STEPS: readonly PatchStep[] = [
   {

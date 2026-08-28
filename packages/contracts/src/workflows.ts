@@ -112,11 +112,7 @@ export const workflowRun: z.ZodType<WorkflowRunShape> = z
 
 /** Structured completion evidence — model "done" is never sufficient (WF-10). */
 export type WorkflowProductOutcome =
-  | 'fixed'
-  | 'not_fixed'
-  | 'inconclusive'
-  | 'superseded'
-  | 'blocked';
+  'fixed' | 'not_fixed' | 'inconclusive' | 'superseded' | 'blocked';
 
 export interface WorkflowCompletionShape {
   readonly status: 'success' | 'partial' | 'blocked' | 'failed';
