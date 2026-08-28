@@ -31,6 +31,7 @@ import { type WorkflowDefinitionSnapshotShape } from '../schemas/snapshot.js';
 import type { SkillAssetShape } from '../schemas/skill-asset.js';
 import type { SnapshotPersistencePort } from '../ports/snapshot-persistence-port.js';
 import { emitWorkflowEvent, type EventSinkPort } from '../events.js';
+import { compareSemver } from '../schemas/semver.js';
 
 export interface RegistryBuildContext {
   readonly schemaCatalog: SchemaCatalogPort;
@@ -168,7 +169,7 @@ export class WorkflowRegistry {
         continue;
       }
       latest =
-        compareVersions(latest.workflow.version, snapshot.workflow.version) >= 0
+        compareSemver(latest.workflow.version, snapshot.workflow.version) >= 0
           ? latest
           : snapshot;
     }
