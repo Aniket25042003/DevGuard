@@ -60,7 +60,16 @@ export const providerCapabilityManifestSchema: z.ZodType<{
       .min(1)
       .max(64),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const names = new Set<string>();
+    for (const claim of value.capabilities) {
+      if (names.has(claim.name)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['capabilities'], message: 'duplicate capability claim' });
+      }
+      names.add(claim.name);
+    }
+  });
 
 export type ProviderCapabilityManifest = z.infer<typeof providerCapabilityManifestSchema>;
 
