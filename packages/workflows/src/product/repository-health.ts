@@ -11,6 +11,8 @@
  */
 import { createHash } from 'node:crypto';
 import { findActionDefinition } from '@devguard/policy-engine';
+import { workflowDefinitionSchema } from '../definitions/contracts.js';
+import { canonicalDigest } from '../definitions/registry.js';
 
 export const REPOSITORY_HEALTH_DEFINITION_ID = 'repository_health_check';
 export const REPOSITORY_HEALTH_DEFINITION_VERSION = '1.0.0';
@@ -115,16 +117,7 @@ export const REPOSITORY_HEALTH_STEPS: readonly HealthStep[] = [
     maxRetries: 1,
     maxWallMillis: 60_000,
     failureBehavior: 'fail_run',
-    validatorIds: ['v_normalized'],
-  },
-  {
-    id: 'security_evidence',
-    kind: 'command',
-    actionTypes: ['sandbox_run_security_scan'],
-    maxRetries: 1,
-    maxWallMillis: 900_000,
-    failureBehavior: 'stop',
-    validatorIds: ['v_security_freshness'],
+    validatorIds: ['v_normalized', 'v_security_freshness'],
   },
   {
     id: 'aggregate',
@@ -198,6 +191,17 @@ export type DefinitionValidation =
   { readonly ok: true } | { readonly ok: false; readonly violation: string };
 
 export function validateDefinition(): DefinitionValidation {
+  // Registrability: the build asset must satisfy the C045 schema AND carry the
+  // canonical digest the registry recomputes (register() compares them).
+  const parsed = workflowDefinitionSchema.safeParse(repositoryHealthDefinition);
+  if (!parsed.success)
+    return {
+      ok: false,
+      violation: `registry schema: ${parsed.error.issues[0]?.message ?? 'invalid'}`,
+    };
+  if (repositoryHealthDefinition.digest !== canonicalDigest(repositoryHealthDefinition))
+    return { ok: false, violation: 'digest mismatch' };
+
   if (REPOSITORY_HEALTH_STEPS.length === 0) return { ok: false, violation: 'empty steps' };
   for (const step of REPOSITORY_HEALTH_STEPS) {
     if (step.maxRetries > 8) return { ok: false, violation: `retries ${step.id}` };
