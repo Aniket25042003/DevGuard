@@ -129,3 +129,31 @@ export const loginQuerySchema = z
       .optional(),
   })
   .strict();
+
+// ---- CP001 shared command contract (Web/CLI/GitHub surfaces) ----
+export {
+  COMMAND_CONTRACT_VERSION,
+  COMMAND_IDS_V1,
+  MVP_COMMAND_IDS_V1,
+  ORIGIN_SURFACES_V1,
+  TRIGGER_TYPES_V1,
+  canonicalCommandIdSchema,
+  commandGithubRefSchema,
+  commandMvpFlags,
+  commandReceiptSchema,
+  originSurfaceSchema,
+  submitCommandRequestSchema,
+  triggerTypeSchema,
+  workflowRunDtoSchema,
+  workflowRunListQuerySchema,
+} from './commands.js';
+export type {
+  CanonicalCommandId,
+  CommandGithubRef,
+  CommandReceiptV1,
+  OriginSurface,
+  SubmitCommandRequestV1,
+  TriggerTypeV1,
+  WorkflowRunDtoV1,
+  WorkflowRunListQueryV1,
+} from './commands.js';
