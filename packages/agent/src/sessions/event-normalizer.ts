@@ -8,7 +8,8 @@
  * projection never treats raw text as causal truth.
  */
 import { createHash } from 'node:crypto';
-import type { TurnEvent, TurnEventType } from './contracts.js';
+import { z } from 'zod';
+import { turnEventSchema, type TurnEvent, type TurnEventType } from './contracts.js';
 
 export interface RawTurnEvent {
   readonly cursor: string;
@@ -37,7 +38,7 @@ export class TurnEventNormalizer {
   ) {}
 
   async normalize(raw: RawTurnEvent, turnId: string): Promise<EventNormalizationResult> {
-    if (this.seen.has(raw.cursor)) return { ok: false, reason: 'MALFORMED' };
+    if (this.seen.has(`${turnId}:${raw.cursor}`)) return { ok: false, reason: 'MALFORMED' };
     const type = SOURCE_TO_TYPE[raw.sourceType];
     if (type === undefined) return { ok: false, reason: 'UNKNOWN_SOURCE' };
     const sequence = (await this.sequenceOf(turnId)) + 1;
@@ -52,7 +53,7 @@ export class TurnEventNormalizer {
       ...(raw.text !== undefined ? { textDigest: sha256(raw.text).slice(0, 64) } : {}),
       occurredAtIso: raw.occurredAtIso,
     };
-    this.seen.add(raw.cursor);
+    this.seen.add(`${turnId}:${raw.cursor}`);
     return { ok: true, event, isDuplicate: false };
   }
 }
