@@ -247,13 +247,20 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
       branch: req.branch,
     });
     if (!head.ok) {
-        await this.#markUnknown(op, `branch preflight ${head.code}`);
-        return { status: 'outcome_unknown', detail: `branch preflight ${head.code}` };
-      }
-      if (!head.value.exists || head.value.protected) {
-        await this.#failOp(op, 'conflicted', head.value.protected ? 'branch is provider-protected' : 'branch does not exist');
-        return { status: 'conflict', detail: head.value.protected ? 'branch is provider-protected' : 'branch does not exist' };
-      }
+      await this.#markUnknown(op, `branch preflight ${head.code}`);
+      return { status: 'outcome_unknown', detail: `branch preflight ${head.code}` };
+    }
+    if (!head.value.exists || head.value.protected) {
+      await this.#failOp(
+        op,
+        'conflicted',
+        head.value.protected ? 'branch is provider-protected' : 'branch does not exist',
+      );
+      return {
+        status: 'conflict',
+        detail: head.value.protected ? 'branch is provider-protected' : 'branch does not exist',
+      };
+    }
     if (head.value.headSha !== req.expectedHeadSha) {
       await this.#failOp(
         op,
@@ -283,12 +290,18 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
       sha: created.value.sha,
     });
     if (!fetched.ok) {
-        await this.#markUnknown({ ...op, intendedAfterSha: created.value.sha }, `getCommit ${fetched.code}`);
-        return { status: 'outcome_unknown', detail: `commit created but metadata unavailable (${fetched.code})` };
-      }
-      const committed: GitCommit = fetched.value;
-      /* metadata is authoritative */
-      /*
+      await this.#markUnknown(
+        { ...op, intendedAfterSha: created.value.sha },
+        `getCommit ${fetched.code}`,
+      );
+      return {
+        status: 'outcome_unknown',
+        detail: `commit created but metadata unavailable (${fetched.code})`,
+      };
+    }
+    const committed: GitCommit = fetched.value;
+    /* metadata is authoritative */
+    /*
       ? fetched.value
       : {
           sha: created.value.sha as unknown as GitCommit['sha'],
@@ -310,7 +323,7 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
           createdAtIso: this.#clock.nowIso(),
         };
     */
-      await this.#succeedOp(op, 'executing', [created.value.sha], created.value.sha);
+    await this.#succeedOp(op, 'executing', [created.value.sha], created.value.sha);
     await this.#event('commit.created', op, {
       repository: req.repository,
       branch: req.branch,
@@ -345,7 +358,10 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
         detail: `ref advanced by another writer; orphan commit ${created.value.sha}`,
       };
     }
-    await this.#markUnknown({ ...op, intendedAfterSha: created.value.sha }, `${advanced.code}: ref not confirmed`);
+    await this.#markUnknown(
+      { ...op, intendedAfterSha: created.value.sha },
+      `${advanced.code}: ref not confirmed`,
+    );
     return {
       status: 'outcome_unknown',
       detail: `commit created but ref not confirmed (orphan commit ${created.value.sha})`,
@@ -388,14 +404,21 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
       branch: req.branch,
     });
     if (!head.ok) {
-        await this.#markUnknown(op, `branch preflight ${head.code}`);
-        return { status: 'outcome_unknown', detail: `branch preflight ${head.code}` };
-      }
-      if (!head.value.exists || head.value.protected) {
-        await this.#failOp(op, 'conflicted', head.value.protected ? 'branch is provider-protected' : 'branch does not exist');
-        return { status: 'conflict', detail: head.value.protected ? 'branch is provider-protected' : 'branch does not exist' };
-      }
-      if (head.value.headSha !== req.expectedOldSha) {
+      await this.#markUnknown(op, `branch preflight ${head.code}`);
+      return { status: 'outcome_unknown', detail: `branch preflight ${head.code}` };
+    }
+    if (!head.value.exists || head.value.protected) {
+      await this.#failOp(
+        op,
+        'conflicted',
+        head.value.protected ? 'branch is provider-protected' : 'branch does not exist',
+      );
+      return {
+        status: 'conflict',
+        detail: head.value.protected ? 'branch is provider-protected' : 'branch does not exist',
+      };
+    }
+    if (head.value.headSha !== req.expectedOldSha) {
       await this.#failOp(op, 'conflicted', 'expected old SHA no longer current');
       return { status: 'conflict', detail: 'expected old SHA no longer current' };
     }
@@ -543,10 +566,10 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
     payload: Record<string, unknown>,
   ): Promise<void> {
     try {
-        await this.#emit.emit({ type, aggregateId: op.operationKey, operationId: op.id, payload });
-      } catch {
-        // Delivery is retried by reconciliation/outbox infrastructure; mutation is committed.
-      }
+      await this.#emit.emit({ type, aggregateId: op.operationKey, operationId: op.id, payload });
+    } catch {
+      // Delivery is retried by reconciliation/outbox infrastructure; mutation is committed.
+    }
   }
 }
 
