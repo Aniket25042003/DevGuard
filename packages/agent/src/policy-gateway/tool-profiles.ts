@@ -16,11 +16,17 @@ export type ToolProfileLookup =
     };
 
 export class ToolProfileRegistry {
-  constructor(private readonly entries: readonly ToolProfileEntry[]) {}
+  constructor(private readonly entries: readonly ToolProfileEntry[]) {
+    const seen = new Set<string>();
+    for (const entry of entries) {
+      const key = `${entry.profileId}\u0000${entry.toolName}`;
+      if (seen.has(key)) throw new Error('duplicate tool profile mapping');
+      seen.add(key);
+    }
+  }
 
   lookup(toolName: string, toolProfileId: string): ToolProfileLookup {
-    void toolProfileId;
-    const entry = this.entries.find((e) => e.toolName === toolName);
+    const entry = this.entries.find((e) => e.toolName === toolName && e.profileId === toolProfileId);
     if (entry === undefined) return { ok: false, code: 'UNKNOWN_TOOL_DENIED' };
     if (!entry.enabled) return { ok: false, code: 'PROFILE_DISABLED' };
     if (entry.directMutative) return { ok: false, code: 'DIRECT_MUTATIVE_DENIED' };

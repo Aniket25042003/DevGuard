@@ -121,6 +121,7 @@ export interface CheckpointLink {
 }
 
 export interface ToolProfileEntry {
+  readonly profileId: string;
   readonly toolName: string;
   readonly schemaVersion: string;
   readonly actionId: string;

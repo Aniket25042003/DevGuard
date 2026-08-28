@@ -140,7 +140,7 @@ export class McpPolicyGateway {
       turnId: parsed.data.turnId,
       providerToolCallId: parsed.data.providerToolCallId,
       toolName: parsed.data.toolName,
-      profileId: this.#toolProfileId,
+      profileId: parsed.data.toolProfileId,
       actionId: lookup.entry.actionId,
       providerRisk: lookup.entry.providerRisk,
       policyDecision: decision,
