@@ -410,6 +410,9 @@ importers:
       '@devguard/worker':
         specifier: workspace:*
         version: link:../../apps/worker
+      '@devguard/workflows':
+        specifier: workspace:*
+        version: link:../../packages/workflows
       zod:
         specifier: ^4.1.12
         version: 4.4.3

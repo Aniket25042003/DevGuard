@@ -20,6 +20,7 @@
     { "path": "../../packages/policy-engine" },
     { "path": "../../packages/db" },
     { "path": "../../packages/test-harness" },
+    { "path": "../../packages/workflows" },
     { "path": "../../apps/api" },
     { "path": "../../apps/worker" }
   ]

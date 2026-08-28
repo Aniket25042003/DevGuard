@@ -71,6 +71,31 @@ RETURNING ${RUN_COLS}`,
     };
   }
 
+  async findById(id: string): Promise<WorkflowRunRecord | null> {
+    const rows = await this.poolLike.query<Record<string, unknown>>({
+      text: `SELECT ${RUN_COLS} FROM workflow_runs WHERE id = $1`,
+      values: [id],
+    });
+    const row = rows[0];
+    return row
+      ? {
+          id: String(row['id']),
+          status: String(row['status']),
+          rowVersion: Number(row['row_version']),
+        }
+      : null;
+  }
+
+  /** CP006 — resolve the existing run for a replayed idempotency key (dedupe). */
+  async findByIdempotencyKeyHash(idempotencyKeyHash: string): Promise<{ id: string } | null> {
+    const rows = await this.poolLike.query<Record<string, unknown>>({
+      text: `SELECT id::text AS id FROM workflow_runs WHERE idempotency_key_hash = $1`,
+      values: [idempotencyKeyHash],
+    });
+    const row = rows[0];
+    return row ? { id: String(row['id']) } : null;
+  }
+
   private static readonly LEGAL: Readonly<Record<string, readonly string[]>> = Object.freeze({
     queued: ['running', 'cancelled'],
     running: [

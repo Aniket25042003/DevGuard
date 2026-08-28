@@ -28,6 +28,7 @@
     "@devguard/security": "workspace:*",
     "@devguard/test-harness": "workspace:*",
     "@devguard/worker": "workspace:*",
+    "@devguard/workflows": "workspace:*",
     "zod": "^4.1.12"
   }
 }
