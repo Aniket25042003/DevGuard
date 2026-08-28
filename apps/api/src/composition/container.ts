@@ -1,9 +1,12 @@
 /**
- * C005/C006 — API composition root.
+ * C005/C006/CP002 — API composition root.
  *
- * Explicit bindings only: every port gets exactly one adapter; unknown or
- * duplicate bindings fail startup. Volatile (in-memory) adapters are refused
- * in production so the control plane can never silently run non-durable.
+ * Explicit bindings only: every port gets exactly one adapter; volatile
+ * (in-memory) adapters are refused outside the `test` environment (or
+ * `development` behind DEVGUARD_ALLOW_VOLATILE_AUTH=true) so the control plane
+ * can never silently run non-durable in a real environment. Until a durable
+ * adapter exists for a family, the default binding is volatile and readiness
+ * FAILS, never boots pretending the store is durable.
  */
 import {
   AuthenticationService,
@@ -15,6 +18,11 @@ import {
 import { EnvironmentSecretProvider } from '@devguard/config';
 import type { SessionPort } from '../routes/session.routes.js';
 import type { ApprovalPort } from '../routes/approval.routes.js';
+import type { PolicySummaryPort } from '../routes/workflow.routes.js';
+import type { RepositoryCatalogPort, WebhookAcceptancePort } from '../routes/github.routes.js';
+import type { ArtifactPort } from '../routes/artifact.routes.js';
+import type { AuditPort } from '../routes/audit.routes.js';
+import type { FindingsPort } from '../routes/findings.routes.js';
 import type {
   AuthSessionRepository,
   AuthTransactionRepository,
@@ -31,6 +39,20 @@ import {
 } from '@devguard/authorization';
 import { configurationInvalid } from '@devguard/errors';
 import type { ApiConfigSnapshot } from '@devguard/config';
+import { createPool, type DevGuardPool } from '@devguard/db';
+import { isVolatileBinding } from './bindings.js';
+import {
+  VolatileApprovals,
+  VolatileArtifacts,
+  VolatileAudit,
+  VolatileFindings,
+  VolatilePolicySummaries,
+  VolatileRepositoryCatalog,
+  VolatileSessionEvents,
+  VolatileWebhookAcceptance,
+  VolatileWorkflowService,
+  type WorkflowPorts,
+} from './volatile-adapters.js';
 
 /** Dev/test-only identity linker: durable persistence arrives with C009. */
 class VolatileIdentityLinker implements UserIdentityLinker {
@@ -107,23 +129,47 @@ export interface CompositionBindings {
   readonly evidence: AuthorizationEvidencePort;
   readonly sessionEvents: SessionPort;
   readonly approvals: ApprovalPort;
+  readonly workflows: WorkflowPorts;
+  readonly policies: PolicySummaryPort;
+  readonly webhooks: WebhookAcceptancePort;
+  readonly repositoryCatalog: RepositoryCatalogPort;
+  readonly artifacts: ArtifactPort;
+  readonly audit: AuditPort;
+  readonly findings: FindingsPort;
 }
 
 export interface ApiContainer {
   readonly config: ApiConfigSnapshot;
   readonly webhookSecret?: string;
+  /** Bound when a real DATABASE_URL is present; drained on shutdown. */
+  readonly pool?: DevGuardPool;
   readonly bindings: CompositionBindings;
   readonly auth: AuthenticationService;
   readonly authorizer: RepositoryAuthorizationService;
 }
 
+/** Environments that permit volatile (in-memory) bindings without a flag. */
+const VOLATILE_ALLOWED_ENV = 'test' as const;
+
+export interface ReadinessOptions {
+  /**
+   * Explicit opt-in for volatile adapters in `development`
+   * (DEVGUARD_ALLOW_VOLATILE_AUTH=true). Ignored in `test` (always allowed)
+   * and `production` (never allowed).
+   */
+  readonly allowVolatileDevelopment?: boolean;
+}
+
 /** Validate bindings are safe for the configured environment (fail closed). */
-export function validateReadiness(config: ApiConfigSnapshot, bindings: CompositionBindings): void {
+export function validateReadiness(
+  config: ApiConfigSnapshot,
+  bindings: CompositionBindings,
+  options: ReadinessOptions = {},
+): void {
   const issues: Array<{ path: string; constraint: string }> = [];
   const volatileBindings: string[] = [];
-  if ((bindings.sessions as unknown as { constructor?: { name?: string } }) instanceof Object) {
-    void 0; // structural marker; name checks below
-  }
+
+  // Name-based detection for auth stores that predate the binding marker.
   if (
     Object.getPrototypeOf(bindings.sessions)?.constructor?.name === 'InMemoryAuthSessionRepository'
   ) {
@@ -141,15 +187,44 @@ export function validateReadiness(config: ApiConfigSnapshot, bindings: Compositi
   if (bindings.evidence instanceof InMemoryAuthorizationEvidenceStore) {
     volatileBindings.push('authorization_evidence:volatile');
   }
-  if (config.environment === 'production' && volatileBindings.length > 0) {
+
+  // Marker-based detection for every control-plane port family (CP002 §5).
+  const markerBindings: ReadonlyArray<readonly [string, unknown]> = [
+    ['workflows', bindings.workflows],
+    ['webhooks', bindings.webhooks],
+    ['policies', bindings.policies],
+    ['repositoryCatalog', bindings.repositoryCatalog],
+    ['artifacts', bindings.artifacts],
+    ['audit', bindings.audit],
+    ['findings', bindings.findings],
+    ['sessionEvents', bindings.sessionEvents],
+    ['approvals', bindings.approvals],
+  ];
+  for (const [name, binding] of markerBindings) {
+    if (isVolatileBinding(binding)) {
+      const markerName = (binding as { bindingName?: string }).bindingName ?? name;
+      volatileBindings.push(`${name}:${markerName}`);
+    }
+  }
+
+  const volatileAllowed =
+    config.environment === VOLATILE_ALLOWED_ENV ||
+    (config.environment === 'development' && options.allowVolatileDevelopment === true);
+  if (!volatileAllowed && volatileBindings.length > 0) {
     issues.push({
       path: 'composition.bindings',
-      constraint: `production requires durable adapters; volatile bound: ${volatileBindings.join(', ')}`,
+      constraint: `volatile adapters require 'test' or DEVGUARD_ALLOW_VOLATILE_AUTH=true (development); bound: ${volatileBindings.join(', ')}`,
     });
   }
+
   if (issues.length > 0) {
     throw configurationInvalid(issues);
   }
+}
+
+/** A configured value (present, non-empty, not a `<...>` placeholder). */
+function isReal(value: string | undefined): value is string {
+  return value !== undefined && value !== '' && !value.startsWith('<');
 }
 
 export function buildContainer(
@@ -163,15 +238,20 @@ export function buildContainer(
   // service-construction path so injected overrides always take effect.
   let identityProvider: IdentityProviderClient;
   if (config.auth.mode === 'github_oauth') {
-    // The secret VALUE is resolved from its reference only here, at composition.
     identityProvider = new GitHubOAuthClient({
       clientId: config.auth.oauthClientId,
       clientSecret: resolveSecret(config, secretProvider),
     });
   } else {
-    // None-mode never contacts an identity provider.
     identityProvider = new GitHubOAuthClient({ clientId: 'disabled', clientSecret: 'disabled' });
   }
+
+  // CP002 §13: bind the pool when a real DATABASE_URL is present; lazy pg Pool.
+  // NOTE: the snapshot's `databaseUrlRef.name` carries the connection string
+  // value (legacy naming); it is only a real DSN when it is not a `<...>` placeholder.
+  const databaseUrl = isReal(config.databaseUrlRef.name) ? config.databaseUrlRef.name : undefined;
+  const pool: DevGuardPool | undefined =
+    databaseUrl === undefined ? undefined : createPool({ connectionString: databaseUrl });
 
   const bindings: CompositionBindings = {
     sessions: new InMemoryAuthSessionRepository(),
@@ -181,27 +261,18 @@ export function buildContainer(
     localAccess: new EmptyLocalRepositoryAccessPort(),
     githubPermissions: new UnavailableGitHubPermissionPort(),
     evidence: new InMemoryAuthorizationEvidenceStore(),
-    sessionEvents: {
-      async get() {
-        return undefined;
-      },
-      async events() {
-        return [];
-      },
-    },
-    approvals: {
-      async listFor() {
-        return [];
-      },
-      async resolve() {
-        return { ok: false, code: 'APPROVAL_UNKNOWN', detail: 'no approval store wired' };
-      },
-    },
+    sessionEvents: VolatileSessionEvents,
+    approvals: VolatileApprovals,
+    workflows: new VolatileWorkflowService(),
+    policies: VolatilePolicySummaries,
+    webhooks: new VolatileWebhookAcceptance(),
+    repositoryCatalog: VolatileRepositoryCatalog,
+    artifacts: VolatileArtifacts,
+    audit: VolatileAudit,
+    findings: VolatileFindings,
     ...overrides,
   };
 
-  // The provider callback URL is explicit configuration (validated with the
-  // auth section); the public browser origin is for cookie/origin checks only.
   const redirectUri =
     config.auth.mode === 'github_oauth'
       ? config.auth.oauthCallbackUrl
@@ -226,15 +297,16 @@ export function buildContainer(
   });
 
   const webhookSecret =
-    config.github?.webhookSecretRef === undefined
-      ? undefined
-      : secretProvider.peek({ name: config.github.webhookSecretRef });
+    config.github !== undefined && isReal(config.github.webhookSecretRef)
+      ? config.github.webhookSecretRef
+      : undefined;
 
   return {
     config,
     bindings,
     auth,
     authorizer,
+    ...(pool !== undefined ? { pool } : {}),
     ...(webhookSecret !== undefined ? { webhookSecret } : {}),
   };
 }

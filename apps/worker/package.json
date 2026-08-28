@@ -17,8 +17,17 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@devguard/agent": "workspace:*",
+    "@devguard/approvals": "workspace:*",
     "@devguard/authorization": "workspace:*",
     "@devguard/config": "workspace:*",
-    "@devguard/errors": "workspace:*"
+    "@devguard/db": "workspace:*",
+    "@devguard/errors": "workspace:*",
+    "@devguard/github-adapter": "workspace:*",
+    "@devguard/logging": "workspace:*",
+    "@devguard/policy-engine": "workspace:*",
+    "@devguard/queue": "workspace:*",
+    "@devguard/sandbox": "workspace:*",
+    "@devguard/workflows": "workspace:*"
   }
 }

@@ -35,9 +35,15 @@ importers:
 
   apps/api:
     dependencies:
+      '@devguard/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
       '@devguard/api-contracts':
         specifier: workspace:*
         version: link:../../packages/api-contracts
+      '@devguard/approvals':
+        specifier: workspace:*
+        version: link:../../packages/approvals
       '@devguard/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -50,9 +56,30 @@ importers:
       '@devguard/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@devguard/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@devguard/errors':
         specifier: workspace:*
         version: link:../../packages/errors
+      '@devguard/github-adapter':
+        specifier: workspace:*
+        version: link:../../packages/github-adapter
+      '@devguard/logging':
+        specifier: workspace:*
+        version: link:../../packages/logging
+      '@devguard/policy-engine':
+        specifier: workspace:*
+        version: link:../../packages/policy-engine
+      '@devguard/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      '@devguard/sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
+      '@devguard/workflows':
+        specifier: workspace:*
+        version: link:../../packages/workflows
       '@hono/node-server':
         specifier: ^1.14.4
         version: 1.19.17(hono@4.13.4)
@@ -64,15 +91,42 @@ importers:
 
   apps/worker:
     dependencies:
+      '@devguard/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
+      '@devguard/approvals':
+        specifier: workspace:*
+        version: link:../../packages/approvals
       '@devguard/authorization':
         specifier: workspace:*
         version: link:../../packages/authorization
       '@devguard/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@devguard/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@devguard/errors':
         specifier: workspace:*
         version: link:../../packages/errors
+      '@devguard/github-adapter':
+        specifier: workspace:*
+        version: link:../../packages/github-adapter
+      '@devguard/logging':
+        specifier: workspace:*
+        version: link:../../packages/logging
+      '@devguard/policy-engine':
+        specifier: workspace:*
+        version: link:../../packages/policy-engine
+      '@devguard/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      '@devguard/sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
+      '@devguard/workflows':
+        specifier: workspace:*
+        version: link:../../packages/workflows
 
   packages/agent:
     dependencies:
