@@ -10,7 +10,7 @@
 import { WorkflowRunStore } from '@devguard/db';
 import {
   ApprovalResumeService,
-  InMemoryApprovalStore,
+  type ApprovalStorePort,
   type JobEnvelope,
   type JobHandler,
   type JobRegistry,
@@ -81,9 +81,16 @@ export function fail(errorCode: string): {
  * The executor (real approved-action execution) mounts at CP013; until then it
  * fails CLOSED so an approved approval is never silently resumed-as-done.
  */
-export function registerApprovalResume(registry: JobRegistry): void {
+export function registerApprovalResume(
+  registry: JobRegistry,
+  store?: ApprovalStorePort,
+): void {
+  if (store === undefined) {
+    registry.register('approval.resume', 1, async () => fail('approval_resume_store_unavailable'));
+    return;
+  }
   const service = new ApprovalResumeService({
-    store: new InMemoryApprovalStore(),
+    store,
     executor: {
       execute: async () => ({
         ok: false,
@@ -92,11 +99,15 @@ export function registerApprovalResume(registry: JobRegistry): void {
     },
   });
   registry.register('approval.resume', 1, async (envelope: JobEnvelope) => {
-    const approvalId = String(envelope.payload['approvalId'] ?? '');
+    const rawApprovalId = envelope.payload['approvalId'];
+      const approvalId = typeof rawApprovalId === 'string' ? rawApprovalId.trim() : '';
     const resolutionVersion = Number(
-      envelope.payload['resolutionVersion'] ?? envelope.payload['resolution_version'] ?? 1,
+      envelope.payload['resolutionVersion'] ?? envelope.payload['resolution_version'] ?? NaN,
     );
-    if (approvalId === '') return fail('approval_job_missing_id');
+    if (approvalId === '') return fail('approval_job_invalid_payload');
+      if (!Number.isFinite(resolutionVersion) || !Number.isInteger(resolutionVersion) || resolutionVersion <= 0) {
+        return fail('approval_job_invalid_payload');
+      }
     const outcome = await service.resume(approvalId, resolutionVersion);
     if (outcome.ok) return { outcome: 'SUCCEEDED' as const, detail: outcome.state };
     return outcome.state === 'RETRY_WAIT'
