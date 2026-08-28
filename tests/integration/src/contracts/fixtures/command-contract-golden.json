@@ -23,21 +23,21 @@
       }
     },
     "receipt": {
-      "id": "receipt-9",
-      "repositoryId": "repo-1",
+      "id": "00000000-0000-4000-8000-000000000001",
+      "repositoryId": "00000000-0000-4000-8000-000000000002",
       "commandId": "review_remediation",
       "originSurface": "cli",
       "status": "accepted",
-      "workflowRunId": "run-1",
+      "workflowRunId": "00000000-0000-4000-8000-000000000003",
       "createdAt": "2026-08-28T00:00:00Z",
       "links": {
-        "run": "/api/v1/workflows/run-1",
-        "self": "/api/v1/repositories/repo-1/commands/receipt-9"
+        "run": "/api/v1/workflows/00000000-0000-4000-8000-000000000003",
+        "self": "/api/v1/repositories/00000000-0000-4000-8000-000000000002/commands/00000000-0000-4000-8000-000000000001"
       }
     },
     "workflowRun": {
-      "id": "run-1",
-      "repositoryId": "repo-1",
+      "id": "00000000-0000-4000-8000-000000000004",
+      "repositoryId": "00000000-0000-4000-8000-000000000002",
       "workflowType": "review_remediation",
       "definitionVersion": "2",
       "status": "waiting_for_approval",
@@ -52,7 +52,7 @@
       "createdAt": "2026-08-28T00:00:00Z",
       "updatedAt": "2026-08-28T00:01:00Z",
       "version": 2,
-      "links": { "self": "/api/v1/workflows/run-1" }
+      "links": { "self": "/api/v1/workflows/00000000-0000-4000-8000-000000000004" }
     }
   },
   "mustReject": [

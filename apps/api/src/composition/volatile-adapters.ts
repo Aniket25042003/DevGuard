@@ -80,6 +80,13 @@ export class VolatileWorkflowService implements WorkflowPorts, VolatileBindingMa
       (run) => run.userId === userId && run.idempotencyKey === input.idempotencyKey,
     );
     if (existing !== undefined) {
+      if (
+        JSON.stringify(existing.input) === JSON.stringify(input.input) &&
+        existing.workflowType === input.workflowType &&
+        existing.version === input.version
+      ) {
+        return { ok: true, runId: existing.runId, replayed: true };
+      }
       return { ok: false, code: 'IDEMPOTENCY_KEY_REUSED', detail: 'Idempotency key was reused.' };
     }
     this.counter += 1;

@@ -280,28 +280,25 @@ WHERE issuer = $1 AND subject = $2`,
 
     // New subject: create a user + identity atomically. A concurrent login for
     // the same (issuer, subject) loses the identity upsert; RETURNING yields
-    // the canonical user_id, and the orphan user row we may have created is
-    // cleaned up so one subject always binds exactly one user.
+    // the canonical user_id inside the same transaction, and the orphan user
+    // row we may have created is cleaned up so one subject binds one user.
     const candidateId = uuidv7();
-      return createUnitOfWork(this.pool).transaction(async (tx) => {
-        await tx.query({
-    await this.pool
-      .query({
+    const boundUserId = await createUnitOfWork(this.pool).transaction(async (tx) => {
+      await tx.query({
         text: 'INSERT INTO users (id, login, display_name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
         values: [candidateId, profile.login, profile.displayName ?? null],
-      })
-      .catch((error: unknown) => {
-        throw internalError(error);
       });
-    const inserted = await tx.query<{ user_id: string }>({
-      text: `INSERT INTO external_identities (id, user_id, issuer, subject, login_snapshot)
+      const inserted = await tx.query<{ user_id: string }>({
+        text: `INSERT INTO external_identities (id, user_id, issuer, subject, login_snapshot)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (issuer, subject) DO UPDATE SET last_seen_at = now(), login_snapshot = EXCLUDED.login_snapshot
 RETURNING user_id`,
-      values: [uuidv7(), candidateId, issuer, providerSubject, profile.login],
+        values: [uuidv7(), candidateId, issuer, providerSubject, profile.login],
+      });
+      return String(inserted[0]?.user_id ?? candidateId);
     });
-    const boundUserId = String(inserted[0]?.user_id ?? '');
-    if (boundUserId !== candidateId && boundUserId !== '') {
+    if (boundUserId !== candidateId) {
+      // We lost a concurrent race for this (issuer, subject): drop the orphan.
       await this.pool
         .query({
           text: `DELETE FROM users
@@ -310,6 +307,6 @@ WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM external_identities WHERE user_id = 
         })
         .catch(() => undefined);
     }
-    return boundUserId || candidateId;
+    return boundUserId;
   }
 }

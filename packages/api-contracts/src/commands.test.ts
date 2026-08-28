@@ -173,14 +173,17 @@ describe('SubmitCommandRequestV1 (CP001 §8 / C069)', () => {
 });
 
 const validReceipt: CommandReceiptV1 = {
-  id: 'receipt-1',
-  repositoryId: 'repo-1',
+  id: '00000000-0000-4000-8000-000000000001',
+  repositoryId: '00000000-0000-4000-8000-000000000002',
   commandId: 'review_remediation',
   originSurface: 'cli',
   status: 'accepted',
-  workflowRunId: 'run-1',
+  workflowRunId: '00000000-0000-4000-8000-000000000003',
   createdAt: '2026-08-28T00:00:00Z',
-  links: { run: '/api/v1/workflows/run-1', self: '/api/v1/runs/run-1' },
+  links: {
+    run: '/api/v1/workflows/00000000-0000-4000-8000-000000000003',
+    self: '/api/v1/runs/00000000-0000-4000-8000-000000000001',
+  },
 };
 
 describe('CommandReceiptV1 (CP001 §8 / C069)', () => {
@@ -188,7 +191,7 @@ describe('CommandReceiptV1 (CP001 §8 / C069)', () => {
     const parsed = commandReceiptSchema.parse(validReceipt);
     expect(parsed.status).toBe('accepted');
     expect(parsed.commandId).toBe('review_remediation');
-    expect(parsed.links.self).toBe('/api/v1/runs/run-1');
+    expect(parsed.links.self).toBe('/api/v1/runs/00000000-0000-4000-8000-000000000001');
   });
 
   it('rejects statuses other than accepted', () => {
@@ -206,8 +209,8 @@ describe('CommandReceiptV1 (CP001 §8 / C069)', () => {
 });
 
 const validRun: WorkflowRunDtoV1 = {
-  id: 'run-1',
-  repositoryId: 'repo-1',
+  id: '00000000-0000-4000-8000-000000000004',
+  repositoryId: '00000000-0000-4000-8000-000000000002',
   workflowType: 'review_remediation',
   definitionVersion: '1',
   status: 'queued',
@@ -218,7 +221,7 @@ const validRun: WorkflowRunDtoV1 = {
   createdAt: '2026-08-28T00:00:00Z',
   updatedAt: '2026-08-28T00:00:00Z',
   version: 1,
-  links: { self: '/api/v1/workflows/run-1' },
+  links: { self: '/api/v1/workflows/00000000-0000-4000-8000-000000000004' },
 };
 
 describe('WorkflowRunDtoV1 (CP001 §8 / C067)', () => {

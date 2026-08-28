@@ -195,6 +195,9 @@ export function validateReadiness(
 
   // Marker-based detection for every control-plane port family (CP002 §5).
   const markerBindings: ReadonlyArray<readonly [string, unknown]> = [
+    ['localAccess', bindings.localAccess],
+    ['githubPermissions', bindings.githubPermissions],
+    ['authorizationEvidence', bindings.evidence],
     ['workflows', bindings.workflows],
     ['webhooks', bindings.webhooks],
     ['policies', bindings.policies],
@@ -258,7 +261,7 @@ export function buildContainer(
   const pool: DevGuardPool | undefined =
     databaseUrl === undefined ? undefined : createPool({ connectionString: databaseUrl });
 
-  // CP003: durable auth stores in non-test environments with a pool; volatile
+// CP003: durable auth stores in non-test environments with a pool; volatile
   // (in-memory) stores otherwise (only allowed in `test`, or `development`
   // behind DEVGUARD_ALLOW_VOLATILE_AUTH=true via validateReadiness).
   const durableAuth = config.environment !== 'test' && pool !== undefined;
@@ -315,6 +318,9 @@ export function buildContainer(
     now: () => new Date(),
   });
 
+  // NOTE: GithubAppConfig.webhookSecretRef carries the secret VALUE directly
+  // (`parseGithubApp` uses optionalString), unlike AuthConfig which stores a
+  // NAME. So we read it as the value; peeking env[<value>] would throw.
   const webhookSecret =
     config.github !== undefined && isReal(config.github.webhookSecretRef)
       ? config.github.webhookSecretRef
