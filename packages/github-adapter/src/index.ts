@@ -256,3 +256,58 @@ export {
   type RepositoryContentProviderPort,
   type TreeEntryLike,
 } from './read/repository-map/provider-port.js';
+
+// ---- C016 instruction trust hierarchy ----
+export {
+  AUTHORITATIVE_TIERS,
+  ADVISORY_TIERS,
+  UNTRUSTED_TIERS,
+  DIRECTIVE_CATEGORIES,
+  INSTRUCTION_SCHEMA_VERSION,
+  INSTRUCTION_SNAPSHOT_STATUSES,
+  INSTRUCTION_TIERS,
+  INSTRUCTION_TRUST_LABELS,
+  REJECTION_REASON_CODES,
+  assembleInstructionSnapshotSchema,
+  directiveCategorySchema,
+  instructionTierSchema,
+  resolveInstructionsForPathSchema,
+  tierPrecedes,
+  validateInstructionCandidateSchema,
+  type AssembleInstructionSnapshotInput,
+  type DirectiveCategory,
+  type InstructionConflict,
+  type InstructionSegment,
+  type InstructionSnapshot,
+  type InstructionSnapshotStatus,
+  type InstructionSource,
+  type InstructionTier,
+  type InstructionTrustLabel,
+  type InstructionValidation,
+  type RejectedDirective,
+  type RejectionReasonCode,
+  type ResolvedInstructionSet,
+  type ResolveInstructionsForPathInput,
+  type ValidateInstructionCandidateInput,
+} from './read/instruction-trust/contracts.js';
+export {
+  classifyDirective,
+  reasonCodeForCategory,
+  type DirectiveClassification,
+} from './read/instruction-trust/directive-classifier.js';
+export { globMatch, pathMatchesScope } from './read/instruction-trust/applicability-resolver.js';
+export {
+  InstructionTrustServiceGate,
+  MAX_LINE_BYTES,
+  MAX_SEGMENTS,
+  MAX_SNAPSHOT_BYTES,
+  type InstructionContentPort,
+  type InstructionTrustService,
+  type InstructionTrustServiceDeps,
+  type RawInstructionSource,
+} from './read/instruction-trust/instruction-trust-service.js';
+export {
+  InMemoryInstructionSnapshotStore,
+  type InstructionSnapshotStorePort,
+  type SnapshotSaveResult,
+} from './read/instruction-trust/instruction-snapshot-store.js';
