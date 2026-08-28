@@ -1,11 +1,3 @@
-/**
- * C074 — health/diagnostics routes (§11).
- *
- * GET /api/v1/health/live  — liveness (no dependency calls; public)
- * GET /api/v1/health/ready — readiness from critical-probe registry (public,
- *                              never leaks internals). Readiness is NOT
- *                              request-time authority.
- */
 import type { RegisterV1Route } from '../transport/kernel.js';
 
 export interface HealthProbeName {
@@ -22,9 +14,7 @@ export function registerHealthRoutes(
     'get',
     '/api/v1/health/live',
     { rateLimitClass: 'default', authClass: 'public' },
-    async (c) => {
-      return c.json({ status: 'ok' });
-    },
+    async (c) => c.json({ status: 'ok' }),
   );
 
   kernel.registerV1Route(
@@ -32,20 +22,30 @@ export function registerHealthRoutes(
     '/api/v1/health/ready',
     { rateLimitClass: 'default', authClass: 'public' },
     async (c) => {
-      const results = [];
-      let level = 'healthy';
-      for (const probe of probes) {
-        let ok: boolean;
-        try {
-          ok = (await probe.check()).ok;
-        } catch {
-          ok = false;
-        }
-        results.push({ name: probe.name, ok });
-        if (!ok && probe.critical) level = 'unhealthy';
-        else if (!ok && level === 'healthy') level = 'degraded';
-      }
-      const healthy = level === 'healthy';
+      const results = await Promise.all(
+        probes.map(async (probe) => {
+          let ok = false;
+          try {
+            ok = (
+              await Promise.race([
+                probe.check(),
+                new Promise<{ ok: boolean }>((resolve) =>
+                  setTimeout(() => resolve({ ok: false }), 2_000),
+                ),
+              ])
+            ).ok;
+          } catch {
+            ok = false;
+          }
+          return { name: probe.name, ok, critical: probe.critical };
+        }),
+      );
+      const level = results.some((r) => !r.ok && r.critical)
+        ? 'unhealthy'
+        : results.some((r) => !r.ok)
+          ? 'degraded'
+          : 'healthy';
+      const healthy = !results.some((r) => !r.ok && r.critical);
       return c.json({ ready: healthy, level, probes: results }, healthy ? 200 : 503);
     },
   );
