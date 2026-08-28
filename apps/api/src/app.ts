@@ -18,7 +18,8 @@ import {
 
 /** Volatile webhook acceptance until C022 ingress wiring lands. */
 class VolatileWebhookAcceptance implements WebhookAcceptancePort {
-  readonly claimed = new Set<string>();
+  readonly claimed = new Map<string, number>();
+  private readonly replayWindowMs = 5 * 60 * 1000;
   async accept(input: {
     deliveryId: string;
     event: string;
@@ -28,8 +29,12 @@ class VolatileWebhookAcceptance implements WebhookAcceptancePort {
     void input.event;
     void input.payloadJson;
     void input.headers;
+    const now = Date.now();
+    for (const [deliveryId, claimedAt] of this.claimed) {
+      if (now - claimedAt >= this.replayWindowMs) this.claimed.delete(deliveryId);
+    }
     const replay = this.claimed.has(input.deliveryId);
-    this.claimed.add(input.deliveryId);
+    this.claimed.set(input.deliveryId, now);
     return { accepted: true, replay };
   }
 }
@@ -78,7 +83,7 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   registerWebhookRoutes(
     kernel,
     new VolatileWebhookAcceptance(),
-    () => container.config.github?.webhookSecretRef,
+    () => container.webhookSecret,
     verifyGithubHmac,
   );
   registerRepositoryRoutes(kernel, VolatileRepositoryCatalog);

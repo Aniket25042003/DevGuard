@@ -107,6 +107,7 @@ export interface CompositionBindings {
 
 export interface ApiContainer {
   readonly config: ApiConfigSnapshot;
+  readonly webhookSecret?: string;
   readonly bindings: CompositionBindings;
   readonly auth: AuthenticationService;
   readonly authorizer: RepositoryAuthorizationService;
@@ -204,7 +205,12 @@ export function buildContainer(
     now: () => new Date(),
   });
 
-  return { config, bindings, auth, authorizer };
+  const webhookSecret =
+    config.github?.webhookSecretRef === undefined
+      ? undefined
+      : provider.peek({ name: config.github.webhookSecretRef });
+
+  return { config, webhookSecret, bindings, auth, authorizer };
 }
 
 /** Synchronous resolution from the same env snapshot given to loadConfig. */
