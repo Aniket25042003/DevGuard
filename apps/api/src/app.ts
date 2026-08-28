@@ -22,7 +22,9 @@ const VolatileArtifacts: ArtifactPort = {
 };
 const VolatileAudit: AuditPort = {
   async list(_userId: string) {
-    return { verified: true, rows: [] };
+    // No hash-chain verifier is composed for this volatile adapter.  Never
+      // present an unverified projection as integrity-verified.
+      return { verified: false, rows: [] };
   },
 };
 const VolatileFindings: FindingsPort = {
