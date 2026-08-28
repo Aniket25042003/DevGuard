@@ -68,7 +68,7 @@ export class GitHubWebhookProcessor {
       await this.ledger.transition(input.deliveryId, 'retry_wait', 'payload_missing');
       return { outcome: 'retry_wait', errorCode: 'payload_missing' };
     }
-    if (sha256Hex(bytesToString(raw)) !== row.payloadHash) {
+    if (sha256Hex(raw) !== row.payloadHash) {
       await this.ledger.transition(input.deliveryId, 'dead_lettered', 'payload_hash_mismatch');
       return { outcome: 'ignored', reason: 'payload_hash_mismatch' };
     }

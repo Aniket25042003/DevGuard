@@ -100,12 +100,19 @@ export interface PayloadVaultPort {
 }
 
 export class InMemoryPayloadVault implements PayloadVaultPort {
-  readonly store = new Map<string, Uint8Array>();
+  readonly store = new Map<string, { bytes: Uint8Array; expiresAt: number }>();
+  readonly ttlMs = 5 * 60 * 1000;
   put(deliveryId: string, bytes: Uint8Array): void {
-    this.store.set(deliveryId, bytes);
+    this.store.set(deliveryId, { bytes: new Uint8Array(bytes), expiresAt: Date.now() + this.ttlMs });
   }
   get(deliveryId: string): Uint8Array | undefined {
-    return this.store.get(deliveryId);
+    const entry = this.store.get(deliveryId);
+    if (entry === undefined) return undefined;
+    if (entry.expiresAt <= Date.now()) {
+      this.store.delete(deliveryId);
+      return undefined;
+    }
+    return new Uint8Array(entry.bytes);
   }
   remove(deliveryId: string): void {
     this.store.delete(deliveryId);
@@ -123,7 +130,7 @@ export function deliveryRow(
     deliveryId,
     event,
     signatureVersion,
-    payloadHash: sha256Hex(bytesToString(rawBytes)),
+    payloadHash: sha256Hex(rawBytes),
     payloadBytes: rawBytes.byteLength,
     state: 'accepted',
     attempts: 0,
@@ -131,8 +138,8 @@ export function deliveryRow(
   };
 }
 
-export function sha256Hex(value: string): string {
-  return createHash('sha256').update(value, 'utf8').digest('hex');
+export function sha256Hex(value: string | Uint8Array): string {
+  return createHash('sha256').update(value).digest('hex');
 }
 
 export function bytesToString(bytes: Uint8Array): string {
