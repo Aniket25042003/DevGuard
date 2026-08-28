@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "TrueForge AgentRuntime adapter (C036-C040): verified runtime contract, durable sessions/turns, normalized streams, policy interception and context/cancellation.",
+  "description": "TrueForge AgentRuntime contract verification adapter (C036-C040): verified runtime contract, durable sessions/turns, normalized streams, policy interception and context/cancellation.",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
