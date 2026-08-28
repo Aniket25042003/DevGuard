@@ -168,3 +168,49 @@ export {
 
 // Redaction helper (secrets never logged/persisted).
 export { redactValue } from './redact.js';
+
+// ---- C042 sandbox command execution ----
+export {
+  SANDBOX_COMMAND_SCHEMA_VERSION,
+  COMMAND_CLASSES,
+  COMMAND_RESULT_STATUSES,
+  COMMAND_STATES,
+  DEFAULT_CEILINGS_MS,
+  sandboxCommandSchema,
+  sandboxResultSchema,
+  type CommandClass,
+  type CommandResultStatus,
+  type CommandState,
+  type EnvValue,
+  type OutputRef,
+  type SandboxCommand,
+  type SandboxResult,
+} from './commands/contracts.js';
+export {
+  resolveCommandEdge,
+  isTerminalCommand,
+  type CommandTrigger,
+  type CommandVerdict,
+} from './commands/command-fsm.js';
+export {
+  canonicalDigest,
+  assertSafeArgv,
+  commandIdempotencyKey,
+  sha256Hex,
+} from './commands/command-identity.js';
+export {
+  GovernedCommandRunner,
+  InMemoryCommandStore,
+  requireTerminal,
+  type CommandRunnerDeps,
+  type CommandStorePort,
+  type CommandStoreRecord,
+} from './commands/command-runner.js';
+export {
+  InMemoryCommandProvider,
+  type CommandProviderResult,
+  type ProviderOutputChunk,
+  type ProviderStreamSlice,
+  type TrueForgeCommandPort,
+} from './commands/command-provider-port.js';
+export { OutputNormalizer, type OutputStreamState } from './commands/output-normalizer.js';

@@ -202,3 +202,28 @@ registerError({
   safeMessage: 'Sandbox invariant violated: execution on the DevGuard host is never permitted.',
   detailSchema: detailSchema(['operation']),
 });
+
+registerError({
+  code: 'SANDBOX_COMMAND_ILLEGAL_TRANSITION',
+  category: 'domain',
+  httpStatus: 409,
+  retryClass: 'no_retry',
+  safeMessage: 'The sandbox command state transition is not permitted.',
+  detailSchema: detailSchema([]),
+});
+registerError({
+  code: 'SANDBOX_COMMAND_NOT_AUTHORIZED',
+  category: 'security',
+  httpStatus: 403,
+  retryClass: 'no_retry',
+  safeMessage: 'The command has no current, exact policy authorization.',
+  detailSchema: detailSchema([]),
+});
+registerError({
+  code: 'SANDBOX_COMMAND_OUTCOME_UNKNOWN',
+  category: 'integration',
+  httpStatus: 503,
+  retryClass: 'reconcile_then_retry',
+  safeMessage: 'The sandbox command outcome is unknown and must be reconciled.',
+  detailSchema: detailSchema([]),
+});
