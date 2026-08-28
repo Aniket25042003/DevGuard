@@ -29,6 +29,13 @@
     "test:services:up": "node scripts/local/local.mjs test-up",
     "test:services:down": "node scripts/local/local.mjs test-down",
     "test:services:reset": "node scripts/local/local.mjs test-reset",
+    "start:api": "node apps/api/dist/main.js",
+    "start:worker": "node apps/worker/dist/main.js",
+    "start:web": "node apps/web/dist/index.js",
+    "deploy:preflight": "node scripts/deploy/preflight.mjs",
+    "deploy:manifest": "node scripts/deploy/release-manifest.mjs",
+    "demo:preflight": "node scripts/demo/evidence-manifest.mjs",
+    "demo:verify": "node scripts/demo/evidence-manifest.mjs",
     "clean": "node scripts/clean.mjs"
   },
   "devDependencies": {

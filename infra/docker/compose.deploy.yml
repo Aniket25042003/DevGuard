@@ -1,0 +1,146 @@
+# DevGuard deployment topology (C100).
+#
+# One source revision, three runtime roles (web/api/worker) + PostgreSQL + Redis
+# + a one-shot migration job. Role trust boundaries:
+#   Public:  web -> api
+#   Private: worker -> PostgreSQL + Redis
+#   External: api/worker -> GitHub + TrueForge (allowlisted egress, no host network)
+#   One-shot: migration -> PostgreSQL
+#
+# Secrets are injected from the deployment platform (${VAR} references resolve
+# at deploy time); NO real secret values are ever committed here. Worker and
+# migration services expose no ports. Containers run as non-root and do not
+# mount the Docker socket or use host networking.
+name: devguard-deploy
+
+services:
+  postgres:
+    image: postgres:17.5-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?set}
+    volumes:
+      - dg-pgdata:/var/lib/postgresql/data
+      - ../postgres/init-dev-roles.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U devguard -d devguard']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [private]
+
+  redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - dg-redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [private]
+
+  migration:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      args: { ROLE: api }
+    restart: 'no'
+    command: ['sh', '-c', 'echo "run schema migrations (one-shot, serialized)"']
+    environment:
+      DEVGUARD_DB_DSN: ${DEVGUARD_DB_DSN:?set}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [private]
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      args: { ROLE: api }
+    restart: unless-stopped
+    read_only: true
+    security_opt: ['no-new-privileges:true']
+    environment:
+      ROLE: api
+      DEVGUARD_ENV: production
+      # All values are platform-injected references, never literal secrets.
+      DEVGUARD_DB_DSN: ${DEVGUARD_DB_DSN}
+      DEVGUARD_REDIS_URL: ${DEVGUARD_REDIS_URL}
+      DEVGUARD_SECRET_REF_GITHUB_APP_KEY: ${DEVGUARD_SECRET_REF_GITHUB_APP_KEY}
+      DEVGUARD_SECRET_REF_TRUEFORGE_KEY: ${DEVGUARD_SECRET_REF_TRUEFORGE_KEY}
+      DEVGUARD_AUTH_OAUTH_CLIENT_SECRET_REF: ${DEVGUARD_AUTH_OAUTH_CLIENT_SECRET_REF}
+    ports:
+      - '127.0.0.1:4000:4000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:4000/api/v1/health/ready || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks: [public, private]
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      args: { ROLE: worker }
+    restart: unless-stopped
+    read_only: true
+    security_opt: ['no-new-privileges:true']
+    environment:
+      ROLE: worker
+      DEVGUARD_ENV: production
+      DEVGUARD_DB_DSN: ${DEVGUARD_DB_DSN}
+      DEVGUARD_REDIS_URL: ${DEVGUARD_REDIS_URL}
+      DEVGUARD_SECRET_REF_GITHUB_APP_KEY: ${DEVGUARD_SECRET_REF_GITHUB_APP_KEY}
+      DEVGUARD_SECRET_REF_TRUEFORGE_KEY: ${DEVGUARD_SECRET_REF_TRUEFORGE_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # No public ingress: worker is reachable only on the private network.
+    networks: [private]
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+      args: { ROLE: web }
+    restart: unless-stopped
+    read_only: true
+    security_opt: ['no-new-privileges:true']
+    environment:
+      ROLE: web
+      DEVGUARD_API_ORIGIN: http://api:4000
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks: [public, private]
+
+networks:
+  public:
+  private:
+
+volumes:
+  dg-pgdata:
+  dg-redisdata:
