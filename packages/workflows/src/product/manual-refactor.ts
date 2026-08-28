@@ -11,9 +11,15 @@
  * dependency-upgrade, and migration execution stay outside.
  */
 import { findActionDefinition } from '@devguard/policy-engine';
+import { createHash } from 'node:crypto';
+import { workflowDefinitionSchema } from '../definitions/contracts.js';
+import { canonicalDigest } from '../definitions/registry.js';
 
 export const MANUAL_REFACTOR_DEFINITION_ID = 'manual_refactor';
 export const MANUAL_REFACTOR_DEFINITION_VERSION = '1.0.0';
+export const MANUAL_REFACTOR_AGENT_DEFINITION_ID = 'agent:trueforge_core@1';
+export const MANUAL_REFACTOR_INPUT_SCHEMA_ID = 'manual_refactor_input@1';
+export const MANUAL_REFACTOR_OUTPUT_SCHEMA_ID = 'manual_refactor_output@1';
 
 /** v1 fixed: public API / behavior changes require a separate explicitly-authorized workflow. */
 export const MANUAL_REFACTOR_ALLOW_PUBLIC_API_CHANGE = false as const;
@@ -218,6 +224,17 @@ export type DefinitionValidation =
   { readonly ok: true } | { readonly ok: false; readonly violation: string };
 
 export function validateDefinition(): DefinitionValidation {
+  // Registrability: schema-complete asset whose digest matches the registry's
+  // recomputed canonical digest (register() rejects otherwise).
+  const parsed = workflowDefinitionSchema.safeParse(manualRefactorDefinition);
+  if (!parsed.success)
+    return {
+      ok: false,
+      violation: `registry schema: ${parsed.error.issues[0]?.message ?? 'invalid'}`,
+    };
+  if (manualRefactorDefinition.digest !== canonicalDigest(manualRefactorDefinition))
+    return { ok: false, violation: 'digest mismatch' };
+
   if (MANUAL_REFACTOR_STEPS.length === 0) return { ok: false, violation: 'empty steps' };
   for (const step of MANUAL_REFACTOR_STEPS) {
     if (step.maxRetries > 8) return { ok: false, violation: `retries ${step.id}` };
@@ -251,6 +268,9 @@ export const manualRefactorDefinition = {
   status: 'ACTIVE',
   // Extension: disabled by default; manual-only via feature/policy gates.
   enabled: false,
+  agentDefinitionId: MANUAL_REFACTOR_AGENT_DEFINITION_ID,
+  inputSchemaId: MANUAL_REFACTOR_INPUT_SCHEMA_ID,
+  outputSchemaId: MANUAL_REFACTOR_OUTPUT_SCHEMA_ID,
   steps: MANUAL_REFACTOR_STEPS,
   allowedActionTypes: MANUAL_REFACTOR_ALLOWED_ACTIONS,
   requiredCapabilities: ['cap:trueforge_agent', 'cap:sandbox_exec', 'cap:github_write'],
@@ -264,4 +284,14 @@ export const manualRefactorDefinition = {
   ],
   skillBundleRefs: ['skill:core@1'],
   compatibilityRange: '>=1.0.0',
+  digest: createHash('sha256')
+    .update(
+      JSON.stringify({
+        id: MANUAL_REFACTOR_DEFINITION_ID,
+        version: MANUAL_REFACTOR_DEFINITION_VERSION,
+        steps: MANUAL_REFACTOR_STEPS,
+        schemaOutput: MANUAL_REFACTOR_OUTPUT_SCHEMA_ID,
+      }),
+    )
+    .digest('hex'),
 } as const;

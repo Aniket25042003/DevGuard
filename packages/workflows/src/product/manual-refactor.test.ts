@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { workflowDefinitionSchema } from '../definitions/contracts.js';
+import { canonicalDigest } from '../definitions/registry.js';
 import {
   MANUAL_REFACTOR_STEPS,
   MANUAL_REFACTOR_ALLOWED_ACTIONS,
@@ -50,5 +52,11 @@ describe('C056 manual_refactor product workflow definition', () => {
     expect(manualRefactorDefinition.id).toBe('manual_refactor');
     expect(manualRefactorDefinition.semanticVersion).toBe('1.0.0');
     expect(manualRefactorDefinition.allowedActionTypes).toEqual(MANUAL_REFACTOR_ALLOWED_ACTIONS);
+  });
+
+  it('is a registrable build asset (schema-complete with an honest canonical digest)', () => {
+    expect(workflowDefinitionSchema.safeParse(manualRefactorDefinition).success).toBe(true);
+    expect(manualRefactorDefinition.digest).toMatch(/^[0-9a-f]{64}$/);
+    expect(manualRefactorDefinition.digest).toBe(canonicalDigest(manualRefactorDefinition));
   });
 });
