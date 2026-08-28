@@ -30,6 +30,12 @@ export class InMemoryInstructionSnapshotStore implements InstructionSnapshotStor
     if (existing !== undefined && existing.status === 'superseded') {
       return { ok: false, code: 'SUPERSEDED_TARGET', current: existing };
     }
+    if (snapshot.status !== 'superseded' && snapshot.status !== 'rejected') {
+      const current = this.current.get(snapshot.repositoryId);
+      if (current !== undefined && current.status !== 'superseded' && snapshotVersionChanged(current, snapshot)) {
+        return { ok: false, code: 'STALE_CURRENT', current };
+      }
+    }
     this.snapshots.set(snapshot.id, snapshot);
     if (snapshot.status === 'superseded' || snapshot.status === 'rejected') {
       return { ok: true, code: 'SAVED', current: this.current.get(snapshot.repositoryId) };
