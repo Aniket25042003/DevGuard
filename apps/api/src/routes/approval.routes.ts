@@ -22,7 +22,7 @@ export interface ApprovalFields {
 }
 
 export interface ApprovalPort {
-  listFor(runId: string): Promise<readonly ApprovalProjection[]>;
+  listFor(runId: string, userId: string): Promise<readonly ApprovalProjection[]>;
   resolve(
     runId: string,
     approvalId: string,
@@ -53,7 +53,7 @@ export function registerApprovalRoutes(
           },
           401,
         );
-      const list = await approvals.listFor(c.req.param('runId') ?? '');
+      const list = await approvals.listFor(c.req.param('runId') ?? '', principal.userId);
       return c.json({ approvals: list });
     },
   );
