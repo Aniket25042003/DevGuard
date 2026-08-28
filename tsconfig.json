@@ -54,6 +54,15 @@
     },
     {
       "path": "packages/approvals"
+    },
+    {
+      "path": "packages/agent"
+    },
+    {
+      "path": "packages/sandbox"
+    },
+    {
+      "path": "packages/workflows"
     }
   ]
 }
