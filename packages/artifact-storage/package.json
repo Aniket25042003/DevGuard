@@ -1,0 +1,21 @@
+{
+  "name": "@devguard/artifact-storage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CP012 / C012 — artifact object-byte store (local disk for dev, S3-like port). UUID object keys only; never user paths.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/errors": "workspace:*"
+  }
+}

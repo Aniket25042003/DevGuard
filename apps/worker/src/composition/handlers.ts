@@ -112,7 +112,11 @@ export function registerWebhookProcess(
     } as never);
     return outcome.ok
       ? { outcome: 'SUCCEEDED', detail: outcome.nextRun ?? 'routed' }
-      : { outcome: 'RETRYABLE_FAILURE', errorCode: 'WEBHOOK_PROCESS_FAILED', detail: outcome.detail };
+      : {
+          outcome: 'RETRYABLE_FAILURE',
+          errorCode: 'WEBHOOK_PROCESS_FAILED',
+          detail: outcome.detail,
+        };
   });
 }
 

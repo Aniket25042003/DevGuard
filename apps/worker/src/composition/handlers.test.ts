@@ -51,11 +51,7 @@ describe('worker handlers (CP008)', () => {
   it('other job types fail closed until their owners mount', async () => {
     const registry = new JobRegistry();
     registerFailClosedHandlers(registry);
-    for (const jobType of [
-      'outbox.publish',
-      'sandbox.monitor',
-      'cleanup.retention',
-    ] as const) {
+    for (const jobType of ['outbox.publish', 'sandbox.monitor', 'cleanup.retention'] as const) {
       const handler = registry.resolve(jobType, 1);
       const result = await handler(
         buildEnvelope({

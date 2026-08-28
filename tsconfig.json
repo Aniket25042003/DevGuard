@@ -66,6 +66,9 @@
     },
     {
       "path": "packages/workflows"
+    },
+    {
+      "path": "packages/artifact-storage"
     }
   ]
 }

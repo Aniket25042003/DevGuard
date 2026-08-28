@@ -10,12 +10,7 @@
 
 /** Mirrors the C022 delivery FSM state union (db stays independent). */
 export type DeliveryStateV1 =
-  | 'ACCEPTED'
-  | 'PROCESSING'
-  | 'ROUTED'
-  | 'IGNORED'
-  | 'FAILED_RETRYABLE'
-  | 'DEAD_LETTERED';
+  'ACCEPTED' | 'PROCESSING' | 'ROUTED' | 'IGNORED' | 'FAILED_RETRYABLE' | 'DEAD_LETTERED';
 
 const LEGAL: Readonly<Record<DeliveryStateV1, readonly DeliveryStateV1[]>> = {
   ACCEPTED: ['PROCESSING', 'FAILED_RETRYABLE'],
@@ -65,12 +60,11 @@ RETURNING github_delivery_id`,
     return row === undefined ? undefined : (row.state as DeliveryStateV1);
   }
 
-  async claim(
-    deliveryId: string,
-  ): Promise<{ ok: true; state: DeliveryStateV1 } | { ok: false }> {
+  async claim(deliveryId: string): Promise<{ ok: true; state: DeliveryStateV1 } | { ok: false }> {
     const current = await this.state(deliveryId);
     if (current === undefined) return { ok: true, state: 'ACCEPTED' };
-    if (current === 'ACCEPTED' || current === 'FAILED_RETRYABLE') return { ok: true, state: current };
+    if (current === 'ACCEPTED' || current === 'FAILED_RETRYABLE')
+      return { ok: true, state: current };
     return { ok: false };
   }
 
