@@ -6,6 +6,16 @@
  */
 import './errors.js';
 
+// ---- C051 product workflow: security_audit ----
+export {
+  SECURITY_AUDIT_STEPS,
+  SECURITY_AUDIT_ALLOWED_ACTIONS,
+  SECURITY_AUDIT_DEFINITION_ID,
+  SECURITY_AUDIT_DEFINITION_VERSION,
+  securityAuditDefinition,
+  type AuditStep,
+} from './product/security-audit.js';
+
 // ---- C050 product workflow: diagnose_failure ----
 export {
   DIAGNOSE_FAILURE_STEPS,
