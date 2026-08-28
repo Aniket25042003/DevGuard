@@ -10,6 +10,7 @@
 import { createHash } from 'node:crypto';
 import {
   DEFAULT_GLOBAL_CEILINGS,
+  effectiveContainmentProfileSchema,
   type ControlAttestation,
   type ContainmentControllerDeps,
   type EffectiveContainmentProfile,
@@ -68,11 +69,11 @@ export class ContainmentController {
     // Global ceilings are a hard cap: a source requirement may never exceed them.
     const wall =
       Math.min(input.source.maxWallMillis ?? ceilings.maxWallMillis, ceilings.maxWallMillis) +
-      (input.classExtraWallMillis ?? 0);
+      Math.min(input.classExtraWallMillis ?? 0, ceilings.maxWallMillis);
     const profile: EffectiveContainmentProfile = {
-      id: `cp-${sha256(JSON.stringify({ class: input.class, gen: 1 })).slice(0, 16)}`,
+      id: `cp-${sha256(JSON.stringify({ class: input.class, network: input.source.network, allowedDestinations: input.source.allowedDestinations, maxWallMillis: wall, maxCpuMillis: input.source.maxCpuMillis, shellModeAllowed: input.source.shellModeAllowed })).slice(0, 16)}`,
       generation: 1,
-      network: input.source.network ?? 'deny_all',
+      network: compileNetworkPolicy(input.source),
       allowedDestinations:
         input.source.network === 'allowlist_only' ? (input.source.allowedDestinations ?? []) : [],
       maxCpuMillis: Math.min(
@@ -87,11 +88,15 @@ export class ContainmentController {
       parallelReadCommands: false,
       secretRefs: [],
     };
-    return { ok: true, profile };
+    const parsed = effectiveContainmentProfileSchema.safeParse(profile);
+      return parsed.success
+        ? { ok: true, profile: parsed.data }
+        : { ok: false, code: 'BLOCKED_POLICY', detail: 'compiled profile violates policy' };
   }
 
   async apply(profile: EffectiveContainmentProfile): Promise<ApplyResult> {
-    const caps = await this.provider.probe();
+    let caps: ProviderCapabilityProbe;
+      try { caps = await this.provider.probe(); } catch { return { ok: false, code: 'FAILED', detail: 'provider probe failed' }; }
     const s = caps.supports;
     if (!s.networkDeny || !s.allowlist || !s.resourceLimits || !s.processKill) {
       return {
@@ -100,7 +105,8 @@ export class ContainmentController {
         detail: 'provider cannot enforce requested controls',
       };
     }
-    const applied = await this.provider.apply(profile);
+    let applied;
+      try { applied = await this.provider.apply(profile); } catch { return { ok: false, code: 'FAILED', detail: 'provider apply failed' }; }
     if (!applied.ok)
       return {
         ok: false,
