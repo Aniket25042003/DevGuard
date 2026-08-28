@@ -6,6 +6,18 @@
  */
 import './errors.js';
 
+// ---- CP007 workflow query + cancel use cases ----
+export {
+  DEFAULT_RUN_LIMIT,
+  MAX_RUN_LIMIT,
+  WorkflowQueryService,
+  type Cursor,
+  type CancelOutcome,
+  type RunListPage,
+  type RunRow,
+  type WorkflowRunStorePort,
+} from './runs/run-query-service.js';
+
 // ---- CP006 shared command bus (list + submit for every surface) ----
 export {
   COMMAND_BUS_MVP_IDS,

@@ -16,9 +16,9 @@ import { registerApiTokenRoutes } from './routes/auth-tokens.routes.js';
 import { registerSessionRoutes } from './routes/session.routes.js';
 import { registerApprovalRoutes } from './routes/approval.routes.js';
 import {
+  registerCommandRoutes,
   registerPolicyRoutes,
   registerWorkflowRoutes,
-  registerCommandRoutes,
 } from './routes/workflow.routes.js';
 import { registerRepositoryCommandRoutes } from './routes/commands.routes.js';
 import { registerHealthRoutes } from './routes/health.routes.js';
@@ -84,9 +84,9 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   registerSessionRoutes(kernel, container.bindings.sessionEvents);
   registerApprovalRoutes(kernel, container.bindings.approvals);
 
-  // C066 policies summary, C067 workflow launch/status, C069 command catalog.
-  registerPolicyRoutes(kernel, container.bindings.policies);
-  registerWorkflowRoutes(kernel, container.bindings.workflows, container.bindings.workflows);
+  // C066 policies summary, C067 workflow start/list/get/cancel (durable).
+  registerPolicyRoutes(kernel, container);
+  registerWorkflowRoutes(kernel, container);
   registerCommandRoutes(kernel, container.bindings.workflows);
   // CP006: repo-scoped command catalog + submit (shared command bus).
   registerRepositoryCommandRoutes(kernel, container);

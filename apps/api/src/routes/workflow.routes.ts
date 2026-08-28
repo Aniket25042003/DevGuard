@@ -1,25 +1,126 @@
 /**
- * C066/C067/C069 — policies, workflows, and command routes.
+ * CP007 / C066–C069 — policies, workflow start/list/get/cancel, command routes.
  *
- * GET /api/v1/policies                         session-required safe policy summary
- * POST /api/v1/workflows                       launch a workflow (idempotent by idempotencyKey)
- * GET  /api/v1/workflows/:runId                status projection
- * GET  /api/v1/workflows/:runId/commands       redacted command catalog
+ * Repo-scoped (capability-gated) routes:
+ *   POST /api/v1/repositories/:repositoryId/workflows   start (alias of the
+ *       command submit use case; CP007 §28)
+ *   GET  /api/v1/repositories/:repositoryId/workflows   list (durable, keyset)
+ * Run-scoped routes:
+ *   GET  /api/v1/workflows/:runId                        durable status/get
+ *   POST /api/v1/workflows/:runId/cancel                 cooperative cancel
+ *   GET  /api/v1/workflows/:runId/commands               redacted command catalog
  *
- * Launch validates requested version + input; responses are safe projections and
- * push/idempotency stay server-side (C067). Command catalog shows redacted argv
- * + class + state, never secrets or raw output (C069).
+ * The deprecated launch stub `POST /api/v1/workflows` is REMOVED (CP007 §27) —
+ * there is a single start path.
  */
-import { WorkflowKind } from '@devguard/contracts';
-import type { RegisterV1Route } from '../transport/kernel.js';
+import { WorkflowStatus } from '@devguard/contracts';
+import { requireAllow } from '@devguard/authorization';
+import { repositoryForbidden } from '@devguard/errors';
+import {
+  canonicalCommandIdSchema,
+  commandReceiptSchema,
+  IDEMPOTENCY_KEY_HEADER,
+  idempotencyKeySchema,
+  originSurfaceSchema,
+  submitCommandRequestSchema,
+  triggerTypeSchema,
+  workflowRunDtoSchema,
+  type WorkflowRunDtoV1,
+} from '@devguard/api-contracts';
+import {
+  CommandDisabledError,
+  CommandOriginForgedError,
+  MAX_RUN_LIMIT,
+  type RunRow,
+} from '@devguard/workflows';
+import { CommandUnknownError } from '@devguard/policy-engine';
+import { validationFailed } from '@devguard/errors';
+import type { Principal } from '@devguard/auth';
+import type { RegisterV1Route, RouteMetadata } from '../transport/kernel.js';
+import type { ApiContainer } from '../composition/container.js';
 
+const HTTP_SURFACES = new Set(['web', 'cli']);
+
+/** Port types referenced by the composition root bindings (kept for stability). */
 export interface PolicySummaryPort {
   summaryFor(userId: string): Promise<Array<{ id: string; name: string; enabled: boolean }>>;
+}
+export interface WorkflowLaunchPort {
+  launch(
+    input: {
+      workflowType: string;
+      version: string;
+      idempotencyKey: string;
+      input: unknown;
+    },
+    userId: string,
+  ): Promise<
+    { ok: true; runId: string; replayed: boolean } | { ok: false; code: string; detail: string }
+  >;
+}
+export interface WorkflowStatusPort {
+  statusOf(runId: string, userId: string): Promise<{ runId: string; state: string } | undefined>;
+}
+export interface CommandCatalogPort {
+  commandsOf(
+    runId: string,
+    userId: string,
+  ): Promise<
+    Array<{
+      commandId: string;
+      class: string;
+      state: string;
+      argvRedacted: readonly string[];
+      exitCode?: number | null;
+    }>
+  >;
+}
+
+function toRunDto(run: RunRow): WorkflowRunDtoV1 {
+  return workflowRunDtoSchema.parse({
+    id: run.id,
+    repositoryId: run.repositoryId,
+    workflowType: canonicalCommandIdSchema.parse(run.workflowType),
+    definitionVersion: String(run.definitionVersion),
+    status: WorkflowStatus.parse(run.status),
+    trigger: {
+      triggerType: triggerTypeSchema.parse(run.triggerType),
+      originSurface: originSurfaceSchema.parse(run.originSurface),
+    },
+    ...(run.startedAtIso !== undefined ? { startedAt: run.startedAtIso } : {}),
+    ...(run.completedAtIso !== undefined ? { completedAt: run.completedAtIso } : {}),
+    createdAt: run.createdAtIso,
+    updatedAt: run.updatedAtIso,
+    version: run.rowVersion,
+    links: { self: `/api/v1/workflows/${run.id}` },
+  });
+}
+
+/** Authorize a run-scoped route against the run's own repository. */
+async function authorizeRun(
+  container: ApiContainer,
+  principal: Principal | undefined,
+  requestId: string,
+  repositoryId: string,
+  capability: 'repository:read' | 'workflow:cancel',
+): Promise<void> {
+  if (principal === undefined) throw repositoryForbidden(new Error('no_principal'));
+  const decision = await container.authorizer.authorize({
+    principal: {
+      kind: 'user',
+      userId: principal.userId,
+      issuer: principal.issuer,
+      providerSubject: principal.providerSubject ?? principal.userId,
+    },
+    repositoryId,
+    capability,
+  });
+  requireAllow(decision, requestId);
 }
 
 export function registerPolicyRoutes(
   kernel: { registerV1Route: RegisterV1Route },
-  policies: PolicySummaryPort,
+  container: ApiContainer,
 ): void {
   kernel.registerV1Route(
     'get',
@@ -39,160 +140,256 @@ export function registerPolicyRoutes(
           },
           401,
         );
-      const list = await policies.summaryFor(principal.userId);
+      const list = await container.bindings.policies.summaryFor(principal.userId);
       return c.json({ policies: list });
     },
   );
 }
 
-export interface WorkflowLaunchInput {
-  readonly workflowType: string;
-  readonly version: string;
-  readonly idempotencyKey: string;
-  readonly input: unknown;
-}
+const startMeta: RouteMetadata = {
+  rateLimitClass: 'default',
+  authClass: 'required_session',
+  capability: 'workflow:start',
+  repositoryIdParam: 'repositoryId',
+};
 
-export interface WorkflowLaunchPort {
-  launch(
-    input: WorkflowLaunchInput,
-    userId: string,
-  ): Promise<
-    { ok: true; runId: string; replayed: boolean } | { ok: false; code: string; detail: string }
-  >;
-}
-
-export interface WorkflowStatusPort {
-  statusOf(runId: string, userId: string): Promise<{ runId: string; state: string } | undefined>;
-}
+const listMeta: RouteMetadata = {
+  rateLimitClass: 'default',
+  authClass: 'required_session',
+  capability: 'repository:read',
+  repositoryIdParam: 'repositoryId',
+};
 
 export function registerWorkflowRoutes(
   kernel: { registerV1Route: RegisterV1Route },
-  launch: WorkflowLaunchPort,
-  status: WorkflowStatusPort,
+  container: ApiContainer,
 ): void {
+  // POST start = alias of the command submit use case (single start path).
   kernel.registerV1Route(
     'post',
-    '/api/v1/workflows',
-    { rateLimitClass: 'default', authClass: 'required_session' },
+    '/api/v1/repositories/:repositoryId/workflows',
+    startMeta,
     async (c) => {
-      const principal = c.get('requestContext').principal;
-      if (principal === undefined)
-        return c.json(
-          {
-            error: {
-              code: 'UNAUTHENTICATED',
-              message: 'Authentication required.',
-              requestId: c.get('requestContext').requestId,
-              retryable: false,
-            },
-          },
-          401,
-        );
-      const body = (await c.req.json().catch(() => undefined)) as
-        Record<string, unknown> | undefined;
-      if (
-        body === undefined ||
-        typeof body.workflowType !== 'string' ||
-        typeof body.version !== 'string' ||
-        typeof body.idempotencyKey !== 'string' ||
-        !WorkflowKind.safeParse(body.workflowType).success ||
-        body.workflowType.length === 0 ||
-        body.version.length === 0 ||
-        body.idempotencyKey.length === 0 ||
-        typeof body.input !== 'object' ||
-        body.input === null ||
-        Array.isArray(body.input)
-      ) {
-        return c.json(
-          {
-            error: {
-              code: 'VALIDATION_FAILED',
-              message: 'workflowType, version, idempotencyKey required.',
-              requestId: c.get('requestContext').requestId,
-              retryable: false,
-            },
-          },
-          400,
-        );
+      const repositoryId = c.req.param('repositoryId');
+      const principal = c.get('requestContext').principal!;
+      if (repositoryId === undefined || repositoryId.length === 0) {
+        throw validationFailed([{ path: 'repositoryId', constraint: 'required' }]);
       }
-      const result = await launch.launch(
-        {
-          workflowType: body.workflowType,
-          version: body.version,
-          idempotencyKey: body.idempotencyKey,
-          input: body.input,
-        },
-        principal.userId,
-      );
-      if (!result.ok)
-        return c.json(
-          {
-            error: {
-              code: result.code,
-              message: result.detail,
-              requestId: c.get('requestContext').requestId,
-              retryable: false,
-            },
+      const rawIdempotency = c.req.header(IDEMPOTENCY_KEY_HEADER);
+      const parsedKey = idempotencyKeySchema.safeParse(rawIdempotency);
+      if (!parsedKey.success) {
+        throw validationFailed([{ path: 'idempotencyKey', constraint: 'required' }]);
+      }
+      const body = await c.req.json().catch(() => undefined);
+      const parsed = submitCommandRequestSchema.safeParse(body);
+      if (!parsed.success) {
+        throw validationFailed([{ path: 'body', constraint: 'submitCommandRequestV1 required' }]);
+      }
+      if (!HTTP_SURFACES.has(parsed.data.originSurface)) {
+        return renderCommandError(c, new CommandOriginForgedError(parsed.data.originSurface));
+      }
+      let result;
+      try {
+        result = await container.commandBus.submit({
+          command: {
+            commandId: parsed.data.commandId,
+            ...(parsed.data.definitionVersion !== undefined
+              ? { definitionVersion: parsed.data.definitionVersion }
+              : {}),
+            input: parsed.data.input,
           },
-          400,
-        );
-      c.status(result.replayed ? 200 : 202);
-      return c.json({ runId: result.runId, replayed: result.replayed });
+          repositoryId,
+          originSurface: parsed.data.originSurface,
+          idempotencyKey: parsedKey.data,
+          createdBy: principal.userId,
+        });
+      } catch (error) {
+        return renderCommandError(c, error);
+      }
+      const receipt = commandReceiptSchema.parse({
+        id: result.runId,
+        repositoryId,
+        commandId: result.commandId,
+        originSurface: result.originSurface,
+        status: 'accepted',
+        workflowRunId: result.runId,
+        createdAt: result.createdAt,
+        links: {
+          run: `/api/v1/workflows/${result.runId}`,
+          self: `/api/v1/repositories/${repositoryId}/workflows`,
+        },
+      });
+      return c.json({ data: receipt }, result.replayed ? 200 : 202);
     },
   );
 
+  // GET list (durable keyset pagination).
+  kernel.registerV1Route(
+    'get',
+    '/api/v1/repositories/:repositoryId/workflows',
+    listMeta,
+    async (c) => {
+      const repositoryId = c.req.param('repositoryId');
+      if (repositoryId === undefined || repositoryId.length === 0) {
+        throw validationFailed([{ path: 'repositoryId', constraint: 'required' }]);
+      }
+      const raw = c.req.query();
+      let limit: number | undefined;
+      if (raw.limit !== undefined) {
+        limit = Number(raw.limit);
+        if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_RUN_LIMIT) {
+          throw validationFailed([{ path: 'limit', constraint: `1..${MAX_RUN_LIMIT}` }]);
+        }
+      }
+      // Full C067 list filters (status/originSurface/triggerType/workflowType)
+      // land with the real columns at CP016; CP007 ships durable keyset pagination.
+      const page = await container.workflowQueries.listRuns({
+        repositoryId,
+        ...(limit !== undefined ? { limit } : {}),
+        ...(raw.cursor !== undefined ? parseCursor(raw.cursor) : {}),
+      });
+      return c.json({
+        data: {
+          runs: page.runs.map(toRunDto),
+          hasMore: page.hasMore,
+          ...(page.nextCursor !== undefined
+            ? { nextCursor: `${page.nextCursor.id}:${page.nextCursor.createdAtIso}` }
+            : {}),
+        },
+      });
+    },
+  );
+
+  // GET single run (durable; non-enumerating 404 on denial/absence).
   kernel.registerV1Route(
     'get',
     '/api/v1/workflows/:runId',
     { rateLimitClass: 'default', authClass: 'required_session' },
     async (c) => {
-      const principal = c.get('requestContext').principal;
       const runId = c.req.param('runId') ?? '';
-      if (principal === undefined)
+      const run = await container.workflowQueries.getRun(runId);
+      if (run === null) return workflowUnknown(c);
+      try {
+        await authorizeRun(
+          container,
+          c.get('requestContext').principal,
+          c.get('requestContext').requestId,
+          run.repositoryId,
+          'repository:read',
+        );
+      } catch {
+        return workflowUnknown(c);
+      }
+      return c.json({ data: toRunDto(run) });
+    },
+  );
+
+  // POST cancel (cooperative; If-Match/version required).
+  kernel.registerV1Route(
+    'post',
+    '/api/v1/workflows/:runId/cancel',
+    { rateLimitClass: 'default', authClass: 'required_session' },
+    async (c) => {
+      const runId = c.req.param('runId') ?? '';
+      const ifMatch = c.req.header('if-match');
+      if (ifMatch === undefined || !/^\d+$/.test(ifMatch)) {
         return c.json(
           {
             error: {
-              code: 'UNAUTHENTICATED',
-              message: 'Authentication required.',
+              code: 'PRECONDITION_REQUIRED',
+              message: 'If-Match (row version) is required to cancel.',
               requestId: c.get('requestContext').requestId,
               retryable: false,
             },
           },
-          401,
+          428,
         );
-      const projection = await status.statusOf(runId, principal.userId);
-      if (projection === undefined)
+      }
+      const run = await container.workflowQueries.getRun(runId);
+      if (run === null) return workflowUnknown(c);
+      try {
+        await authorizeRun(
+          container,
+          c.get('requestContext').principal,
+          c.get('requestContext').requestId,
+          run.repositoryId,
+          'workflow:cancel',
+        );
+      } catch {
+        return workflowUnknown(c);
+      }
+      const outcome = await container.workflowQueries.cancel(runId, Number(ifMatch));
+      if (!outcome.ok) {
         return c.json(
           {
             error: {
-              code: 'WORKFLOW_UNKNOWN',
-              message: 'Workflow run not found.',
+              code: outcome.code,
+              message: 'Cancel rejected.',
               requestId: c.get('requestContext').requestId,
               retryable: false,
             },
           },
-          404,
+          outcome.code === 'WORKFLOW_UNKNOWN'
+            ? 404
+            : outcome.code === 'PRECONDITION_FAILED'
+              ? 409
+              : 400,
         );
-      return c.json(projection);
+      }
+      return c.json({ data: toRunDto(outcome.run) });
     },
   );
 }
 
-export interface CommandCatalogPort {
-  commandsOf(
-    runId: string,
-    userId: string,
-  ): Promise<
-    Array<{
-      commandId: string;
-      class: string;
-      state: string;
-      argvRedacted: readonly string[];
-      exitCode?: number | null;
-    }>
-  >;
+function workflowUnknown(c: {
+  get(key: 'requestContext'): { requestId: string };
+  json(body: Record<string, unknown>, status?: number): Response;
+}): Response {
+  return c.json(
+    {
+      error: {
+        code: 'WORKFLOW_UNKNOWN',
+        message: 'Workflow run not found.',
+        requestId: c.get('requestContext').requestId,
+        retryable: false,
+      },
+    },
+    404,
+  );
 }
 
+function parseCursor(value: string): { cursor?: { createdAtIso: string; id: string } } {
+  const [, second] = value.split(':');
+  const [createdAt, ...rest] = (second ?? value).split(',');
+  const id = rest.join(',');
+  return createdAt !== undefined && id !== undefined
+    ? { cursor: { createdAtIso: createdAt, id } }
+    : {};
+}
+
+/** Map command-domain failures to stable HTTP envelopes (never 500). */
+function renderCommandError(
+  c: { get(key: 'requestContext'): { requestId: string } },
+  error: unknown,
+): Response {
+  const requestId = c.get('requestContext').requestId;
+  if (error instanceof CommandOriginForgedError)
+    return buildError(400, 'ORIGIN_FORGED', error.message, requestId);
+  if (error instanceof CommandUnknownError)
+    return buildError(400, 'COMMAND_UNKNOWN', error.message, requestId);
+  if (error instanceof CommandDisabledError)
+    return buildError(403, 'COMMAND_NO_LONGER_ALLOWED', error.message, requestId);
+  throw error;
+}
+
+function buildError(status: number, code: string, message: string, requestId: string): Response {
+  return new Response(JSON.stringify({ error: { code, message, requestId, retryable: false } }), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+/** C069 run-scoped redacted command catalog projection. */
 export function registerCommandRoutes(
   kernel: { registerV1Route: RegisterV1Route },
   catalog: CommandCatalogPort,
