@@ -1,7 +1,7 @@
 -- CP009 (C030/C031): durable policy decisions, linked to a workflow run.
 -- The policy DECISION is persisted BEFORE any GitHub/sandbox side effect; the
 -- worker refuses to mutate an external system until a decision row exists.
-CREATE TABLE IF NOT EXISTS policy_decisions (
+CREATE TABLE IF NOT EXISTS policy_decision_runs (
   run_id            uuid PRIMARY KEY REFERENCES workflow_runs(id) ON DELETE CASCADE,
   policy_version    text NOT NULL,
   effect            text NOT NULL CHECK (effect IN ('allow', 'deny', 'require_approval')),

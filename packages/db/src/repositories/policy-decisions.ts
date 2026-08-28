@@ -27,14 +27,14 @@ export class PostgresPolicyDecisionStore {
     readonly reasonCode: string;
   }): Promise<PolicyDecisionRecord> {
     const rows = await this.pool.query<Record<string, unknown>>({
-      text: `INSERT INTO policy_decisions (run_id, policy_version, effect, reason_code)
+      text: `INSERT INTO policy_decision_runs (run_id, policy_version, effect, reason_code)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (run_id) DO UPDATE SET
   policy_version = EXCLUDED.policy_version,
   effect = EXCLUDED.effect,
   reason_code = EXCLUDED.reason_code,
   decided_at = now(),
-  row_version = policy_decisions.row_version + 1
+  row_version = policy_decision_runs.row_version + 1
 RETURNING run_id, policy_version, effect, reason_code, decided_at::text AS decided_at, row_version::text AS row_version`,
       values: [input.runId, input.policyVersion, input.effect, input.reasonCode],
     });
@@ -53,7 +53,7 @@ RETURNING run_id, policy_version, effect, reason_code, decided_at::text AS decid
   async getDecision(runId: string): Promise<PolicyDecisionRecord | null> {
     const rows = await this.pool.query<Record<string, unknown>>({
       text: `SELECT run_id, policy_version, effect, reason_code, decided_at::text AS decided_at, row_version::text AS row_version
-FROM policy_decisions WHERE run_id = $1`,
+FROM policy_decision_runs WHERE run_id = $1`,
       values: [runId],
     });
     const row = rows[0];
