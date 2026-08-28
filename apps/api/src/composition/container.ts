@@ -46,6 +46,7 @@ import {
   PostgresApiTokenRepository,
   PostgresAuthSessionRepository,
   PostgresAuthTransactionRepository,
+  PostgresLocalRepositoryAccessPort,
   PostgresUserIdentityLinker,
 } from '@devguard/db';
 import { isVolatileBinding } from './bindings.js';
@@ -284,6 +285,10 @@ export function buildContainer(
   const apiTokens = durableAuth
     ? new PostgresApiTokenRepository(pool)
     : new VolatileApiTokenRepository();
+  // CP005: local linkage from the DB when durable; otherwise honest deny-until-linked.
+  const localAccess = durableAuth
+    ? new PostgresLocalRepositoryAccessPort(pool)
+    : new EmptyLocalRepositoryAccessPort();
 
   const bindings: CompositionBindings = {
     sessions,
@@ -291,7 +296,7 @@ export function buildContainer(
     identities,
     apiTokens,
     identityProvider,
-    localAccess: new EmptyLocalRepositoryAccessPort(),
+    localAccess,
     githubPermissions: new UnavailableGitHubPermissionPort(),
     evidence: new InMemoryAuthorizationEvidenceStore(),
     sessionEvents: VolatileSessionEvents,

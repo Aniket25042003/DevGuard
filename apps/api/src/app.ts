@@ -10,6 +10,7 @@ import type { ApiContainer } from './composition/container.js';
 import { createTransportKernel, type AppEnv, type RouteMetadata } from './transport/kernel.js';
 import { InMemoryRateLimiter } from './transport/rate-limit.js';
 import { enforceCsrfAndOrigin } from './transport/security.js';
+import { requireCapability } from './authorization/http.js';
 import { registerAuthRoutes } from './routes/auth.routes.js';
 import { registerApiTokenRoutes } from './routes/auth-tokens.routes.js';
 import { registerSessionRoutes } from './routes/session.routes.js';
@@ -52,6 +53,7 @@ export function assembleApi(container: ApiContainer): AssembledApi {
         ? { status: 'authenticated', principal }
         : { status: 'anonymous' };
     },
+    authorize: requireCapability(container.authorizer),
     trustedProxy: container.config.trustedProxyEnabled,
     webhookMaxBodyBytes: container.config.limits.webhookMaxBodyBytes,
   });

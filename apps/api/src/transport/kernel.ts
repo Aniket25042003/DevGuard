@@ -15,6 +15,7 @@ import { Hono, type Context } from 'hono';
 import { createHash, randomUUID } from 'node:crypto';
 import { normalizeError, presentHttpError } from '@devguard/errors';
 import type { Principal } from '@devguard/auth';
+import type { RepositoryCapability } from '@devguard/authorization';
 
 export interface RequestContext {
   readonly requestId: string;
@@ -63,6 +64,16 @@ export type AuthClass = 'public' | 'optional_session' | 'required_session';
 export interface RouteMetadata {
   readonly rateLimitClass: RateLimitClass;
   readonly authClass: AuthClass;
+  /**
+   * CP005 — repository capability required for this route. When declared, the
+   * route MUST also declare `repositoryIdParam` (the path param holding the
+   * repository id), enforced at registration time. The kernel runs the injected
+   * `authorize` gate after authentication and before the controller. Routes
+   * without a single repository id (lists, health, auth) do not declare it.
+   */
+  readonly capability?: RepositoryCapability | undefined;
+  /** Path parameter (e.g. `repositoryId`) that carries the repository id. */
+  readonly repositoryIdParam?: string | undefined;
 }
 
 export interface RateLimiterPort {
@@ -167,10 +178,36 @@ async function readBoundedRawBody(request: Request, maxBytes: number): Promise<A
   return out.buffer;
 }
 
+/** Authorize hook type export for the authorize hole. */
+export type AuthorizeHook = (
+  c: Context<AppEnv>,
+  capability: RepositoryCapability,
+  repositoryId: string,
+) => Promise<void>;
+
+/**
+ * Canonical repository id shape — a UUID v1–v8 (the persistence layer stores
+ * `repositories.id` as uuidv7). Non-matching path values are rejected as
+ * `VALIDATION_FAILED` BEFORE authorization so they never reach PostgreSQL.
+ */
+const CANONICAL_REPOSITORY_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** True when a route path declares the given `:param` segment. */
+function pathHasParam(path: string, segment: string): boolean {
+  return path.split('/').includes(segment);
+}
+
 /** Build the /api/v1 kernel shell. `registerV1Route` is the only way in. */
 export function createTransportKernel(input: {
   readonly rateLimiter: RateLimiterPort;
   readonly authenticate: (input: AuthenticateInput) => Promise<AuthResolution>;
+  /**
+   * CP005 — invoked after authentication and before the controller for any
+   * route that declares a `capability` + `repositoryIdParam`. Missing hook or
+   * missing principal at a gated route fails closed (502/401 respectively).
+   */
+  readonly authorize?: AuthorizeHook | undefined;
   /** From config (default false): trust X-Forwarded-For for rate-limit keys. */
   readonly trustedProxy?: boolean | undefined;
   /** Webhook raw-body cap in bytes (default 1 MiB). */
@@ -273,6 +310,29 @@ export function createTransportKernel(input: {
     if (registry.has(key)) {
       throw new Error(`Duplicate route registration: ${key}`);
     }
+    // CP005: a repo-scoped route declares BOTH a capability and the path param
+    // that carries the repository id — never one without the other. Enforced at
+    // composition time so a future route can't silently skip authorization.
+    if ((metadata.capability === undefined) !== (metadata.repositoryIdParam === undefined)) {
+      throw new Error(
+        `Route ${key} must declare capability and repositoryIdParam together (CP005).`,
+      );
+    }
+    // Any route whose path is repository-scoped MUST authorize: a `:repositoryId`
+    // segment is a strong signal that a capability was accidentally omitted.
+    if (pathHasParam(path, ':repositoryId') && metadata.capability === undefined) {
+      throw new Error(
+        `Route ${key} is repository-scoped and must declare capability + repositoryIdParam (CP005).`,
+      );
+    }
+    if (
+      metadata.repositoryIdParam !== undefined &&
+      !pathHasParam(path, `:${metadata.repositoryIdParam}`)
+    ) {
+      throw new Error(
+        `Route ${key} must include repositoryIdParam ${metadata.repositoryIdParam} in its path (CP005).`,
+      );
+    }
     registry.set(key, metadata);
     app.on(method, path, async (c) => {
       const context = c.get('requestContext');
@@ -289,6 +349,25 @@ export function createTransportKernel(input: {
         return fail(c, 429, 'RATE_LIMITED', 'Too many requests.');
       }
       try {
+        // CP005: run the repository-authorization gate before the controller.
+        if (metadata.capability !== undefined && metadata.repositoryIdParam !== undefined) {
+          if (context.principal === undefined) {
+            return fail(c, 401, 'UNAUTHENTICATED', 'Authentication required.');
+          }
+          if (input.authorize === undefined) {
+            return fail(
+              c,
+              502,
+              'AUTHORIZATION_UNCONFIGURED',
+              'Repository authorization is not wired.',
+            );
+          }
+          const repositoryId = c.req.param(metadata.repositoryIdParam);
+          if (repositoryId === undefined || !CANONICAL_REPOSITORY_ID_PATTERN.test(repositoryId)) {
+            return fail(c, 400, 'VALIDATION_FAILED', 'Repository id must be a valid UUID.');
+          }
+          await input.authorize(c, metadata.capability, repositoryId);
+        }
         return await handler(c);
       } catch (error) {
         const presented = presentHttpError(normalizeError(error), context.requestId);

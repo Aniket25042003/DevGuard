@@ -142,6 +142,9 @@ export class RepositoryAuthorizationService {
     try {
       const fetched = await this.deps.github.fetchUserRole({
         installationRef: linkage.installationRef,
+        ...(linkage.repositoryExternalIdHint !== undefined
+          ? { repositoryExternalIdHint: linkage.repositoryExternalIdHint }
+          : {}),
         providerSubject: q.principal.providerSubject,
       });
       role = fetched.role;

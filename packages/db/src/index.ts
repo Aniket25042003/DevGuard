@@ -100,6 +100,10 @@ export type {
 } from './repositories/auth-sessions.js';
 export { mapAuthSessionRow, mapAuthTransactionRow } from './repositories/auth-sessions.js';
 
+// ---- CP005 repository local-access port ----
+export { PostgresLocalRepositoryAccessPort } from './repositories/local-access.js';
+export type { LocalLinkageStatus, LocalRepositoryLinkage } from './repositories/local-access.js';
+
 // ---- CP004 CLI/API bearer tokens ----
 export { PostgresApiTokenRepository } from './repositories/api-tokens.js';
 export type { ApiTokenRecord } from './repositories/api-tokens.js';
