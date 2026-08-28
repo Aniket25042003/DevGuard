@@ -112,7 +112,8 @@ export class ManifestDetector {
     const basename = path.split('/').pop() ?? path;
     void basename;
     for (const rule of MANIFEST_RULES) {
-      if (rule.pathMatcher.test(path)) {
+      const matcherPath = rule.pathMatcher.source.startsWith('^') ? path : basename;
+      if (rule.pathMatcher.test(matcherPath)) {
         return {
           path,
           kind: rule.kind,
