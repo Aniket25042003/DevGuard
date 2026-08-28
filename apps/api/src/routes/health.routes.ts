@@ -24,7 +24,7 @@ export function registerHealthRoutes(
     async (c) => {
       const results = await Promise.all(
         probes.map(async (probe) => {
-          let ok = false;
+          let ok: boolean;
           try {
             ok = (
               await Promise.race([

@@ -208,9 +208,15 @@ export function buildContainer(
   const webhookSecret =
     config.github?.webhookSecretRef === undefined
       ? undefined
-      : provider.peek({ name: config.github.webhookSecretRef });
+      : secretProvider.peek({ name: config.github.webhookSecretRef });
 
-  return { config, webhookSecret, bindings, auth, authorizer };
+  return {
+    config,
+    bindings,
+    auth,
+    authorizer,
+    ...(webhookSecret !== undefined ? { webhookSecret } : {}),
+  };
 }
 
 /** Synchronous resolution from the same env snapshot given to loadConfig. */
