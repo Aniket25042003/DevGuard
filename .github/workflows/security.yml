@@ -61,6 +61,11 @@ jobs:
       # Frozen-lockfile install already proves lock/manifest parity; this adds
       # an advisory audit over the resolved tree.
       - run: pnpm audit --prod --audit-level high || true
+      # Dependency review requires GitHub Advanced Security + Dependency graph to
+      # be enabled on the repository. This personal repo does not have GHAS
+      # enabled, so the action bails with "Dependency review is not supported".
+      # Advisory scanning is already covered by `pnpm audit` above, so fail open
+      # here rather than letting a missing repo setting red-block every PR.
       - name: Dependency review (PR diff)
         if: github.event_name == 'pull_request'
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0

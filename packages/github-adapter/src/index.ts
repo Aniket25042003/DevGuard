@@ -372,3 +372,119 @@ export {
   type TriggerRouterDeps,
   type WebhookTriggerDefinition,
 } from './webhook/trigger-router.js';
+// ---- C021 GitHub Pull Requests / Reviews / Checks ----
+export {
+  PR_SCHEMA_VERSION,
+  PR_STATES,
+  REVIEW_EVIDENCE_KINDS,
+  createPullRequestSchema,
+  evidenceConclusionSchema,
+  mergePullRequestSchema,
+  postCommentSchema,
+  pullRequestFingerprintSchema,
+  pullRequestSchema,
+  requestReviewSchema,
+  reviewEvidenceSchema,
+  updatePullRequestSchema,
+  type CreatePullRequest,
+  type MergePullRequest,
+  type PostPullRequestComment,
+  type PrRef,
+  type PullRequest,
+  type PullRequestFingerprint,
+  type RequestReview,
+  type ReviewEvidence,
+  type ReviewEvidenceKind,
+  type UpdatePullRequest,
+} from './write/pr/contracts.js';
+export { resolvePrMergeEdge, resolvePrMutationEdge, type PrMergeStatus } from './write/pr/fsm.js';
+export {
+  GitHubPullRequestsReviewsChecksAdapter,
+  type GitHubPullRequestsReviewsChecks,
+  type GitHubPullRequestsReviewsChecksDeps,
+  type MergeResult,
+  type PrEvent,
+  type PrEventSinkPort,
+  type PrMutationResult,
+  type PrReadContext,
+  type PrWriteContext,
+} from './write/pr/github-pull-requests.js';
+export {
+  InMemoryPrOperationStore,
+  type PrClaimResult,
+  type PrOperation,
+  type PrOperationStorePort,
+} from './write/pr/operation-store.js';
+export {
+  InMemoryPrProvider,
+  type PrProviderErrorCode,
+  type PrProviderResult,
+  type PrProviderPort,
+} from './write/pr/provider-port.js';
+export { sanitizePrContent, prSafe } from './write/pr/pr-safe.js';
+// ---- C020 GitHub branches/commits mutation adapter ----
+export {
+  BRANCH_PREFIX,
+  GIT_MUTATION_SCHEMA_VERSION,
+  MUTATION_STATUSES,
+  MUTATION_TERMINAL_STATUSES,
+  advanceBranchInputSchema,
+  commitIdentitySchema,
+  commitTreeSpecSchema,
+  createBranchInputSchema,
+  createCommitInputSchema,
+  gitBranchSchema,
+  gitCommitSchema,
+  gitRepoRefSchema,
+  reconcileInputSchema,
+  treeEntrySchema,
+  type AdvanceBranchInput,
+  type CommitTreeSpec,
+  type CreateBranchInput,
+  type CreateCommitInput,
+  type GitBranch,
+  type GitCommit,
+  type GitMutationOperation,
+  type GitRepoRef,
+  type MutationResult,
+  type MutationStatus,
+  type VerifiedCommitIdentity,
+} from './write/contracts.js';
+export {
+  resolveMutationEdge,
+  allMutationPairs,
+  isTerminalMutation,
+  type MutationTrigger,
+} from './write/fsm.js';
+export {
+  assertMutationBranch,
+  assertWritableTarget,
+  buildWorkflowBranchName,
+  isMutationBranch,
+  isProtectedTarget,
+  mutationInputDigest,
+  sanitizeCommitMessage,
+  canonicalize,
+  sha256Hex,
+} from './write/mutation-identity.js';
+export {
+  GithubBranchesCommitsAdapter,
+  type GithubBranchesCommits,
+  type GithubBranchesCommitsDeps,
+  type MutationEvent,
+  type MutationEventSinkPort,
+  type ReconciliationResult,
+  type WriteContext,
+} from './write/github-branches-commits.js';
+export {
+  InMemoryMutationOperationStore,
+  type ClaimResult,
+  type MutationOperationStorePort,
+} from './write/mutation-operation-store.js';
+export {
+  InMemoryMutationProvider,
+  type CommitComparison,
+  type GitProviderErrorCode,
+  type GitProviderResult,
+  type GitHubMutationProviderPort,
+} from './write/provider-port.js';
