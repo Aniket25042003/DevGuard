@@ -11,6 +11,7 @@
 import { createHash } from 'node:crypto';
 import {
   workflowDefinitionSchema,
+  skillAssetSchema,
   type RegisterResult,
   type SkillAsset,
   type WorkflowCatalogEntry,
@@ -44,12 +45,13 @@ export class WorkflowDefinitionRegistry {
   }
 
   registerSkill(skill: SkillAsset): void {
+    const parsed = skillAssetSchema.safeParse(skill);
+    if (!parsed.success) throw new Error('INVALID_SKILL');
     const key = `${skill.id}@${skill.version}`;
     const existing = this.#skills.get(key);
-    if (existing !== undefined && existing.contentDigest !== skill.contentDigest) {
+    if (existing !== undefined && stableStringify(existing) !== stableStringify(skill))
       throw new Error('WORKFLOW_VERSION_IMMUTABLE');
-    }
-    this.#skills.set(key, skill);
+    this.#skills.set(key, deepFreeze(deepClone(skill)));
   }
 
   register(definition: WorkflowDefinition): RegisterResult {
@@ -61,7 +63,13 @@ export class WorkflowDefinitionRegistry {
     if (!parsed.success) return { ok: false, code: 'INVALID', detail: 'schema' };
 
     // Cross-reference validation (fail closed on unknown ids).
-    for (const step of definition.steps) {
+    for (const action of definition.allowedActionTypes)
+        if (!this.#deps.known.actionTypes.has(action))
+          return { ok: false, code: 'UNKNOWN_REFERENCE', detail: `action ${action}` };
+      for (const step of definition.steps) {
+        for (const action of step.actionTypes)
+          if (!definition.allowedActionTypes.includes(action))
+            return { ok: false, code: 'UNKNOWN_REFERENCE', detail: `action ${action} exceeds ceiling` };
       for (const action of step.actionTypes)
         if (!this.#deps.known.actionTypes.has(action))
           return { ok: false, code: 'UNKNOWN_REFERENCE', detail: `action ${action}` };
@@ -93,7 +101,7 @@ export class WorkflowDefinitionRegistry {
       };
     }
 
-    const activated = { ...definition, status: 'ACTIVE' } as WorkflowDefinition;
+    const activated = deepFreeze(deepClone({ ...definition, status: 'ACTIVE' })) as WorkflowDefinition;
     this.#definitions.set(key, activated);
     this.generation += 1;
     return { ok: true, definition: activated };
@@ -164,7 +172,18 @@ export function sha256(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
-function firstKey(keys: IterableIterator<string>, id: string): string | undefined {
+function deepClone<T>(value: T): T { return structuredClone(value); }
+  function deepFreeze<T>(value: T): T {
+    if (value !== null && typeof value === 'object') { Object.freeze(value); for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child); }
+    return value;
+  }
+  function stableStringify(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+    if (value !== null && typeof value === 'object') return `{${Object.keys(value as object).sort().map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`).join(',')}}`;
+    return JSON.stringify(value);
+  }
+
+  function firstKey(keys: IterableIterator<string>, id: string): string | undefined {
   for (const key of keys) if (key.startsWith(`${id}@`)) return key;
   return undefined;
 }
