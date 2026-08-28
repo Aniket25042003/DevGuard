@@ -155,6 +155,8 @@ export function parseResolvedCheckout(input: ResolvedCheckoutInput): ResolvedChe
   }
   if (!REMOTE_PATTERN.test(input.remoteFingerprint)) {
     issues.push({ path: 'remoteFingerprint', constraint: 'unexpected remote identity' });
+  } else if (input.remoteFingerprint !== `github.com/${input.canonicalOwner}/${input.canonicalName}`) {
+    issues.push({ path: 'remoteFingerprint', constraint: 'remote does not match canonical repository' });
   }
   if (!Number.isInteger(input.resolvedAtMs) || input.resolvedAtMs <= 0) {
     issues.push({ path: 'resolvedAtMs', constraint: 'expected a positive epoch millis timestamp' });
