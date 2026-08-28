@@ -272,7 +272,7 @@ export async function collectRepositoryMapEvidence(
   const ciDetector = new CiDescriptorCollector();
   const instructionCollector = new InstructionCandidateCollector();
   for (const path of retained) {
-    if (budget.isExhausted(nowMs).length > 0) {
+    if (budget.isExhausted(Date.now()).length > 0) {
       pathsTruncated = true;
       warnings.push('path budget exhausted during detection');
       break;
@@ -292,7 +292,7 @@ export async function collectRepositoryMapEvidence(
     kind: InstructionCandidateRecord['kind'];
   }> = [];
   for (const path of retained) {
-    if (budget.isExhausted(nowMs).length > 0) break;
+    if (budget.isExhausted(Date.now()).length > 0) break;
     const detected = instructionCollector.detect(path);
     if (detected !== undefined) {
       instructionCandidatesFound.push({ path, kind: detected.kind });
@@ -301,7 +301,7 @@ export async function collectRepositoryMapEvidence(
   // Fetch the top instruction candidates (bounded) and write checksummed artifacts.
   const chosen = instructionCandidatesFound.slice(0, MAX_INSTRUCTION_CANDIDATES);
   for (const candidate of chosen) {
-    if (budget.isExhausted(nowMs).length > 0) {
+    if (budget.isExhausted(Date.now()).length > 0) {
       bytesTruncated = true;
       warnings.push(`instruction candidate artifact skipped (${candidate.path})`);
       break;
@@ -323,10 +323,12 @@ export async function collectRepositoryMapEvidence(
       );
       continue;
     }
-    const content = read.value.content.slice(0, INSTRUCTION_FETCH_BYTES_CAP);
-    if (!budget.chargeBytes(content.length)) {
+    const content = Buffer.from(read.value.content).subarray(0, INSTRUCTION_FETCH_BYTES_CAP).toString('utf8');
+    if (!budget.chargeBytes(Buffer.byteLength(content, 'utf8'))) {
       bytesTruncated = true;
       warnings.push(`instruction candidate byte budget exceeded (${candidate.path})`);
+      instructionCandidates.push(instructionCollector.buildRecord(candidate.path, candidate.kind, undefined, `ref:${candidate.path}`));
+      continue;
     }
     const artifact: MapArtifactRef = await input.artifactStore.writeBlob(content);
     instructionCandidates.push(
