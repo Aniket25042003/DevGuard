@@ -114,7 +114,7 @@ export function classifyDirective(text: string): DirectiveClassification {
 
   if (anyMatch(input, SAFETY_PATTERNS))
     return { category: 'safety', grantsAuthority: false, overridesSafety: true };
-  if (anyMatch(input, SECRET_PATTERNS))
+  if (anyMatch(input, SECRET_PATTERNS.slice(1)) && !/\b(?:never|do not|don't)\s+(?:reveal|send|print|echo|share|upload|leak)\b/.test(input))
     return { category: 'secret', grantsAuthority: false, overridesSafety: true };
   if (anyMatch(input, TOOL_PATTERNS))
     return { category: 'tool', grantsAuthority: true, overridesSafety: false };
@@ -145,6 +145,7 @@ export function reasonCodeForCategory(
 ): RejectionReasonCode | undefined {
   switch (category) {
     case 'authority_grant':
+      return 'AUTHORITY_GRANT';
     case 'tool':
       return 'TOOL_AVAILABILITY';
     case 'approval':
