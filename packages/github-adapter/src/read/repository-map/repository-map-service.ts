@@ -153,8 +153,8 @@ export class RepositoryMapServiceGate implements RepositoryMapService {
           : {}),
         ...(operation.task.prNumber !== undefined ? { prNumber: operation.task.prNumber } : {}),
       },
-      nowMs: this.#clock.nowMs(),
       nowIso: this.#clock.nowIso(),
+      clockNowMs: this.#clock.nowMs,
       correlationId: operation.workflowRunId,
     });
 

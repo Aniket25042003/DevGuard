@@ -110,9 +110,10 @@ const CI_WORKFLOW_RULE = /^\.github\/workflows\/[^/]+\.(?:ya?ml)$/;
 export class ManifestDetector {
   detect(path: string): ManifestRecord | undefined {
     const basename = path.split('/').pop() ?? path;
-    void basename;
     for (const rule of MANIFEST_RULES) {
-      const matcherPath = rule.pathMatcher.source.startsWith('^') ? path : basename;
+      // Rules containing '/' are path-anchored (e.g. .github/workflows/*);
+      // bare-filename rules match any nesting depth (apps/web/package.json).
+      const matcherPath = rule.pathMatcher.source.includes('/') ? path : basename;
       if (rule.pathMatcher.test(matcherPath)) {
         return {
           path,

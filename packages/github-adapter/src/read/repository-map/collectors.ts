@@ -115,7 +115,12 @@ export interface CollectEvidenceInput {
     readonly issueNumber?: number | undefined;
     readonly prNumber?: number | undefined;
   };
-  readonly nowMs: number;
+  /**
+   * Deadline clock: called before each budget-exhaustion check so real elapsed
+   * wall-time drives the deadline in production, while tests inject a fixed
+   * (deterministic) clock. Never replaced by an un-injectable Date.now().
+   */
+  readonly clockNowMs: () => number;
   readonly nowIso: string;
   readonly correlationId: string;
 }
@@ -178,7 +183,7 @@ function roundTo(value: number): number {
 export async function collectRepositoryMapEvidence(
   input: CollectEvidenceInput,
 ): Promise<CollectedEvidence> {
-  const { provider, budget, nowMs, nowIso, headSha } = input;
+  const { provider, budget, nowIso, headSha } = input;
   const facts: MapFact[] = [];
   const warnings: string[] = [];
   let bytesTruncated = false;
@@ -231,7 +236,7 @@ export async function collectRepositoryMapEvidence(
       partial: true,
     };
   }
-  const tree = new TreeCollector().collect(treeResult.value.entries, budget, nowMs);
+  const tree = new TreeCollector().collect(treeResult.value.entries, budget, input.clockNowMs());
   const entries = treeResult.value.entries;
   const sizeByPath = new Map<string, number>();
   for (const entry of entries) {
@@ -272,7 +277,7 @@ export async function collectRepositoryMapEvidence(
   const ciDetector = new CiDescriptorCollector();
   const instructionCollector = new InstructionCandidateCollector();
   for (const path of retained) {
-    if (budget.isExhausted(Date.now()).length > 0) {
+    if (budget.isExhausted(input.clockNowMs()).length > 0) {
       pathsTruncated = true;
       warnings.push('path budget exhausted during detection');
       break;
@@ -292,7 +297,7 @@ export async function collectRepositoryMapEvidence(
     kind: InstructionCandidateRecord['kind'];
   }> = [];
   for (const path of retained) {
-    if (budget.isExhausted(Date.now()).length > 0) break;
+    if (budget.isExhausted(input.clockNowMs()).length > 0) break;
     const detected = instructionCollector.detect(path);
     if (detected !== undefined) {
       instructionCandidatesFound.push({ path, kind: detected.kind });
@@ -301,7 +306,7 @@ export async function collectRepositoryMapEvidence(
   // Fetch the top instruction candidates (bounded) and write checksummed artifacts.
   const chosen = instructionCandidatesFound.slice(0, MAX_INSTRUCTION_CANDIDATES);
   for (const candidate of chosen) {
-    if (budget.isExhausted(Date.now()).length > 0) {
+    if (budget.isExhausted(input.clockNowMs()).length > 0) {
       bytesTruncated = true;
       warnings.push(`instruction candidate artifact skipped (${candidate.path})`);
       break;
@@ -323,11 +328,20 @@ export async function collectRepositoryMapEvidence(
       );
       continue;
     }
-    const content = Buffer.from(read.value.content).subarray(0, INSTRUCTION_FETCH_BYTES_CAP).toString('utf8');
+    const content = Buffer.from(read.value.content)
+      .subarray(0, INSTRUCTION_FETCH_BYTES_CAP)
+      .toString('utf8');
     if (!budget.chargeBytes(Buffer.byteLength(content, 'utf8'))) {
       bytesTruncated = true;
       warnings.push(`instruction candidate byte budget exceeded (${candidate.path})`);
-      instructionCandidates.push(instructionCollector.buildRecord(candidate.path, candidate.kind, undefined, `ref:${candidate.path}`));
+      instructionCandidates.push(
+        instructionCollector.buildRecord(
+          candidate.path,
+          candidate.kind,
+          undefined,
+          `ref:${candidate.path}`,
+        ),
+      );
       continue;
     }
     const artifact: MapArtifactRef = await input.artifactStore.writeBlob(content);
@@ -379,7 +393,7 @@ export async function collectRepositoryMapEvidence(
     retained.map((path) => ({ path, terms: input.task.terms })),
     input.task.terms,
     budget,
-    nowMs,
+    input.clockNowMs(),
   );
   const targetedPaths = ranking.targetedPaths.slice(0, MAX_TARGETED_PATHS);
 
