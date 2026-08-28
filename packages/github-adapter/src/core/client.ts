@@ -111,7 +111,15 @@ export class GitHubBaseClient {
     authorizedActionContext?: AuthorizedActionContext,
   ): Promise<GitHubResult<O>> {
     // Writes REQUIRE an unforgeable authorized context from the action gateway.
-    if (operation.safety === 'write' && !authorizedActionContext) {
+    // HMAC digest must be valid and bound to this exact operation/input.
+    if (
+      operation.safety === 'write' &&
+      (!authorizedActionContext ||
+        !/^[0-9a-f]{64}$/.test(authorizedActionContext.digest) ||
+        ctx.authorizationContext?.digest !== authorizedActionContext.digest ||
+        authorizedActionContext.operationKey !== operation.operationId ||
+        ctx.operationId !== operation.operationId)
+    ) {
       return {
         ok: false,
         error: {
@@ -122,7 +130,37 @@ export class GitHubBaseClient {
       };
     }
 
-    const path = buildPath(operation.pathTemplate, validatedInput as Record<string, unknown>);
+    // Finding 2: validate input through the descriptor's schema.
+    let checkedInput: I;
+    try {
+      checkedInput = operation.inputSchema.parse(validatedInput);
+    } catch (error) {
+      return {
+        ok: false,
+        error: {
+          kind: 'VALIDATION' as const,
+          operationId: operation.operationId,
+          message: `input schema validation failed: ${String((error as Error)?.message ?? error)}`,
+        },
+      };
+    }
+
+    const rawPath = buildPath(operation.pathTemplate, checkedInput as Record<string, unknown>);
+    // Finding 1 (PR25): remaining GET fields become query string (commit_sha→ref, etc.)
+    const pathPlaceholders = new Set(
+      [...operation.pathTemplate.matchAll(/\{(\w+)\}/g)].map((m) => m[1]),
+    );
+    const queryEntries = Object.entries(checkedInput as Record<string, unknown>).filter(
+      ([key, value]) => !pathPlaceholders.has(key) && value !== undefined && value !== null,
+    );
+    // Map commit_sha → ref for GitHub Contents API
+    const mappedEntries = queryEntries.map(([key, value]) =>
+      key === 'commit_sha' ? (['ref', value] as const) : ([key, value] as const),
+    );
+    const path =
+      mappedEntries.length > 0
+        ? `${rawPath}?${mappedEntries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join('&')}`
+        : rawPath;
     const headers: Record<string, string> = {
       accept: 'application/vnd.github+json',
       authorization: `Bearer ${token.expose()}`,
@@ -133,17 +171,31 @@ export class GitHubBaseClient {
 
     const body =
       operation.method !== 'GET' && operation.method !== 'DELETE'
-        ? JSON.stringify(validatedInput)
+        ? JSON.stringify(checkedInput)
         : undefined;
 
-    const raw = await this.options.transport.request({
-      method: operation.method,
-      path,
-      headers,
-      ...(body !== undefined ? { body } : {}),
-      timeoutMs: ctx.deadlineMs ?? DEFAULT_TIMEOUT_MS,
-      host: ALLOWED_HOST,
-    });
+    let raw: RawTransportResponse;
+    try {
+      raw = await this.options.transport.request({
+        method: operation.method,
+        path,
+        headers,
+        ...(body !== undefined ? { body } : {}),
+        timeoutMs: ctx.deadlineMs ?? DEFAULT_TIMEOUT_MS,
+        host: ALLOWED_HOST,
+      });
+    } catch (error) {
+      const isTimeout =
+        error instanceof Error && (error.name === 'AbortError' || error.message.includes('abort'));
+      return {
+        ok: false,
+        error: {
+          kind: isTimeout ? 'TIMEOUT' : 'SERVER_ERROR',
+          operationId: operation.operationId,
+          message: `transport error: ${String((error as Error)?.message ?? error)}`,
+        },
+      };
+    }
 
     const meta: GitHubResponseMeta = {
       ...(raw.headers['x-github-request-id']
@@ -178,7 +230,20 @@ export class GitHubBaseClient {
     }
 
     if (raw.status === 204 || raw.bodyText === undefined || raw.bodyText === '') {
-      return { ok: true, value: undefined as O, meta };
+      try {
+        operation.outputSchema.parse(undefined);
+        return { ok: true, value: undefined as O, meta };
+      } catch {
+        return {
+          ok: false,
+          error: {
+            kind: 'SCHEMA_MISMATCH',
+            operationId: operation.operationId,
+            message: `empty response for ${operation.operationId} but outputSchema requires a value`,
+            ...(meta.githubRequestId ? { githubRequestId: meta.githubRequestId } : {}),
+          },
+        };
+      }
     }
 
     try {

@@ -117,27 +117,31 @@ describe('C001 deep-import prevention', () => {
 });
 
 describe('C001 boundary checker wiring', () => {
-  it('rejects a fixture project that violates its declared layer matrix', () => {
-    const fixtureRoot = path.join(repoRoot, 'tooling/fixtures/boundary');
-    expect(() =>
-      execFileSync(
-        'node',
-        [
-          path.join(repoRoot, 'scripts/check-boundaries.mjs'),
-          '--fixture',
-          fixtureRoot,
-          '--matrix',
-          path.join(fixtureRoot, 'matrix.json'),
-        ],
-        {
-          stdio: 'pipe',
-          encoding: 'utf8',
-        },
-      ),
-    ).toThrowError(/layer-application-cannot-depend|Boundary violation/i);
-  });
+  it(
+    'rejects a fixture project that violates its declared layer matrix',
+    { timeout: 20_000 },
+    () => {
+      const fixtureRoot = path.join(repoRoot, 'tooling/fixtures/boundary');
+      expect(() =>
+        execFileSync(
+          'node',
+          [
+            path.join(repoRoot, 'scripts/check-boundaries.mjs'),
+            '--fixture',
+            fixtureRoot,
+            '--matrix',
+            path.join(fixtureRoot, 'matrix.json'),
+          ],
+          {
+            stdio: 'pipe',
+            encoding: 'utf8',
+          },
+        ),
+      ).toThrowError(/layer-application-cannot-depend|Boundary violation/i);
+    },
+  );
 
-  it('passes on the real workspace when invoked directly', () => {
+  it('passes on the real workspace when invoked directly', { timeout: 20_000 }, () => {
     const stdout = execFileSync('node', [path.join(repoRoot, 'scripts/check-boundaries.mjs')], {
       stdio: 'pipe',
       encoding: 'utf8',

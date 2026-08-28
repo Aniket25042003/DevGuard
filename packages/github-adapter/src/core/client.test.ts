@@ -18,10 +18,14 @@ const NOW = 1_700_000_000_000;
 const TOKEN = secretFrom('ghs_testtoken');
 const AUTH = {
   decisionId: 'dec-1',
-  operationKey: 'op-1',
+  operationKey: 'test.op',
   actionFingerprint: 'a'.repeat(64),
   digest: 'd'.repeat(64),
 };
+
+function writeCtx(): GitHubRequestContext {
+  return ctx({ authorizationContext: { digest: 'd'.repeat(64) } });
+}
 
 function makeOperation(overrides: Partial<GitHubOperation> = {}): GitHubOperation {
   return {
@@ -119,7 +123,7 @@ describe('GitHubBaseClient (C018 §22)', () => {
     const result = await client.execute(
       makeOperation({ safety: 'write', method: 'POST', successStatuses: [201] }),
       { owner: 'o', repo: 'r', issue_number: 1 },
-      ctx(),
+      writeCtx(),
       TOKEN,
       AUTH,
     );
@@ -253,20 +257,117 @@ describe('GitHubBaseClient (C018 §22)', () => {
     expect(captured[0]?.path).not.toContain('?x=1');
   });
 
-  it('missing path parameter throws rather than silently building a bad URL', async () => {
+  it('missing path parameter returns VALIDATION error via input schema (not silent)', async () => {
     const client = new GitHubBaseClient({
       transport: transportReturning({}),
       apiVersion: 'x',
       nowMs: () => NOW,
     });
-    await expect(
-      client.execute(
-        makeOperation(),
-        { owner: 'o', repo: 'r', issue_number: undefined } as never,
-        ctx(),
-        TOKEN,
-      ),
-    ).rejects.toThrow(/missing path parameter/);
+    const result = await client.execute(
+      makeOperation(),
+      { owner: 'o', repo: 'r', issue_number: undefined } as never,
+      ctx(),
+      TOKEN,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('VALIDATION');
+  });
+
+  it('transport network errors return typed SERVER_ERROR result (not raw throw)', async () => {
+    const client = new GitHubBaseClient({
+      transport: {
+        request: async () => {
+          throw new Error('ECONNREFUSED');
+        },
+      },
+      apiVersion: 'x',
+      nowMs: () => NOW,
+    });
+    const result = await client.execute(
+      makeOperation(),
+      { owner: 'o', repo: 'r', issue_number: 1 },
+      ctx(),
+      TOKEN,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('SERVER_ERROR');
+  });
+
+  it('transport abort returns typed TIMEOUT result', async () => {
+    const abortError = Object.assign(new Error('This operation was aborted'), {
+      name: 'AbortError',
+    });
+    const client = new GitHubBaseClient({
+      transport: {
+        request: async () => {
+          throw abortError;
+        },
+      },
+      apiVersion: 'x',
+      nowMs: () => NOW,
+    });
+    const result = await client.execute(
+      makeOperation(),
+      { owner: 'o', repo: 'r', issue_number: 1 },
+      ctx(),
+      TOKEN,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('TIMEOUT');
+  });
+
+  it('input schema validation rejects malformed input before transport', async () => {
+    const client = new GitHubBaseClient({
+      transport: transportReturning({}),
+      apiVersion: 'x',
+      nowMs: () => NOW,
+    });
+    const result = await client.execute(
+      makeOperation(),
+      { owner: 123, repo: 'r', issue_number: 1 } as never,
+      ctx(),
+      TOKEN,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('VALIDATION');
+  });
+
+  it('write with short digest (not 64-hex) fails closed', async () => {
+    const client = new GitHubBaseClient({
+      transport: transportReturning({}),
+      apiVersion: 'x',
+      nowMs: () => NOW,
+    });
+    const result = await client.execute(
+      makeOperation({ safety: 'write', method: 'POST', successStatuses: [201] }),
+      { owner: 'o', repo: 'r', issue_number: 1 },
+      writeCtx(),
+      TOKEN,
+      {
+        decisionId: 'dec-1',
+        operationKey: 'test.op',
+        actionFingerprint: 'a'.repeat(64),
+        digest: 'short-digest',
+      },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('UNAUTHORIZED_WRITE');
+  });
+
+  it('empty body with non-undefined outputSchema fails closed (SCHEMA_MISMATCH)', async () => {
+    const client = new GitHubBaseClient({
+      transport: transportReturning({ status: 200, bodyText: '' }),
+      apiVersion: 'x',
+      nowMs: () => NOW,
+    });
+    const result = await client.execute(
+      makeOperation(),
+      { owner: 'o', repo: 'r', issue_number: 1 },
+      ctx(),
+      TOKEN,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.kind).toBe('SCHEMA_MISMATCH');
   });
 });
 
