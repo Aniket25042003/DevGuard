@@ -41,7 +41,8 @@ export class InMemoryAuditWriter implements AuditWriter {
   async append(input: NewAuditRecord): Promise<AuditRecord> {
     const id = `aud:${sha256(input.correlationId + String(this.records.length)).slice(0, 16)}`;
     const now = new Date().toISOString();
-    this.lastHash = this.lastHash;
+    // append stages a PREPARED record chained to the last COMMITTED hash; the
+    // confirmed chain only advances when the record is committed below.
     const record: AuditRecord = {
       ...input,
       id,
@@ -212,10 +213,11 @@ export class InMemoryDiagnosticService implements DiagnosticServicePort {
     return diagnostic;
   }
   async acknowledge(fingerprint: string): Promise<void> {
-      const existing = this.diagnostics.get(fingerprint);
-      if (existing !== undefined) this.diagnostics.set(fingerprint, { ...existing, status: 'ACKNOWLEDGED' });
-    }
-    async resolve(fingerprint: string): Promise<void> {
+    const existing = this.diagnostics.get(fingerprint);
+    if (existing !== undefined)
+      this.diagnostics.set(fingerprint, { ...existing, status: 'ACKNOWLEDGED' });
+  }
+  async resolve(fingerprint: string): Promise<void> {
     const existing = this.diagnostics.get(fingerprint);
     if (existing !== undefined)
       this.diagnostics.set(fingerprint, { ...existing, status: 'RESOLVED' });

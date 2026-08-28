@@ -120,14 +120,19 @@ export class InMemoryActionLedger implements ActionLedgerPort {
 
   async transition(input: ActionTransition): Promise<ActionLedgerEntry> {
     const existing = this.entries.get(input.actionId);
-      if (existing === undefined) throw new Error('ACTION_UNKNOWN');
-      if (existing.fingerprint !== input.fingerprint) throw new Error('ACTION_FINGERPRINT_MISMATCH');
+    if (existing === undefined) throw new Error('ACTION_UNKNOWN');
+    if (existing.fingerprint !== input.fingerprint) throw new Error('ACTION_FINGERPRINT_MISMATCH');
     const entry: ActionLedgerEntry = {
       actionId: input.actionId,
       fingerprint: input.fingerprint,
-      status: input.verification?.status === 'mismatch' || input.result?.status === 'failed' || input.result?.status === 'error'
+      status:
+        input.verification?.status === 'mismatch' ||
+        input.result?.status === 'failed' ||
+        input.result?.status === 'error'
           ? 'failed'
-          : input.result !== undefined || input.verification?.status === 'verified' ? 'resolved' : existing.status,
+          : input.result !== undefined || input.verification?.status === 'verified'
+            ? 'resolved'
+            : existing.status,
       result: input.result,
       verification: input.verification,
     };
