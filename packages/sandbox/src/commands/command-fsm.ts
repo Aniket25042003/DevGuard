@@ -69,7 +69,7 @@ const EDGES: Readonly<Record<CommandTrigger, ReadonlyArray<[CommandState, Comman
   ],
   reconcile: [['UNKNOWN', 'RECONCILING']],
   quarantine: [['RECONCILING', 'QUARANTINED']],
-  resolved: [['RECONCILING', 'SUCCEEDED']],
+  resolved: [['RECONCILING', 'SUCCEEDED'], ['RECONCILING', 'FAILED']],
 };
 
 export function resolveCommandEdge(from: CommandState, trigger: CommandTrigger): CommandVerdict {
