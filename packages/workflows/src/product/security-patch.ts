@@ -11,6 +11,24 @@
 export const SECURITY_PATCH_DEFINITION_ID = 'security_patch';
 export const SECURITY_PATCH_DEFINITION_VERSION = '1.0.0';
 
+export type SecurityPatchOutcome =
+  | 'fixed'
+  | 'not_fixed'
+  | 'inconclusive'
+  | 'superseded'
+  | 'blocked';
+
+/** Explicit terminal mapping; runtime adapters must not collapse these to failure. */
+export const SECURITY_PATCH_OUTCOME_BY_CONDITION = Object.freeze({
+  ineligible: 'blocked',
+  scan_inadequate: 'inconclusive',
+  finding_present: 'not_fixed',
+  regression_failed: 'inconclusive',
+  finding_absent: 'fixed',
+  finding_superseded: 'superseded',
+  publication_blocked: 'blocked',
+} as const satisfies Readonly<Record<string, SecurityPatchOutcome>>);
+
 export interface PatchStep {
   readonly id: string;
   readonly kind: 'turn' | 'validator' | 'command' | 'published';
@@ -19,7 +37,21 @@ export interface PatchStep {
   readonly maxWallMillis: number;
   readonly failureBehavior: 'fail_run' | 'stop' | 'repair_turn';
   readonly validatorIds: readonly string[];
+  readonly terminalOutcomes?: readonly SecurityPatchOutcome[];
 }
+
+export interface SecurityPatchCompletion {
+  readonly outcome: SecurityPatchOutcome;
+  readonly status: 'success' | 'partial' | 'blocked' | 'failed';
+}
+
+export function toSecurityPatchCompletion(outcome: SecurityPatchOutcome): SecurityPatchCompletion {
+  return {
+    outcome,
+    status: outcome === 'fixed' || outcome === 'superseded' ? 'success' : outcome === 'blocked' ? 'blocked' : 'partial',
+  };
+}
+
 
 export const SECURITY_PATCH_STEPS: readonly PatchStep[] = [
   {
@@ -30,11 +62,12 @@ export const SECURITY_PATCH_STEPS: readonly PatchStep[] = [
     maxWallMillis: 60_000,
     failureBehavior: 'fail_run',
     validatorIds: ['v_finding_eligibility'],
+    terminalOutcomes: ['blocked'],
   },
   {
     id: 'context',
     kind: 'turn',
-    actionTypes: ['action:repo_map'],
+    actionTypes: ['repository_read'],
     maxRetries: 1,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
@@ -43,7 +76,7 @@ export const SECURITY_PATCH_STEPS: readonly PatchStep[] = [
   {
     id: 'patch_plan',
     kind: 'turn',
-    actionTypes: ['action:plan'],
+    actionTypes: ['repository_read'],
     maxRetries: 1,
     maxWallMillis: 120_000,
     failureBehavior: 'stop',
@@ -52,7 +85,7 @@ export const SECURITY_PATCH_STEPS: readonly PatchStep[] = [
   {
     id: 'branch',
     kind: 'command',
-    actionTypes: ['action:create_branch'],
+    actionTypes: ['branch_create'],
     maxRetries: 2,
     maxWallMillis: 60_000,
     failureBehavior: 'fail_run',
@@ -61,7 +94,7 @@ export const SECURITY_PATCH_STEPS: readonly PatchStep[] = [
   {
     id: 'patch',
     kind: 'turn',
-    actionTypes: ['action:edit_patch'],
+    actionTypes: ['workspace_apply_patch'],
     maxRetries: 2,
     maxWallMillis: 600_000,
     failureBehavior: 'repair_turn',
@@ -70,7 +103,7 @@ export const SECURITY_PATCH_STEPS: readonly PatchStep[] = [
   {
     id: 'targeted_sec_regression',
     kind: 'command',
-    actionTypes: ['action:sandbox_scan'],
+    actionTypes: ['sandbox_run_security_scan'],
     maxRetries: 2,
     maxWallMillis: 600_000,
     failureBehavior: 'repair_turn',
@@ -79,7 +112,7 @@ export const SECURITY_PATCH_STEPS: readonly PatchStep[] = [
   {
     id: 'functional_regressions',
     kind: 'command',
-    actionTypes: ['action:sandbox_test'],
+    actionTypes: ['sandbox_run_test'],
     maxRetries: 2,
     maxWallMillis: 900_000,
     failureBehavior: 'fail_run',
@@ -88,7 +121,7 @@ export const SECURITY_PATCH_STEPS: readonly PatchStep[] = [
   {
     id: 'comparable_rescan',
     kind: 'command',
-    actionTypes: ['action:sandbox_scan'],
+    actionTypes: ['sandbox_run_security_scan'],
     maxRetries: 1,
     maxWallMillis: 900_000,
     failureBehavior: 'fail_run',
@@ -100,13 +133,14 @@ export const SECURITY_PATCH_STEPS: readonly PatchStep[] = [
     actionTypes: [],
     maxRetries: 1,
     maxWallMillis: 60_000,
-    failureBehavior: 'fail_run',
+    failureBehavior: 'stop',
     validatorIds: ['v_finding_absent'],
+    terminalOutcomes: ['fixed', 'not_fixed', 'superseded', 'inconclusive'],
   },
   {
     id: 'push_evidence',
     kind: 'published',
-    actionTypes: ['action:commit', 'action:push_branch', 'action:create_pr'],
+    actionTypes: ['commit_create', 'branch_push', 'pull_request_create'],
     maxRetries: 2,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
@@ -115,15 +149,14 @@ export const SECURITY_PATCH_STEPS: readonly PatchStep[] = [
 ];
 
 export const SECURITY_PATCH_ALLOWED_ACTIONS: readonly string[] = [
-  'action:repo_map',
-  'action:plan',
-  'action:create_branch',
-  'action:edit_patch',
-  'action:sandbox_scan',
-  'action:sandbox_test',
-  'action:commit',
-  'action:push_branch',
-  'action:create_pr',
+  'repository_read',
+  'workspace_apply_patch',
+  'sandbox_run_security_scan',
+  'sandbox_run_test',
+  'branch_create',
+  'commit_create',
+  'branch_push',
+  'pull_request_create',
 ];
 
 export type DefinitionValidation =

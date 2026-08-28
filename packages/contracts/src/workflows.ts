@@ -111,8 +111,17 @@ export const workflowRun: z.ZodType<WorkflowRunShape> = z
   .strip();
 
 /** Structured completion evidence — model "done" is never sufficient (WF-10). */
+export type WorkflowProductOutcome =
+  | 'fixed'
+  | 'not_fixed'
+  | 'inconclusive'
+  | 'superseded'
+  | 'blocked';
+
 export interface WorkflowCompletionShape {
   readonly status: 'success' | 'partial' | 'blocked' | 'failed';
+  /** Product-specific terminal result preserved by the completion adapter. */
+  readonly outcome?: WorkflowProductOutcome | undefined;
   readonly summary: string;
   readonly artifactIds: readonly string[];
   readonly validations: readonly ValidationResultShape[];
@@ -123,6 +132,7 @@ export interface WorkflowCompletionShape {
 export const workflowCompletion: z.ZodType<WorkflowCompletionShape> = z
   .object({
     status: z.enum(['success', 'partial', 'blocked', 'failed']),
+    outcome: z.enum(['fixed', 'not_fixed', 'inconclusive', 'superseded', 'blocked']).optional(),
     summary: z.string().min(1).max(4_000),
     artifactIds: z.array(schemas.artifactId).max(256),
     validations: z.array(z.lazy(() => validationResult)).max(256),
