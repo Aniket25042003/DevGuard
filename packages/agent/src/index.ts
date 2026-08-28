@@ -159,3 +159,116 @@ export type {
 
 export { createStartupPreflight, detectDigestDrift, observedDigestFor } from './preflight.js';
 export type { StartupPreflightDeps, PreflightResult, StartupPreflight } from './preflight.js';
+
+// ---- C039 MCP policy gateway ----
+export {
+  POLICY_GATEWAY_SCHEMA_VERSION,
+  TOOL_INTENT_STATUSES,
+  TOOL_POLICY_RESULTS,
+  checkpointLinkSchema,
+  policyGatewayContractsSchema,
+  toolCallIntentSchema,
+  toolProposalSchema,
+  type AuthorizedToolExecutionGrant,
+  type CheckpointLink,
+  type ToolCallIntent,
+  type ToolIntentStatus,
+  type ToolPolicyResult,
+  type ToolProfileEntry,
+  type ToolProposal,
+} from './policy-gateway/contracts.js';
+export {
+  ToolProfileRegistry,
+  digestOf,
+  type ToolProfileLookup,
+} from './policy-gateway/tool-profiles.js';
+export {
+  normalizeToolArguments,
+  toolProfileEntrySchema,
+  argumentFieldSchema,
+  type ArgumentValidationResult,
+} from './policy-gateway/argument-normalizer.js';
+export {
+  InMemoryToolIntentStore,
+  type ToolIntentStorePort,
+} from './policy-gateway/intent-store.js';
+export {
+  McpPolicyGateway,
+  AllowReadOnlyPolicyPort,
+  type PolicyDecisionPort,
+  type PolicyGatewayDeps,
+  type PolicyGatewayEvent,
+  type PolicyGatewayEventSinkPort,
+  type ToolDisposition,
+} from './policy-gateway/mcp-policy-gateway.js';
+// ---- C037/C038/C040 Agent session/turn/context layer ----
+export {
+  AGENT_BATCH_SCHEMA_VERSION,
+  AGENT_SESSION_STATUSES,
+  AGENT_SESSION_TERMINAL,
+  AGENT_TURN_STATUSES,
+  AGENT_TURN_TERMINAL,
+  TURN_PURPOSES,
+  TURN_EVENT_TYPES,
+  agentContractsSchema,
+  agentContextSnapshotRefSchema,
+  agentSessionSchema,
+  agentTurnSchema,
+  ensureAgentSessionSchema,
+  observeAgentTurnSchema,
+  reconcileAgentSessionSchema,
+  submitAgentTurnSchema,
+  turnEventSchema,
+  type AgentContextSnapshotRef,
+  type AgentSession,
+  type AgentTurn,
+  type AgentTurnRef,
+  type AgentTurnStatus,
+  type EnsureAgentSession,
+  type SubmitAgentTurn,
+  type SubmitSubAgentTurn,
+  type TurnEvent,
+  type TurnEventType,
+  type TurnPurpose,
+} from './sessions/contracts.js';
+export {
+  resolveSessionEdge,
+  resolveTurnEdge,
+  isTerminalSession,
+  isTerminalTurn,
+  type SessionTrigger,
+  type SessionVerdict,
+  type TurnTrigger,
+  type TurnVerdict,
+} from './sessions/fsm.js';
+export {
+  AgentSessionService,
+  type AgentEvent,
+  type AgentEventSinkPort,
+  type AgentSessionServiceDeps,
+} from './sessions/agent-session-service.js';
+export {
+  InMemoryAgentRuntimePort,
+  type AgentRuntimePort,
+  type AgentRuntimeResult,
+} from './sessions/agent-runtime-port.js';
+export {
+  InMemorySessionStore,
+  InMemoryTurnStore,
+  sessionIdForCommand,
+  sha256Hex,
+  type SessionStorePort,
+  type TurnStorePort,
+} from './sessions/repos.js';
+export {
+  TurnEventNormalizer,
+  type RawTurnEvent,
+  type EventNormalizationResult,
+} from './sessions/event-normalizer.js';
+export {
+  buildContext,
+  nextCancellationGeneration,
+  submitSubAgentTurns,
+  SUB_AGENT_MAX,
+  type BuiltContext,
+} from './sessions/context-cancellation.js';
