@@ -7,6 +7,44 @@ import { createTransportKernel, type AppEnv, type RouteMetadata } from './transp
 import { InMemoryRateLimiter } from './transport/rate-limit.js';
 import { enforceCsrfAndOrigin } from './transport/security.js';
 import { registerAuthRoutes } from './routes/auth.routes.js';
+import { registerHealthRoutes } from './routes/health.routes.js';
+import {
+  registerRepositoryRoutes,
+  registerWebhookRoutes,
+  verifyGithubHmac,
+  type RepositoryCatalogPort,
+  type WebhookAcceptancePort,
+} from './routes/github.routes.js';
+
+/** Volatile webhook acceptance until C022 ingress wiring lands. */
+class VolatileWebhookAcceptance implements WebhookAcceptancePort {
+  readonly claimed = new Map<string, number>();
+  private readonly replayWindowMs = 5 * 60 * 1000;
+  async accept(input: {
+    deliveryId: string;
+    event: string;
+    payloadJson: string;
+    headers: { signature: string };
+  }): Promise<{ accepted: boolean; replay?: boolean }> {
+    void input.event;
+    void input.payloadJson;
+    void input.headers;
+    const now = Date.now();
+    for (const [deliveryId, claimedAt] of this.claimed) {
+      if (now - claimedAt >= this.replayWindowMs) this.claimed.delete(deliveryId);
+    }
+    const replay = this.claimed.has(input.deliveryId);
+    this.claimed.set(input.deliveryId, now);
+    return { accepted: true, replay };
+  }
+}
+
+/** No durable repo linkage yet (C009/C014/C018): truthful empty catalog. */
+const VolatileRepositoryCatalog: RepositoryCatalogPort = {
+  async listFor(_userId: string) {
+    return [];
+  },
+};
 
 export interface AssembledApi {
   readonly app: Hono<AppEnv>;
@@ -33,6 +71,22 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   });
 
   registerAuthRoutes(kernel, container);
+
+  // C074 health, C065 repository catalog, C075 GitHub webhook acceptance.
+  registerHealthRoutes(kernel, [
+    {
+      name: 'kernel',
+      critical: true,
+      check: async () => ({ ok: true }),
+    },
+  ]);
+  registerWebhookRoutes(
+    kernel,
+    new VolatileWebhookAcceptance(),
+    () => container.webhookSecret,
+    verifyGithubHmac,
+  );
+  registerRepositoryRoutes(kernel, VolatileRepositoryCatalog);
 
   return { app: kernel.app, routeMetadata: kernel.routeMetadata };
 }
