@@ -162,6 +162,7 @@ export type {
 export {
   apiTokenCreateRequestSchema,
   apiTokenCreateResponseSchema,
+  apiTokenIdSchema,
   apiTokenListResponseSchema,
   apiTokenSummarySchema,
 } from './tokens.js';
