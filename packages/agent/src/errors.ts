@@ -88,6 +88,31 @@ registerError({
   detailSchema: detailSchema(['reason']),
 });
 
+// ---- C039 MCP policy gateway error codes ----
+registerError({
+  code: 'TOOL_CALL_NOT_FOUND',
+  category: 'domain',
+  httpStatus: 404,
+  retryClass: 'no_retry',
+  safeMessage: 'The tool-call intent does not exist.',
+  detailSchema: detailSchema([]),
+});
+registerError({
+  code: 'TOOL_ACTION_MISMATCH',
+  category: 'security',
+  httpStatus: 422,
+  retryClass: 'no_retry',
+  safeMessage: 'The authorized action does not match the tool-call intent.',
+  detailSchema: detailSchema([]),
+});
+registerError({
+  code: 'AUTHORIZED_GRANT_REQUIRED',
+  category: 'security',
+  httpStatus: 403,
+  retryClass: 'no_retry',
+  safeMessage: 'Authorized execution requires an explicit approved grant.',
+  detailSchema: detailSchema([]),
+});
 // ---- C037/C038 session/turn lifecycle error codes ----
 registerError({
   code: 'SESSION_NOT_FOUND',

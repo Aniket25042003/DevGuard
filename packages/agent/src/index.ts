@@ -160,6 +160,47 @@ export type {
 export { createStartupPreflight, detectDigestDrift, observedDigestFor } from './preflight.js';
 export type { StartupPreflightDeps, PreflightResult, StartupPreflight } from './preflight.js';
 
+// ---- C039 MCP policy gateway ----
+export {
+  POLICY_GATEWAY_SCHEMA_VERSION,
+  TOOL_INTENT_STATUSES,
+  TOOL_POLICY_RESULTS,
+  checkpointLinkSchema,
+  policyGatewayContractsSchema,
+  toolCallIntentSchema,
+  toolProposalSchema,
+  type AuthorizedToolExecutionGrant,
+  type CheckpointLink,
+  type ToolCallIntent,
+  type ToolIntentStatus,
+  type ToolPolicyResult,
+  type ToolProfileEntry,
+  type ToolProposal,
+} from './policy-gateway/contracts.js';
+export {
+  ToolProfileRegistry,
+  digestOf,
+  type ToolProfileLookup,
+} from './policy-gateway/tool-profiles.js';
+export {
+  normalizeToolArguments,
+  toolProfileEntrySchema,
+  argumentFieldSchema,
+  type ArgumentValidationResult,
+} from './policy-gateway/argument-normalizer.js';
+export {
+  InMemoryToolIntentStore,
+  type ToolIntentStorePort,
+} from './policy-gateway/intent-store.js';
+export {
+  McpPolicyGateway,
+  AllowReadOnlyPolicyPort,
+  type PolicyDecisionPort,
+  type PolicyGatewayDeps,
+  type PolicyGatewayEvent,
+  type PolicyGatewayEventSinkPort,
+  type ToolDisposition,
+} from './policy-gateway/mcp-policy-gateway.js';
 // ---- C037/C038/C040 Agent session/turn/context layer ----
 export {
   AGENT_BATCH_SCHEMA_VERSION,
