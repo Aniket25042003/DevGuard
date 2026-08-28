@@ -11,6 +11,7 @@ import { WorkflowRunStore } from '@devguard/db';
 import {
   ApprovalResumeService,
   type ApprovalStorePort,
+  WebhookProcessingService,
   type JobEnvelope,
   type JobHandler,
   type JobRegistry,
@@ -58,7 +59,6 @@ export function registerWorkflowExecute(registry: JobRegistry, runStore: RunTran
 /** Register the remaining job types as fail-closed until their owners land. */
 export function registerFailClosedHandlers(registry: JobRegistry): void {
   const closed: Array<[JobTypeV1, string]> = [
-    ['webhook.process', 'webhook_processor_unavailable_until_cp011'],
     ['outbox.publish', 'outbox_publish_unavailable_until_cp008'],
     ['sandbox.monitor', 'sandbox_monitor_unavailable_until_cp013'],
     ['cleanup.retention', 'cleanup_unavailable_until_cp012'],
@@ -74,6 +74,46 @@ export function fail(errorCode: string): {
   errorCode: string;
 } {
   return { outcome: 'PERMANENT_FAILURE', errorCode };
+}
+
+/**
+ * CP011 — wire `webhook.process` to the C058 delivery service.
+ * The delivery ledger is durable (`PostgresWebhookDeliveryStore` when a pool is
+ * bound). No manual triggers are configured yet, so non-mention events route to
+ * IGNORED; `issue_comment` mention parsing is CP019 (out of scope here).
+ */
+export function registerWebhookProcess(
+  registry: JobRegistry,
+  store: {
+    state(deliveryId: string): Promise<string | undefined>;
+    claim(deliveryId: string): Promise<{ ok: true; state: string } | { ok: false }>;
+    transition(deliveryId: string, from: string, to: string): Promise<string>;
+  },
+): void {
+  const service = new WebhookProcessingService({
+    store: store as never,
+    router: { route: async () => ({ matched: false, triggerKeys: [] }) },
+    creator: { createRuns: async () => ({ runIds: [] }) },
+  });
+  registry.register('webhook.process', 1, async (envelope: JobEnvelope) => {
+    const p = envelope.payload as {
+      deliveryId?: string;
+      repositoryId?: string;
+      payloadRef?: string;
+      event?: string;
+    };
+    if (p.deliveryId === undefined) return fail('webhook_job_missing_delivery');
+    const outcome = await service.process({
+      payload: {
+        deliveryId: p.deliveryId,
+        repositoryId: p.repositoryId ?? '',
+        payloadRef: p.payloadRef ?? p.event ?? 'ping',
+      },
+    } as never);
+    return outcome.ok
+      ? { outcome: 'SUCCEEDED', detail: outcome.nextRun ?? 'routed' }
+      : { outcome: 'RETRYABLE_FAILURE', errorCode: 'WEBHOOK_PROCESS_FAILED', detail: outcome.detail };
+  });
 }
 
 /**

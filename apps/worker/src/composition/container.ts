@@ -22,6 +22,7 @@ import type { WorkerConfigSnapshot } from '@devguard/config';
 import { configurationInvalid } from '@devguard/errors';
 import {
   CancellationFence,
+  InMemoryDeliveryStore,
   InMemoryTransport,
   JobRegistry,
   QUEUE_NAMES,
@@ -29,11 +30,12 @@ import {
   WorkerRuntime,
   type QueueTransport,
 } from '@devguard/queue';
-import { createPool, type DevGuardPool } from '@devguard/db';
+import { createPool, PostgresWebhookDeliveryStore, type DevGuardPool } from '@devguard/db';
 import {
   durableRunTransitions,
   registerApprovalResume,
   registerFailClosedHandlers,
+  registerWebhookProcess,
   registerWorkflowExecute,
   volatileRunTransitions,
 } from './handlers.js';
@@ -109,6 +111,10 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
   registerWorkflowExecute(
     registry,
     pool !== undefined ? durableRunTransitions(pool) : volatileRunTransitions(),
+  );
+  registerWebhookProcess(
+    registry,
+    pool !== undefined ? new PostgresWebhookDeliveryStore(pool) : new InMemoryDeliveryStore(),
   );
   registerApprovalResume(registry);
   registerFailClosedHandlers(registry);

@@ -1,9 +1,10 @@
 /** CP008 — worker handlers: workflow.execute transitions runs; others fail closed. */
 import { describe, expect, it } from 'vitest';
-import { buildEnvelope, JobRegistry } from '@devguard/queue';
+import { buildEnvelope, InMemoryDeliveryStore, JobRegistry } from '@devguard/queue';
 import {
   registerApprovalResume,
   registerFailClosedHandlers,
+  registerWebhookProcess,
   registerWorkflowExecute,
   volatileRunTransitions,
   type RunTransitionPort,
@@ -51,7 +52,6 @@ describe('worker handlers (CP008)', () => {
     const registry = new JobRegistry();
     registerFailClosedHandlers(registry);
     for (const jobType of [
-      'webhook.process',
       'outbox.publish',
       'sandbox.monitor',
       'cleanup.retention',
@@ -94,5 +94,22 @@ describe('worker handlers (CP008)', () => {
     );
     // Unknown approval → the resume machine fails CLOSED (no silent success).
     expect(result.outcome).toBe('PERMANENT_FAILURE');
+  });
+
+  it('webhook.process routes a non-mention event to IGNORED (succeeds)', async () => {
+    const registry = new JobRegistry();
+    registerWebhookProcess(registry, new InMemoryDeliveryStore());
+    const result = await registry.resolve('webhook.process', 1)(
+      buildEnvelope({
+        jobType: 'webhook.process',
+        schemaVersion: 1,
+        queue: 'webhook-processing',
+        uniqueKey: 'wb-1',
+        payload: { deliveryId: 'd1', repositoryId: 'r1', payloadRef: 'ping' },
+        correlationId: 'c',
+      }),
+      { attempt: 1, maxAttempts: 8, leaseToken: 'w', signal: undefined },
+    );
+    expect(result.outcome).toBe('SUCCEEDED');
   });
 });
