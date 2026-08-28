@@ -312,6 +312,56 @@ export {
   type SnapshotSaveResult,
 } from './read/instruction-trust/instruction-snapshot-store.js';
 
+// ---- C021 GitHub Pull Requests / Reviews / Checks ----
+export {
+  PR_SCHEMA_VERSION,
+  PR_STATES,
+  REVIEW_EVIDENCE_KINDS,
+  createPullRequestSchema,
+  evidenceConclusionSchema,
+  mergePullRequestSchema,
+  postCommentSchema,
+  pullRequestFingerprintSchema,
+  pullRequestSchema,
+  requestReviewSchema,
+  reviewEvidenceSchema,
+  updatePullRequestSchema,
+  type CreatePullRequest,
+  type MergePullRequest,
+  type PostPullRequestComment,
+  type PrRef,
+  type PullRequest,
+  type PullRequestFingerprint,
+  type RequestReview,
+  type ReviewEvidence,
+  type ReviewEvidenceKind,
+  type UpdatePullRequest,
+} from './write/pr/contracts.js';
+export { resolvePrMergeEdge, resolvePrMutationEdge, type PrMergeStatus } from './write/pr/fsm.js';
+export {
+  GitHubPullRequestsReviewsChecksAdapter,
+  type GitHubPullRequestsReviewsChecks,
+  type GitHubPullRequestsReviewsChecksDeps,
+  type MergeResult,
+  type PrEvent,
+  type PrEventSinkPort,
+  type PrMutationResult,
+  type PrReadContext,
+  type PrWriteContext,
+} from './write/pr/github-pull-requests.js';
+export {
+  InMemoryPrOperationStore,
+  type PrClaimResult,
+  type PrOperation,
+  type PrOperationStorePort,
+} from './write/pr/operation-store.js';
+export {
+  InMemoryPrProvider,
+  type PrProviderErrorCode,
+  type PrProviderResult,
+  type PrProviderPort,
+} from './write/pr/provider-port.js';
+export { sanitizePrContent, prSafe } from './write/pr/pr-safe.js';
 // ---- C020 GitHub branches/commits mutation adapter ----
 export {
   BRANCH_PREFIX,
