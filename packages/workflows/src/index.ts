@@ -6,6 +6,17 @@
  */
 import './errors.js';
 
+// ---- C055 product workflow: repository_health_check (extension) ----
+export {
+  REPOSITORY_HEALTH_STEPS,
+  REPOSITORY_HEALTH_ALLOWED_ACTIONS,
+  REPOSITORY_HEALTH_DEFINITION_ID,
+  REPOSITORY_HEALTH_DEFINITION_VERSION,
+  repositoryHealthDefinition,
+  type HealthDomain,
+  type HealthStep,
+} from './product/repository-health.js';
+
 // ---- C052 product workflow: security_patch ----
 export {
   SECURITY_PATCH_STEPS,
