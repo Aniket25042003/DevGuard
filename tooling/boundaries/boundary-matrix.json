@@ -1,5 +1,5 @@
 {
-  "$comment": "DevGuard package boundary matrix (C001 \u00a710). Layers follow the fixed vocabulary: app | application | domain | port | adapter | persistence | ui. A 'test' pseudo-layer exists solely for verification suites and never ships.",
+  "$comment": "DevGuard package boundary matrix (C001 §10). Layers follow the fixed vocabulary: app | application | domain | port | adapter | persistence | ui. A 'test' pseudo-layer exists solely for verification suites and never ships.",
   "layers": {
     "app": ["application", "domain", "port", "adapter", "persistence", "ui"],
     "ui": ["application", "domain", "port"],
@@ -29,7 +29,10 @@
     "packages/github-adapter": "adapter",
     "packages/logging": "application",
     "packages/security": "application",
-    "packages/db": "persistence"
+    "packages/db": "persistence",
+    "packages/agent": "application",
+    "packages/sandbox": "application",
+    "packages/workflows": "application"
   },
   "packageScope": "@devguard",
   "domainExternalAllowlist": ["zod"],

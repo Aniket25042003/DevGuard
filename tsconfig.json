@@ -57,6 +57,16 @@
     },
     {
       "path": "packages/github-adapter"
+    },
+    {
+      "path": "packages/agent"
+    },
+    {
+      "path": "packages/sandbox"
+    },
+    {
+      "path": "packages/workflows"
+    },
     }
   ]
 }

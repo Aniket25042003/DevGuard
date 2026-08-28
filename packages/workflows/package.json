@@ -1,0 +1,24 @@
+{
+  "name": "@devguard/workflows",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Durable workflow engine (C045-C056): versioned registry, run/step FSM, executor concurrency, validation/completion and product workflows.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/contracts": "workspace:*",
+    "@devguard/errors": "workspace:*",
+    "@devguard/logging": "workspace:*",
+    "zod": "^4.1.12"
+  }
+}
