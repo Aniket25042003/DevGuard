@@ -16,6 +16,7 @@ import {
   VOLATILE_STORE_NAME,
 } from '@devguard/auth';
 import { EnvironmentSecretProvider } from '@devguard/config';
+import { PORT_FAMILIES } from './bindings.js';
 import type { SessionPort } from '../routes/session.routes.js';
 import type { ApprovalPort } from '../routes/approval.routes.js';
 import type { PolicySummaryPort } from '../routes/workflow.routes.js';
@@ -190,7 +191,10 @@ export function validateReadiness(
 
   // Marker-based detection for every control-plane port family (CP002 §5).
   const markerBindings: ReadonlyArray<readonly [string, unknown]> = [
-    ['workflows', bindings.workflows],
+    ['localAccess', bindings.localAccess],
+      ['githubPermissions', bindings.githubPermissions],
+      ['authorizationEvidence', bindings.evidence],
+      ['workflows', bindings.workflows],
     ['webhooks', bindings.webhooks],
     ['policies', bindings.policies],
     ['repositoryCatalog', bindings.repositoryCatalog],
@@ -298,7 +302,7 @@ export function buildContainer(
 
   const webhookSecret =
     config.github !== undefined && isReal(config.github.webhookSecretRef)
-      ? config.github.webhookSecretRef
+      ? secretProvider.peek({ name: config.github.webhookSecretRef })
       : undefined;
 
   return {
