@@ -1,9 +1,14 @@
 /**
- * @devguard/workflows — Durable workflow engine (C045-C056): versioned registry, run/step FSM, executor concurrency, validation/completion and product workflows.
- *
- * Provider-neutral application layer. External providers and policy/approval
- * wiring reach this package only through typed ports owned here; the
- * composition root (apps) supplies concrete implementations. Provider SDK
- * types and SQL row shapes never cross this boundary.
+ * @devguard/workflows — ships the C052 `security_patch` product workflow
+ * definition (a C045-style build asset).
  */
-export {};
+export {
+  SECURITY_PATCH_STEPS,
+  SECURITY_PATCH_ALLOWED_ACTIONS,
+  SECURITY_PATCH_DEFINITION_ID,
+  SECURITY_PATCH_DEFINITION_VERSION,
+  securityPatchDefinition,
+  validateDefinition,
+  type DefinitionValidation,
+  type PatchStep,
+} from './product/security-patch.js';
