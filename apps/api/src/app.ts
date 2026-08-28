@@ -8,6 +8,8 @@ import { createTransportKernel, type AppEnv, type RouteMetadata } from './transp
 import { InMemoryRateLimiter } from './transport/rate-limit.js';
 import { enforceCsrfAndOrigin } from './transport/security.js';
 import { registerAuthRoutes } from './routes/auth.routes.js';
+import { registerSessionRoutes } from './routes/session.routes.js';
+import { registerApprovalRoutes } from './routes/approval.routes.js';
 import {
   registerPolicyRoutes,
   registerWorkflowRoutes,
@@ -152,6 +154,10 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   });
 
   registerAuthRoutes(kernel, container);
+
+  // C068 session/event routes, C070 approval routes.
+  registerSessionRoutes(kernel, container.bindings.sessionEvents);
+  registerApprovalRoutes(kernel, container.bindings.approvals);
 
   // C066 policies summary, C067 workflow launch/status, C069 command catalog.
   const volatileWorkflows = new VolatileWorkflowService();
