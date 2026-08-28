@@ -30,7 +30,7 @@ export class PostgresCommandBusPersistencePort implements CommandBusPersistenceP
           id: input.runId,
           repositoryId: input.repositoryId,
           workflowType: input.workflowType,
-          triggerType: input.triggerType === 'webhook' ? 'webhook' : ('manual' as const),
+          triggerType: input.triggerType === 'webhook' ? 'webhook' : input.triggerType === 'schedule' ? 'schedule' : ('manual' as const),
           // origin_surface is not a column until CP016; carry it on the trigger ref.
           triggerReferenceJson: JSON.stringify({
             originSurface: input.originSurface,
