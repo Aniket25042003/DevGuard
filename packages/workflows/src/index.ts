@@ -6,6 +6,40 @@
  */
 import './errors.js';
 
+// ---- C056 product workflow: manual_refactor (extension) ----
+export {
+  MANUAL_REFACTOR_STEPS,
+  MANUAL_REFACTOR_ALLOWED_ACTIONS,
+  MANUAL_REFACTOR_PLAN_BUDGET,
+  MANUAL_REFACTOR_ALLOW_PUBLIC_API_CHANGE,
+  MANUAL_REFACTOR_DEFINITION_ID,
+  MANUAL_REFACTOR_DEFINITION_VERSION,
+  manualRefactorDefinition,
+  type RefactorStep,
+} from './product/manual-refactor.js';
+
+// ---- C055 product workflow: repository_health_check (extension) ----
+export {
+  REPOSITORY_HEALTH_STEPS,
+  REPOSITORY_HEALTH_ALLOWED_ACTIONS,
+  REPOSITORY_HEALTH_DEFINITION_ID,
+  REPOSITORY_HEALTH_DEFINITION_VERSION,
+  repositoryHealthDefinition,
+  type HealthDomain,
+  type HealthStep,
+} from './product/repository-health.js';
+
+// ---- C053 product workflow: dependency_upgrade (extension) ----
+export {
+  DEPENDENCY_UPGRADE_STEPS,
+  DEPENDENCY_UPGRADE_ALLOWED_ACTIONS,
+  DEPENDENCY_UPGRADE_CANDIDATE_BUDGET,
+  DEPENDENCY_UPGRADE_DEFINITION_ID,
+  DEPENDENCY_UPGRADE_DEFINITION_VERSION,
+  dependencyUpgradeDefinition,
+  type UpgradeStep,
+} from './product/dependency-upgrade.js';
+
 // ---- C052 product workflow: security_patch ----
 export {
   SECURITY_PATCH_STEPS,
