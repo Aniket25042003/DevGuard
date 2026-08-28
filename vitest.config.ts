@@ -22,7 +22,11 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
-          include: ['packages/**/src/**/*.test.ts', 'tests/integration/src/**/*.test.ts'],
+          include: [
+            'packages/**/src/**/*.test.ts',
+            'apps/api/src/**/*.test.ts',
+            'tests/integration/src/**/*.test.ts',
+          ],
         },
       },
       {
