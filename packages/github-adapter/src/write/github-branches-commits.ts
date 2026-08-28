@@ -152,10 +152,10 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
     if (!parsed.success)
       throw makeError('VALIDATION_FAILED', { details: { reasonCode: 'CREATE_BRANCH_INPUT' } });
     const req = parsed.data;
-    protect(req.branch, ctx);
-    assertBoundBranch(req);
+        assertBoundBranch(req);
 
     const digest = mutationInputDigest({ kind: 'create_branch', ...req });
+      protect(req.branch, ctx, req.operationKey, digest);
     const op = this.#newOperation(
       'create_branch',
       ctx,
@@ -237,11 +237,11 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
     if (!parsed.success)
       throw makeError('VALIDATION_FAILED', { details: { reasonCode: 'CREATE_COMMIT_INPUT' } });
     const req = parsed.data;
-    protect(req.branch, ctx);
-    assertBoundBranch(req);
+        assertBoundBranch(req);
     const message = sanitizeCommitMessage(req.message);
 
     const digest = mutationInputDigest({ kind: 'create_commit', ...req, message });
+      protect(req.branch, ctx, req.operationKey, digest);
     const op = this.#newOperation(
       'create_commit',
       ctx,
@@ -395,10 +395,10 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
     if (!parsed.success)
       throw makeError('VALIDATION_FAILED', { details: { reasonCode: 'ADVANCE_BRANCH_INPUT' } });
     const req = parsed.data;
-    protect(req.branch, ctx);
-    assertBoundBranch(req);
+        assertBoundBranch(req);
 
     const digest = mutationInputDigest({ kind: 'advance_branch', ...req });
+      protect(req.branch, ctx, req.operationKey, digest);
     const op = this.#newOperation(
       'advance_branch',
       ctx,
@@ -599,11 +599,11 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
   }
 }
 
-function protect(branch: string, ctx: WriteContext): void {
+function protect(branch: string, ctx: WriteContext, operationKey: string, digest: string): void {
   assertMutationBranch(branch);
   assertWritableTarget(branch);
   // Fail closed: the C030 context must carry a non-empty decision digest.
-  if (!ctx.authorized.digest)
+  if (!ctx.authorized.digest || ctx.authorized.operationKey !== operationKey || ctx.authorized.actionFingerprint !== digest || ctx.authorized.digest !== digest)
     throw makeError('REPOSITORY_FORBIDDEN', { details: { reasonCode: 'WRITE_NOT_AUTHORIZED' } });
 }
 
