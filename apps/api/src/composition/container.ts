@@ -40,6 +40,11 @@ import {
 import { configurationInvalid } from '@devguard/errors';
 import type { ApiConfigSnapshot } from '@devguard/config';
 import { createPool, type DevGuardPool } from '@devguard/db';
+import {
+  PostgresAuthSessionRepository,
+  PostgresAuthTransactionRepository,
+  PostgresUserIdentityLinker,
+} from '@devguard/db';
 import { isVolatileBinding } from './bindings.js';
 import {
   VolatileApprovals,
@@ -253,10 +258,24 @@ export function buildContainer(
   const pool: DevGuardPool | undefined =
     databaseUrl === undefined ? undefined : createPool({ connectionString: databaseUrl });
 
+  // CP003: durable auth stores in non-test environments with a pool; volatile
+  // (in-memory) stores otherwise (only allowed in `test`, or `development`
+  // behind DEVGUARD_ALLOW_VOLATILE_AUTH=true via validateReadiness).
+  const durableAuth = config.environment !== 'test' && pool !== undefined;
+  const sessions = durableAuth
+    ? new PostgresAuthSessionRepository(pool)
+    : new InMemoryAuthSessionRepository();
+  const transactions = durableAuth
+    ? new PostgresAuthTransactionRepository(pool)
+    : new InMemoryAuthTransactionRepository();
+  const identities = durableAuth
+    ? new PostgresUserIdentityLinker(pool)
+    : new VolatileIdentityLinker();
+
   const bindings: CompositionBindings = {
-    sessions: new InMemoryAuthSessionRepository(),
-    transactions: new InMemoryAuthTransactionRepository(),
-    identities: new VolatileIdentityLinker(),
+    sessions,
+    transactions,
+    identities,
     identityProvider,
     localAccess: new EmptyLocalRepositoryAccessPort(),
     githubPermissions: new UnavailableGitHubPermissionPort(),

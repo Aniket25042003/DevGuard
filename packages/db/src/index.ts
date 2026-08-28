@@ -86,3 +86,16 @@ export type {
 // ---- C012 retention/storage ----
 export { RetentionResolver, StorageOperationRepository } from './repositories/retention.js';
 export type { RetentionDecision, RetentionPolicyInput } from './repositories/retention.js';
+
+// ---- CP003 durable auth sessions/transactions/identity ----
+export {
+  PostgresAuthSessionRepository,
+  PostgresAuthTransactionRepository,
+  PostgresUserIdentityLinker,
+} from './repositories/auth-sessions.js';
+export type {
+  AuthSessionRecord,
+  AuthTransactionRecord,
+  IdentityProfileInput,
+} from './repositories/auth-sessions.js';
+export { mapAuthSessionRow, mapAuthTransactionRow } from './repositories/auth-sessions.js';

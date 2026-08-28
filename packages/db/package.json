@@ -16,6 +16,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@devguard/contracts": "workspace:*",
     "@devguard/errors": "workspace:*",
     "pg": "^8.13.0"
   },
