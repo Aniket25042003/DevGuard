@@ -15,7 +15,7 @@ import {
 } from './delivery-ledger.js';
 import type { NormalizedWebhookEvent, WebhookEventName } from './contracts.js';
 import type { WebhookNormalizer } from './normalizer.js';
-import type { TriggerRouter } from './trigger-router.js';
+import { type RoutedTrigger, type TriggerRouter } from './trigger-router.js';
 
 export type ProcessingResult =
   | { readonly outcome: 'routed'; readonly routes: number }
@@ -30,6 +30,16 @@ export interface CurrentStateReconciler {
 export const NoopCurrentStateReconciler: CurrentStateReconciler = {
   async isCurrent(): Promise<boolean> {
     return true;
+  },
+};
+
+/** Delivers a routed workflow command to the durable command/workflow queue. */
+export interface WorkflowCommandDispatchPort {
+  dispatch(route: RoutedTrigger): Promise<void>;
+}
+export const NoopWorkflowCommandDispatch: WorkflowCommandDispatchPort = {
+  async dispatch(): Promise<void> {
+    // No queue bound; routing is recorded but not delivered (test seam).
   },
 };
 
@@ -51,6 +61,7 @@ export class GitHubWebhookProcessor {
     private readonly router: TriggerRouter,
     private readonly reconcileCurrent: CurrentStateReconciler,
     private readonly emit: ProcessorEventSinkPort,
+    private readonly dispatch: WorkflowCommandDispatchPort = NoopWorkflowCommandDispatch,
   ) {}
 
   async process(input: { deliveryId: string; leaseToken: string }): Promise<ProcessingResult> {
@@ -62,43 +73,61 @@ export class GitHubWebhookProcessor {
       return { outcome: 'ignored', reason: `cannot_process_from_${row.state}` };
     await this.ledger.transition(input.deliveryId, processTo);
 
-    const raw = this.vault.get(input.deliveryId);
-    if (raw === undefined) {
-      await this.ledger.transition(input.deliveryId, 'retry_wait', 'payload_missing');
-      return { outcome: 'retry_wait', errorCode: 'payload_missing' };
-    }
-    if (sha256Hex(raw) !== row.payloadHash) {
-      await this.ledger.transition(input.deliveryId, 'dead_lettered', 'payload_hash_mismatch');
-      return { outcome: 'ignored', reason: 'payload_hash_mismatch' };
-    }
+    try {
+      const raw = this.vault.get(input.deliveryId);
+      if (raw === undefined) {
+        await this.ledger.transition(input.deliveryId, 'retry_wait', 'payload_missing');
+        return { outcome: 'retry_wait', errorCode: 'payload_missing' };
+      }
+      if (sha256Hex(raw) !== row.payloadHash) {
+        await this.ledger.transition(input.deliveryId, 'dead_lettered', 'payload_hash_mismatch');
+        return { outcome: 'ignored', reason: 'payload_hash_mismatch' };
+      }
 
-    const normalized = this.normalizer.normalize(raw, row.event as WebhookEventName);
-    if (!normalized.ok) {
-      await this.ledger.transition(input.deliveryId, 'ignored', normalized.reason);
-      return { outcome: 'ignored', reason: normalized.reason };
-    }
+      const normalized = this.normalizer.normalize(raw, row.event as WebhookEventName);
+      if (!normalized.ok) {
+        await this.ledger.transition(input.deliveryId, 'ignored', normalized.reason);
+        return { outcome: 'ignored', reason: normalized.reason };
+      }
 
-    await this.event('webhook.processing', input.deliveryId, row.event);
-    const current = await this.reconcileCurrent.isCurrent(normalized.event);
-    if (!current) {
-      await this.ledger.transition(input.deliveryId, 'ignored', 'stale');
-      return { outcome: 'ignored', reason: 'stale' };
-    }
+      await this.event('webhook.processing', input.deliveryId, row.event);
+      const current = await this.reconcileCurrent.isCurrent(normalized.event);
+      if (!current) {
+        await this.ledger.transition(input.deliveryId, 'ignored', 'stale');
+        return { outcome: 'ignored', reason: 'stale' };
+      }
 
-    const routed = this.router.route(normalized.event, input.deliveryId);
-    if (!routed.matched) {
-      await this.ledger.transition(input.deliveryId, 'ignored', routed.reason);
-      await this.event('webhook.ignored', input.deliveryId, row.event);
-      return { outcome: 'ignored', reason: routed.reason };
+      const routed = this.router.route(normalized.event, input.deliveryId);
+      if (!routed.matched) {
+        await this.ledger.transition(input.deliveryId, 'ignored', routed.reason);
+        await this.event('webhook.ignored', input.deliveryId, row.event);
+        return { outcome: 'ignored', reason: routed.reason };
+      }
+
+      // Deliver each routed workflow command to the durable queue (Qodo #1).
+      for (const route of routed.routes) await this.dispatch.dispatch(route);
+
+      const reconciled = resolveDeliveryTransition(processTo, 'reconcile');
+      if (reconciled) await this.ledger.transition(input.deliveryId, reconciled);
+      await this.ledger.transition(input.deliveryId, 'routed');
+      await this.event('webhook.routed', input.deliveryId, row.event);
+      return { outcome: 'routed', routes: routed.routes.length };
+    } catch (err) {
+      // A dependency failure (emit, reconcile, route, dispatch) must not strand
+      // the delivery in `processing`; schedule a durable retry (Qodo #4).
+      const errorCode = err instanceof Error ? err.name : 'processing_failed';
+      await this.ledger.transition(input.deliveryId, 'retry_wait', errorCode);
+      await this.event('webhook.delivery.retry', input.deliveryId, row.event);
+      return { outcome: 'retry_wait', errorCode };
     }
-    const reconciled = resolveDeliveryTransition(processTo, 'reconcile');
-    if (reconciled) await this.ledger.transition(input.deliveryId, reconciled);
-    await this.ledger.transition(input.deliveryId, 'routed');
-    await this.event('webhook.routed', input.deliveryId, row.event);
-    return { outcome: 'routed', routes: routed.routes.length };
   }
 
   private async event(type: string, deliveryId: string, eventName: string): Promise<void> {
-    await this.emit.emit({ type, deliveryId, event: eventName });
+    try {
+      await this.emit.emit({ type, deliveryId, event: eventName });
+    } catch {
+      // Delivery is retried by the outbox/queue infrastructure; the durable
+      // ledger transition is already committed and must not surface an error.
+    }
   }
 }

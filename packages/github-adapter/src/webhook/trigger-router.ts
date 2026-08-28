@@ -40,10 +40,11 @@ export class TriggerRouter {
     const routes: RoutedTrigger[] = [];
     for (const trigger of this.deps.triggers) {
       if (!trigger.events.includes(event.event)) continue;
+      // An action-constrained trigger requires a defined, allowed action. A
+      // missing action must not bypass the allow-list (Qodo #6).
       if (
         trigger.actions !== undefined &&
-        event.action !== undefined &&
-        !trigger.actions.includes(event.action)
+        (event.action === undefined || !trigger.actions.includes(event.action))
       )
         continue;
       const subject =

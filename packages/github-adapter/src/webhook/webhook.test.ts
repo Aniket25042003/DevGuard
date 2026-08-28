@@ -216,4 +216,81 @@ describe('C022 normalizer + router + processor', () => {
     expect(result.outcome).toBe('retry_wait');
     void bytesToString;
   });
+
+  it('uses pull_request.head.sha as the transition subject and preserves installation id', () => {
+    const headSha = 'e'.repeat(40);
+    const raw = Buffer.from(
+      '{"action":"synchronize","repository":{"id":"1","name":"demo","owner":{"login":"o"}},"installation":{"id":42},"pull_request":{"number":7,"head":{"sha":"' +
+        headSha +
+        '"}}}',
+    );
+    const n = normalizer.normalize(raw, 'pull_request');
+    expect(n.ok).toBe(true);
+    if (!n.ok) return;
+    expect(n.event.headSha).toBe(headSha);
+    expect(n.event.providerInstallationId).toBe('42');
+    const routed = router.route(n.event, 'dlv-2');
+    expect(routed.matched).toBe(true);
+    if (!routed.matched) return;
+    expect(routed.routes[0].semanticKey).toContain(headSha);
+    // Distinct synchronize deliveries for different heads get distinct keys.
+    const headSha2 = 'f'.repeat(40);
+    const raw2 = raw.toString().replace(headSha, headSha2);
+    const n2 = normalizer.normalize(Buffer.from(raw2), 'pull_request');
+    expect(n2.ok).toBe(true);
+    if (n2.ok) {
+      const r2 = router.route(n2.event, 'dlv-2');
+      if (r2.matched) expect(r2.routes[0].semanticKey).not.toBe(routed.routes[0].semanticKey);
+    }
+  });
+
+  it('requires an action when a trigger constrains actions (missing action does not match)', () => {
+    const raw = Buffer.from(
+      '{"repository":{"id":"1","name":"demo","owner":{"login":"o"}},"pull_request":{"number":7}}',
+    );
+    const n = normalizer.normalize(raw, 'pull_request'); // no action field
+    expect(n.ok).toBe(true);
+    if (!n.ok) return;
+    const routed = router.route(n.event, 'dlv-3'); // trigger.actions = opened/synchronize
+    expect(routed.matched).toBe(false);
+  });
+
+  it('dispatches each routed workflow command', async () => {
+    const { ledger, vault, ingress } = ingressSetup();
+    await ingress.accept({ rawBody: BODY, headers: headers(), requestId: 'r' });
+    const dispatched: string[] = [];
+    const processor = new GitHubWebhookProcessor(
+      ledger,
+      vault,
+      normalizer,
+      router,
+      NoopCurrentStateReconciler,
+      { emit: async () => undefined },
+      { dispatch: async (route) => void dispatched.push(route.workflowKind) },
+    );
+    const result = await processor.process({ deliveryId: 'dlv-1', leaseToken: 'lt' });
+    expect(result.outcome).toBe('routed');
+    expect(dispatched).toContain('plan');
+  });
+
+  it('schedules a retry when dispatch fails instead of stranding processing', async () => {
+    const { ledger, vault, ingress } = ingressSetup();
+    await ingress.accept({ rawBody: BODY, headers: headers(), requestId: 'r' });
+    const processor = new GitHubWebhookProcessor(
+      ledger,
+      vault,
+      normalizer,
+      router,
+      NoopCurrentStateReconciler,
+      { emit: async () => undefined },
+      {
+        dispatch: async () => {
+          throw new Error('queue down');
+        },
+      },
+    );
+    const result = await processor.process({ deliveryId: 'dlv-1', leaseToken: 'lt' });
+    expect(result.outcome).toBe('retry_wait');
+    expect((await ledger.get('dlv-1'))?.state).toBe('retry_wait');
+  });
 });

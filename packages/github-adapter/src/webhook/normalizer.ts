@@ -59,12 +59,25 @@ export class WebhookNormalizer {
       payload.head_commit !== null && typeof payload.head_commit === 'object'
         ? (payload.head_commit as Record<string, unknown>).id
         : undefined;
+    // Pull-request events carry the immutable head SHA at
+    // pull_request.head.sha; distinct synchronize deliveries must not collapse
+    // onto the same semantic subject (Qodo #7).
+    const prObj =
+      payload.pull_request !== null && typeof payload.pull_request === 'object'
+        ? (payload.pull_request as Record<string, unknown>)
+        : undefined;
+    const prHeadSha =
+      prObj !== undefined && prObj.head !== null && typeof prObj.head === 'object'
+        ? (prObj.head as Record<string, unknown>).sha
+        : undefined;
     const headSha =
       after !== undefined && /^[0-9a-f]{40}$/.test(after)
         ? after
         : typeof headCommitId === 'string'
           ? (headCommitId as string)
-          : undefined;
+          : typeof prHeadSha === 'string' && /^[0-9a-f]{40}$/.test(prHeadSha)
+            ? (prHeadSha as string)
+            : undefined;
     const prNumber =
       payload.pull_request &&
       typeof (payload.pull_request as Record<string, unknown>).number === 'number'
@@ -76,6 +89,18 @@ export class WebhookNormalizer {
       payload.issue && typeof (payload.issue as Record<string, unknown>).number === 'number'
         ? ((payload.issue as Record<string, unknown>).number as number)
         : undefined;
+    // Preserve GitHub App installation identity for authorization-time binding
+    // (Qodo #8).
+    const installationId =
+      payload.installation !== null && typeof payload.installation === 'object'
+        ? (payload.installation as Record<string, unknown>).id
+        : undefined;
+    const providerInstallationId =
+      typeof installationId === 'number'
+        ? String(installationId)
+        : typeof installationId === 'string'
+          ? installationId
+          : undefined;
 
     const candidate = {
       event: eventHeader,
@@ -84,6 +109,7 @@ export class WebhookNormalizer {
       ...(headSha !== undefined ? { headSha } : {}),
       ...(prNumber !== undefined ? { prNumber } : {}),
       ...(issueNumber !== undefined ? { issueNumber } : {}),
+      ...(providerInstallationId !== undefined ? { providerInstallationId } : {}),
     };
     const parsedEvent = normalizedWebhookEventSchema.safeParse(candidate);
     if (!parsedEvent.success) return { ok: false, reason: 'UNKNOWN_ACTION' };

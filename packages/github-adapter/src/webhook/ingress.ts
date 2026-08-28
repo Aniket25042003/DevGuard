@@ -98,6 +98,11 @@ export class GitHubWebhookIngress {
   }
 
   private async event(type: string, deliveryId: string, eventName: string): Promise<void> {
-    await this.#emit.emit({ type, deliveryId, event: eventName });
+    try {
+      await this.#emit.emit({ type, deliveryId, event: eventName });
+    } catch {
+      // Delivery is retried by the outbox/queue infrastructure; the durable
+      // ledger acceptance is already committed and must not surface an error.
+    }
   }
 }
