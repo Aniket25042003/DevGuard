@@ -8,8 +8,7 @@
  * projection never treats raw text as causal truth.
  */
 import { createHash } from 'node:crypto';
-import { z } from 'zod';
-import { turnEventSchema, type TurnEvent, type TurnEventType } from './contracts.js';
+import type { TurnEvent, TurnEventType } from './contracts.js';
 
 export interface RawTurnEvent {
   readonly cursor: string;

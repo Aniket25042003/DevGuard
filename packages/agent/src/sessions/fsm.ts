@@ -52,8 +52,6 @@ const SESSION_EDGES: Readonly<
     ['READY', 'RECONCILING'],
     ['TURN_ACTIVE', 'RECONCILING'],
     ['CANCELLING', 'RECONCILING'],
-    ['SUBMITTING', 'RECONCILING'],
-    ['RUNNING', 'RECONCILING'],
   ],
   restore: [['RECONCILING', 'READY']],
 };
