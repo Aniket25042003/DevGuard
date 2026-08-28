@@ -1,0 +1,72 @@
+name: devguard-deploy
+services:
+  postgres:
+    image: postgres:17.5-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: '$${POSTGRES_USER:-postgres}'
+      POSTGRES_DB: '$${POSTGRES_DB:-devguard}'
+      POSTGRES_PASSWORD: '$${POSTGRES_ADMIN_PASSWORD:?set}'
+    volumes: [dg-pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [private]
+  redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes: [dg-redisdata:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [private]
+  migration:
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, args: { ROLE: api } }
+    restart: 'no'
+    command: ['sh', '-c', 'node scripts/deploy/migrate.mjs']
+    environment:
+      DATABASE_URL: '$${DATABASE_URL:?set}'
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [private]
+  api:
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, args: { ROLE: api } }
+    restart: unless-stopped
+    read_only: true
+    security_opt: ['no-new-privileges:true']
+    environment:
+      ROLE: api
+      DEVGUARD_ENV: production
+      DATABASE_URL: '$${DATABASE_URL:?set}'
+      REDIS_URL: '$${REDIS_URL:?set}'
+      RUN_SERVER: '1'
+      PORT: '4000'
+      AUTH_SESSION_SECRET: '$${AUTH_SESSION_SECRET:?set}'
+      AUTH_GITHUB_OAUTH_CLIENT_ID: '$${AUTH_GITHUB_OAUTH_CLIENT_ID:?set}'
+      AUTH_GITHUB_OAUTH_CLIENT_SECRET: '$${AUTH_GITHUB_OAUTH_CLIENT_SECRET:?set}'
+      AUTH_GITHUB_OAUTH_CALLBACK_URL: '$${AUTH_GITHUB_OAUTH_CALLBACK_URL:?set}'
+      DEVGUARD_SECRET_REF_GITHUB_APP_KEY: '$${DEVGUARD_SECRET_REF_GITHUB_APP_KEY:?set}'
+      DEVGUARD_SECRET_REF_TRUEFORGE_KEY: '$${DEVGUARD_SECRET_REF_TRUEFORGE_KEY:?set}'
+    ports: ['127.0.0.1:4000:4000']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migration: { condition: service_completed_successfully }
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:4000/api/v1/health/ready || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [public, private]
+  # Worker and web are intentionally omitted until their entrypoints are long-lived.
+networks:
+  public:
+  private:
+volumes:
+  dg-pgdata:
+  dg-redisdata:
