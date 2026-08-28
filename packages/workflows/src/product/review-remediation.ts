@@ -9,6 +9,8 @@
  * validate and push idempotently; and explicitly retain unresolved/disputed
  * findings without fabrication or auto-dismissal.
  */
+import { findActionDefinition } from '@devguard/policy-engine';
+
 export const REVIEW_REMEDIATION_DEFINITION_ID = 'review_remediation';
 export const REVIEW_REMEDIATION_DEFINITION_VERSION = '1.0.0';
 
@@ -26,7 +28,7 @@ export const REVIEW_REMEDIATION_STEPS: readonly ReviewStep[] = [
   {
     id: 'ingest',
     kind: 'turn',
-    actionTypes: ['action:pr_review_read'],
+    actionTypes: ['pull_request_read', 'review_read', 'issue_comments_read', 'checks_read'],
     maxRetries: 2,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
@@ -44,7 +46,7 @@ export const REVIEW_REMEDIATION_STEPS: readonly ReviewStep[] = [
   {
     id: 'classify',
     kind: 'turn',
-    actionTypes: ['action:findings_classify'],
+    actionTypes: [],
     maxRetries: 1,
     maxWallMillis: 120_000,
     failureBehavior: 'stop',
@@ -62,7 +64,7 @@ export const REVIEW_REMEDIATION_STEPS: readonly ReviewStep[] = [
   {
     id: 'patch',
     kind: 'turn',
-    actionTypes: ['action:edit_patch'],
+    actionTypes: ['workspace_apply_patch'],
     maxRetries: 2,
     maxWallMillis: 600_000,
     failureBehavior: 'repair_turn',
@@ -71,7 +73,7 @@ export const REVIEW_REMEDIATION_STEPS: readonly ReviewStep[] = [
   {
     id: 'validate',
     kind: 'command',
-    actionTypes: ['action:sandbox_test'],
+    actionTypes: ['sandbox_run_test'],
     maxRetries: 2,
     maxWallMillis: 900_000,
     failureBehavior: 'repair_turn',
@@ -80,7 +82,7 @@ export const REVIEW_REMEDIATION_STEPS: readonly ReviewStep[] = [
   {
     id: 'push',
     kind: 'published',
-    actionTypes: ['action:commit', 'action:push_branch'],
+    actionTypes: ['commit_create', 'branch_push'],
     maxRetries: 2,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
@@ -89,7 +91,7 @@ export const REVIEW_REMEDIATION_STEPS: readonly ReviewStep[] = [
   {
     id: 'rereview',
     kind: 'published',
-    actionTypes: ['action:request_review'],
+    actionTypes: ['review_request'],
     maxRetries: 0,
     maxWallMillis: 60_000,
     failureBehavior: 'stop',
@@ -98,13 +100,15 @@ export const REVIEW_REMEDIATION_STEPS: readonly ReviewStep[] = [
 ];
 
 export const REVIEW_REMEDIATION_ALLOWED_ACTIONS: readonly string[] = [
-  'action:pr_review_read',
-  'action:findings_classify',
-  'action:edit_patch',
-  'action:sandbox_test',
-  'action:commit',
-  'action:push_branch',
-  'action:request_review',
+  'pull_request_read',
+  'review_read',
+  'issue_comments_read',
+  'checks_read',
+  'workspace_apply_patch',
+  'sandbox_run_test',
+  'commit_create',
+  'branch_push',
+  'review_request',
 ];
 
 export const REVIEW_REMEDIATION_CYCLE_BUDGET = 2;
@@ -118,9 +122,10 @@ export function validateDefinition(): DefinitionValidation {
     if (step.maxRetries > 8) return { ok: false, violation: `retries ${step.id}` };
     if (step.maxWallMillis <= 0 || step.maxWallMillis > 24 * 60 * 60_000)
       return { ok: false, violation: `wall ${step.id}` };
-    for (const action of step.actionTypes)
-      if (!REVIEW_REMEDIATION_ALLOWED_ACTIONS.includes(action))
-        return { ok: false, violation: `unallowed action ${action}` };
+    for (const action of step.actionTypes) {
+      if (!REVIEW_REMEDIATION_ALLOWED_ACTIONS.includes(action) || !findActionDefinition(action))
+        return { ok: false, violation: `unregistered action ${action}` };
+      }
   }
   // Remediation must be bounded (never endless re-review loops).
   if (REVIEW_REMEDIATION_CYCLE_BUDGET <= 0)
