@@ -40,11 +40,13 @@ export class InMemoryAuditWriter implements AuditWriter {
 
   async append(input: NewAuditRecord): Promise<AuditRecord> {
     const id = `aud:${sha256(input.correlationId + String(this.records.length)).slice(0, 16)}`;
+    const now = new Date().toISOString();
+    this.lastHash = this.lastHash;
     const record: AuditRecord = {
       ...input,
       id,
-      occurredAtIso: new Date().toISOString(),
-      recordedAtIso: new Date().toISOString(),
+      occurredAtIso: now,
+      recordedAtIso: now,
       previousRecordHash: this.lastHash,
       recordHash: chainHash(this.lastHash, input),
       state: 'PREPARED',
@@ -180,6 +182,7 @@ export interface DiagnosticServicePort {
     severity: string;
     retryability: string;
   }): Promise<FailureDiagnostic>;
+  acknowledge(fingerprint: string): Promise<void>;
   resolve(fingerprint: string): Promise<void>;
 }
 
@@ -208,7 +211,11 @@ export class InMemoryDiagnosticService implements DiagnosticServicePort {
     this.diagnostics.set(fingerprint, diagnostic);
     return diagnostic;
   }
-  async resolve(fingerprint: string): Promise<void> {
+  async acknowledge(fingerprint: string): Promise<void> {
+      const existing = this.diagnostics.get(fingerprint);
+      if (existing !== undefined) this.diagnostics.set(fingerprint, { ...existing, status: 'ACKNOWLEDGED' });
+    }
+    async resolve(fingerprint: string): Promise<void> {
     const existing = this.diagnostics.get(fingerprint);
     if (existing !== undefined)
       this.diagnostics.set(fingerprint, { ...existing, status: 'RESOLVED' });
