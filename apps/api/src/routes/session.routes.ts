@@ -79,8 +79,19 @@ export function registerSessionRoutes(
           401,
         );
       const session = await sessions.get(c.req.param('sessionId') ?? '', principal.userId);
-        if (session === undefined) return c.json({ error: { code: 'SESSION_NOT_FOUND', message: 'Session not found.', requestId: c.get('requestContext').requestId, retryable: false } }, 404);
-        const events = await sessions.events(c.req.param('sessionId') ?? '', principal.userId, 200);
+      if (session === undefined)
+        return c.json(
+          {
+            error: {
+              code: 'SESSION_NOT_FOUND',
+              message: 'Session not found.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          404,
+        );
+      const events = await sessions.events(c.req.param('sessionId') ?? '', principal.userId, 200);
       return c.json({ events });
     },
   );
