@@ -6,9 +6,11 @@
  * stale fence, idempotent replay, and unproven destruction.
  */
 import { describe, expect, it } from 'vitest';
-import type { EventEnvelopeShape } from '@devguard/contracts';
+import { parseEvent, type EventEnvelopeShape } from '@devguard/contracts';
 import { WorkspaceManager, type CreateWorkspaceInput } from './manager.js';
+import { makeSandboxEvent, SANDBOX_EVENT_TYPES } from '../events.js';
 import type { WorkspaceManagerPorts } from './ports.js';
+import type { ProviderWorkspaceCreateResult, ProviderDestroyResult } from './ports.js';
 import type { CheckoutSelector, ResolvedCheckout, ResolvedCheckoutInput } from './selector.js';
 import type { ProviderCapabilityManifest, WorkspaceCapability } from './capability-gate.js';
 import type { WorkspaceFence } from './fence.js';
@@ -159,11 +161,24 @@ interface HarnessOptions {
   resolveShouldThrow?: boolean;
   observeSha?: string;
   providerDestroyed?: boolean;
+  providerCreateThrows?: boolean;
+  attestThrows?: boolean;
+  eventSinkThrows?: boolean;
 }
 
 function makeHarness(options: HarnessOptions = {}) {
   const store = new InMemoryWorkspaceStore();
   const events: EventEnvelopeShape[] = [];
+  const providerCreateCalls: Array<{
+    generation: number;
+    leaseToken: string;
+    leaseExpiresAtMs: number;
+  }> = [];
+  const providerDestroyCalls: Array<{
+    generation: number;
+    leaseToken: string;
+    leaseExpiresAtMs: number;
+  }> = [];
 
   const ports: WorkspaceManagerPorts = {
     resolver: {
@@ -174,24 +189,44 @@ function makeHarness(options: HarnessOptions = {}) {
     },
     capabilityProbe: { probe: async () => options.manifest ?? fullManifest() },
     provider: {
-      create: async () => ({
-        providerWorkspaceId: 'tfws_1' as never,
-        created: true,
-        snapshot: {
+      create: async (input): Promise<ProviderWorkspaceCreateResult> => {
+        providerCreateCalls.push({
+          generation: input.generation,
+          leaseToken: input.leaseToken,
+          leaseExpiresAtMs: input.leaseExpiresAtMs,
+        });
+        if (options.providerCreateThrows) throw new Error('provider create transport failure');
+        return {
           providerWorkspaceId: 'tfws_1' as never,
-          status: 'ready',
-          observedHeadSha: options.observeSha ?? SHA_A,
-          observedRemoteFingerprint: 'github.com/devguard/demo',
-          treeHash: 'c'.repeat(40),
-        },
-      }),
+          created: true,
+          snapshot: {
+            providerWorkspaceId: 'tfws_1' as never,
+            status: 'ready',
+            observedHeadSha: options.observeSha ?? SHA_A,
+            observedRemoteFingerprint: 'github.com/devguard/demo',
+            treeHash: 'c'.repeat(40),
+          },
+        };
+      },
       inspect: async () => ({ providerWorkspaceId: 'tfws_1' as never, status: 'ready' }),
-      destroy: async () => ({
-        destroyed: options.providerDestroyed ?? false,
-        snapshot: { providerWorkspaceId: 'tfws_1' as never, status: 'destroyed' as const },
-      }),
+      destroy: async (input): Promise<ProviderDestroyResult> => {
+        providerDestroyCalls.push({
+          generation: input.generation,
+          leaseToken: input.leaseToken,
+          leaseExpiresAtMs: input.leaseExpiresAtMs,
+        });
+        return {
+          destroyed: options.providerDestroyed ?? false,
+          snapshot: { providerWorkspaceId: 'tfws_1' as never, status: 'destroyed' as const },
+        };
+      },
     },
-    verifier: { attest: async (attestation) => attestation },
+    verifier: {
+      attest: async (attestation) => {
+        if (options.attestThrows) throw new Error('attestation store unavailable');
+        return attestation;
+      },
+    },
     store: {
       load: (id: WorkspaceId) => store.load(id),
       loadByRunId: (runId: string) => store.loadByRunId(runId),
@@ -202,6 +237,7 @@ function makeHarness(options: HarnessOptions = {}) {
     },
     events: {
       emit: async (envelope: EventEnvelopeShape) => {
+        if (options.eventSinkThrows) throw new Error('outbox unavailable');
         events.push(envelope);
       },
     },
@@ -238,7 +274,7 @@ function makeHarness(options: HarnessOptions = {}) {
     };
   }
 
-  return { manager, store, events, input, currentFence };
+  return { manager, store, events, input, currentFence, providerCreateCalls, providerDestroyCalls };
 }
 
 describe('WorkspaceManager.create (C041 §12/§23)', () => {
@@ -290,6 +326,57 @@ describe('WorkspaceManager.create (C041 §12/§23)', () => {
     const { manager, store, input } = makeHarness({ observeSha: SHA_B });
     await expect(manager.create(input())).rejects.toThrowError(/CHECKOUT_MISMATCH/);
     expect(store.get(WORKSPACE_ID as WorkspaceId)?.status).toBe('QUARANTINED');
+  });
+
+  it('passes the full lease fence (generation, token, expiry) to provider.create', async () => {
+    const { manager, input, providerCreateCalls } = makeHarness();
+    await manager.create(input());
+    expect(providerCreateCalls).toHaveLength(1);
+    expect(providerCreateCalls[0]!.generation).toBe(1);
+    expect(providerCreateCalls[0]!.leaseToken).toBeTruthy();
+    expect(providerCreateCalls[0]!.leaseExpiresAtMs).toBeGreaterThan(0);
+  });
+
+  it('quarantines the reservation when provider.create rejects or times out instead of stranding PROVISIONING', async () => {
+    const { manager, store, input, events } = makeHarness({ providerCreateThrows: true });
+    await expect(manager.create(input())).rejects.toThrowError(/provider create transport failure/);
+    expect(store.get(WORKSPACE_ID as WorkspaceId)?.status).toBe('QUARANTINED');
+    expect(store.get(WORKSPACE_ID as WorkspaceId)?.failureCode).toBe('WORKSPACE_QUARANTINED');
+    expect(events.some((event) => event.type === 'sandbox.workspace.quarantined')).toBe(true);
+  });
+
+  it('moves a workspace to FAILED (cleanup-required) when attestation persistence fails, never stranding in VERIFYING', async () => {
+    const { manager, store, input } = makeHarness({ attestThrows: true });
+    await expect(manager.create(input())).rejects.toThrowError(/attestation store unavailable/);
+    const record = store.get(WORKSPACE_ID as WorkspaceId);
+    expect(record?.status).toBe('FAILED');
+    expect(record?.failureCode).toBe('CHECKOUT_ATTESTATION_FAILED');
+  });
+
+  it('does not strand the lifecycle when the event sink fails (publication is non-fatal after CAS)', async () => {
+    const { manager, input } = makeHarness({ eventSinkThrows: true });
+    const ref = await manager.create(input());
+    expect(ref.status).toBe('READY');
+  });
+});
+
+describe('Sandbox event registration (C004 canonical parity)', () => {
+  it('emits sandbox events that the canonical parseEvent registry accepts', () => {
+    const envelope = makeSandboxEvent({
+      type: SANDBOX_EVENT_TYPES.workspaceRequested,
+      aggregate: { type: 'workspace', id: WORKSPACE_ID },
+      occurredAt: new Date(NOW).toISOString(),
+      actor: { kind: 'system', id: 'sandbox' },
+      payload: {
+        workspaceId: WORKSPACE_ID,
+        runId: RUN_ID,
+        requestedRefKind: 'commit',
+        requestedRef: SHA_A.slice(0, 12),
+      },
+    });
+    const parsed = parseEvent(envelope);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.value.type).toBe(SANDBOX_EVENT_TYPES.workspaceRequested);
   });
 });
 

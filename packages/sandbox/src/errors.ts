@@ -64,6 +64,16 @@ registerError({
 });
 
 registerError({
+  code: 'CHECKOUT_ATTESTATION_FAILED',
+  category: 'integration',
+  httpStatus: 500,
+  retryClass: 'reconcile_then_retry',
+  safeMessage:
+    'Verification succeeded but the durable checkout attestation could not be persisted.',
+  detailSchema: detailSchema(['reason']),
+});
+
+registerError({
   code: 'WORKSPACE_QUARANTINED',
   category: 'security',
   httpStatus: 409,

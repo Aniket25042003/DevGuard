@@ -158,6 +158,7 @@ export {
 // Event catalog + envelope builder.
 export {
   makeSandboxEvent,
+  registerSandboxEvents,
   SANDBOX_EVENT_CATALOG,
   SANDBOX_EVENT_TYPES,
   type MakeSandboxEventInput,

@@ -35,7 +35,13 @@ import {
   workspaceDestroyKey,
 } from './idempotency.js';
 import type { WorkspaceManagerPorts } from './ports.js';
+import type {
+  ProviderDestroyResult,
+  ProviderWorkspaceCreateResult,
+  ProviderWorkspaceId,
+} from './ports.js';
 import { assertNoHostCheckout, buildSafeCheckoutPlan, type CheckoutExecution } from './safe-git.js';
+import type { SafeCheckoutPlan } from './safe-git.js';
 import {
   describeSelector,
   expectedShaOf,
@@ -247,13 +253,15 @@ export class WorkspaceManager {
       workflowRunId: runId,
       provider: 'trueforge',
     });
-    const created = await this.options.ports.provider.create({
+    const created = await this.providerCreate(record, fence, {
       idempotencyKey: createKey,
       limitProfileId: record.limitProfileId,
       capabilitySnapshotId: decision.allowed
         ? (decision.capabilitySnapshotId as CapabilitySnapshotId)
         : ('' as CapabilitySnapshotId),
       generation: record.generation,
+      leaseToken: fence.leaseToken,
+      leaseExpiresAtMs: fence.leaseExpiresAtMs,
       checkout: plan,
     });
     if (created.snapshot.status !== 'ready') {
@@ -350,7 +358,39 @@ export class WorkspaceManager {
       observation: firstObservation,
       nowMs: startedAtMs,
     });
-    await this.options.ports.verifier.attest(attestation);
+    try {
+      await this.options.ports.verifier.attest(attestation);
+    } catch (cause) {
+      // A failed attestation persistence must never strand the workspace in
+      // VERIFYING with a real provider resource present. Move it to a durable
+      // FAILED (cleanup-required) state and re-throw so the caller sees the
+      // failure; replay can resume cleanup/reconciliation instead of returning
+      // VERIFYING indefinitely.
+      this.error('sandbox.checkout.attest.failed', cause);
+      await this.transition(
+        record,
+        fence,
+        'fail',
+        { failureKnown: true },
+        {
+          verifiedHeadSha: firstObservation.observedHeadSha,
+          providerWorkspaceId: created.providerWorkspaceId,
+          failureCode: 'CHECKOUT_ATTESTATION_FAILED',
+          failureDetailRedacted: 'attestation persistence failed after verification',
+        },
+      );
+      await this.emitEvent(
+        SANDBOX_EVENT_TYPES.workspaceFailed,
+        { type: 'workspace', id: workspaceId },
+        {
+          workspaceId,
+          runId,
+          failureCode: 'CHECKOUT_ATTESTATION_FAILED',
+          failureDetailRedacted: 'attestation persistence failed after verification',
+        },
+      );
+      throw cause;
+    }
     record = await this.transition(
       record,
       fence,
@@ -358,6 +398,8 @@ export class WorkspaceManager {
       {
         headMatchesResolvedSha: true,
         remoteIdentityVerified: true,
+        // Only the success path reaches here (the failure path re-throws above),
+        // so attestation persistence is complete by construction.
         attestationComplete: true,
       },
       {
@@ -476,9 +518,12 @@ export class WorkspaceManager {
 
     const destroyKey = workspaceDestroyKey(workspaceId, record.generation);
     assertWorkspaceKeyShape(destroyKey);
-    const result = await this.options.ports.provider.destroy({
+    const result = await this.providerDestroy(record, fence, {
       providerWorkspaceId,
       idempotencyKey: destroyKey,
+      generation: record.generation,
+      leaseToken: fence.leaseToken,
+      leaseExpiresAtMs: fence.leaseExpiresAtMs,
     });
     if (result.destroyed === true) {
       await this.transition(
@@ -610,7 +655,103 @@ export class WorkspaceManager {
       actor: { kind: 'system', id: 'sandbox' },
       payload,
     });
-    await this.options.ports.events.emit(envelope);
+    try {
+      await this.options.ports.events.emit(envelope);
+    } catch (cause) {
+      // Event publication is best-effort after the durable CAS transition has
+      // already committed. A sink/outbox failure must never abort orchestration
+      // mid-lifecycle (that would strand the workspace in a partially
+      // progressed state that create() then returns instead of resuming). Log
+      // and continue; durable reconciliation of delivery is the outbox's job.
+      this.error('sandbox.event.publish.failed', { type, error: cause });
+    }
+  }
+
+  /**
+   * C041 §19/§25 — run provider.create under the current fence and recheck
+   * ownership after the long-running call. A rejection/timeout after the
+   * request may have reached the provider is an ambiguous side effect: it is
+   * never represented as a known failure — the reservation is quarantined
+   * (cleanup-required) and reconciled on replay, never left in PROVISIONING.
+   */
+  private async providerCreate(
+    record: WorkspaceRecord,
+    fence: WorkspaceFence,
+    input: {
+      readonly idempotencyKey: string;
+      readonly limitProfileId: LimitProfileId;
+      readonly capabilitySnapshotId: CapabilitySnapshotId;
+      readonly generation: number;
+      readonly leaseToken: string;
+      readonly leaseExpiresAtMs: number;
+      readonly checkout: SafeCheckoutPlan;
+    },
+  ): Promise<ProviderWorkspaceCreateResult> {
+    this.assertCurrent(record, fence);
+    let result: ProviderWorkspaceCreateResult;
+    try {
+      result = await this.options.ports.provider.create(input);
+    } catch (cause) {
+      // The create may or may not have reached the provider. Do not assume a
+      // known failure: move to QUARANTINED so deterministic replay reconciles
+      // provider state instead of returning a stuck PROVISIONING reservation.
+      await this.markAmbiguous(
+        record,
+        fence,
+        'provider create outcome ambiguous (rejection/timeout)',
+      );
+      throw cause;
+    }
+    // Recheck ownership after the long-running call before accepting the
+    // outcome: if the lease expired or was superseded meanwhile, a stale
+    // worker must not advance the lifecycle off the provider's side effect.
+    this.assertCurrent(record, fence);
+    return result;
+  }
+
+  /**
+   * C041 §19/§25 — run provider.destroy under the current fence and recheck
+   * ownership after the long-running call before accepting the outcome.
+   */
+  private async providerDestroy(
+    record: WorkspaceRecord,
+    fence: WorkspaceFence,
+    input: {
+      readonly providerWorkspaceId: ProviderWorkspaceId;
+      readonly idempotencyKey: string;
+      readonly generation: number;
+      readonly leaseToken: string;
+      readonly leaseExpiresAtMs: number;
+    },
+  ): Promise<ProviderDestroyResult> {
+    this.assertCurrent(record, fence);
+    const result = await this.options.ports.provider.destroy(input);
+    this.assertCurrent(record, fence);
+    return result;
+  }
+
+  /** Quarantine a workspace whose provider outcome is ambiguous (cleanup-required). */
+  private async markAmbiguous(
+    record: WorkspaceRecord,
+    fence: WorkspaceFence,
+    detail: string,
+  ): Promise<WorkspaceRecord> {
+    const quarantined = await this.transition(
+      record,
+      fence,
+      'quarantine',
+      { providerAmbiguity: true },
+      {
+        failureCode: 'WORKSPACE_QUARANTINED',
+        failureDetailRedacted: detail,
+      },
+    );
+    await this.emitEvent(
+      SANDBOX_EVENT_TYPES.workspaceQuarantined,
+      { type: 'workspace', id: record.workspaceId },
+      { workspaceId: record.workspaceId, runId: record.runId, reason: detail },
+    );
+    return quarantined;
   }
 
   private info(event: string, fields: Record<string, unknown>): void {

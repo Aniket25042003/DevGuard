@@ -14,11 +14,13 @@ import {
   eventEnvelopeBase,
   EVENT_SCHEMA_VERSION,
   idSchemas,
+  registerEvent,
   timestampIso,
   type ActorRefShape,
   type CorrelationShape,
   type EventAggregateShape,
   type EventEnvelopeShape,
+  type RegisteredEvent,
 } from '@devguard/contracts';
 import { z } from 'zod';
 import { outputSequence, sandboxIdSchemas } from './ids.js';
@@ -216,6 +218,57 @@ export const SANDBOX_EVENT_CATALOG: Readonly<Record<SandboxEventType, SandboxEve
       ]),
     ) as Record<SandboxEventType, SandboxEventCatalogEntry>,
   );
+
+/**
+ * C041/C042 — register every sandbox event in the canonical C004 registry.
+ *
+ * Making envelopes with `makeSandboxEvent` is not enough: canonical
+ * outbox/queue consumers classify envelopes with `parseEvent`, which looks up
+ * the shared `@devguard/contracts` registry and fails closed (`unknown_type`)
+ * on anything unregistered. Registering here (module load, before any
+ * construction/parsing) makes every emitted sandbox event valid under the
+ * same registry consumers use — the explicitly supported registration
+ * mechanism C004 exports. Family groupings reflect the C004 taxonomy that
+ * predates the sandbox domain; no contract file is edited.
+ */
+const SANDBOX_EVENT_FAMILY: Readonly<Record<SandboxEventType, RegisteredEvent['family']>> =
+  Object.freeze({
+    [SANDBOX_EVENT_TYPES.workspaceRequested]: 'workflow',
+    [SANDBOX_EVENT_TYPES.workspaceCreated]: 'workflow',
+    [SANDBOX_EVENT_TYPES.workspaceReady]: 'workflow',
+    [SANDBOX_EVENT_TYPES.workspaceFailed]: 'workflow',
+    [SANDBOX_EVENT_TYPES.workspaceQuarantined]: 'workflow',
+    [SANDBOX_EVENT_TYPES.workspaceDestroyRequested]: 'workflow',
+    [SANDBOX_EVENT_TYPES.checkoutResolved]: 'workflow',
+    [SANDBOX_EVENT_TYPES.checkoutCompleted]: 'workflow',
+    [SANDBOX_EVENT_TYPES.checkoutVerificationFailed]: 'workflow',
+    [SANDBOX_EVENT_TYPES.commandProposed]: 'action',
+    [SANDBOX_EVENT_TYPES.commandQueued]: 'action',
+    [SANDBOX_EVENT_TYPES.commandStarted]: 'action',
+    [SANDBOX_EVENT_TYPES.commandOutput]: 'action',
+    [SANDBOX_EVENT_TYPES.commandCompleted]: 'action',
+    [SANDBOX_EVENT_TYPES.commandFailed]: 'action',
+    [SANDBOX_EVENT_TYPES.commandTimedOut]: 'action',
+    [SANDBOX_EVENT_TYPES.commandCancelled]: 'action',
+    [SANDBOX_EVENT_TYPES.commandBlocked]: 'action',
+    [SANDBOX_EVENT_TYPES.commandReconciling]: 'action',
+  });
+
+export function registerSandboxEvents(): void {
+  for (const type of Object.values(SANDBOX_EVENT_TYPES) as readonly SandboxEventType[]) {
+    const entry = SANDBOX_EVENT_CATALOG[type];
+    if (entry === undefined) {
+      throw new TypeError(`Sandbox event type '${type}' has no catalog schema.`);
+    }
+    registerEvent(type, {
+      family: SANDBOX_EVENT_FAMILY[type],
+      description: entry.description,
+      payload: entry.payload,
+    });
+  }
+}
+
+void registerSandboxEvents();
 
 export interface MakeSandboxEventInput {
   readonly type: SandboxEventType;

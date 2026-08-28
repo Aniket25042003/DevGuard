@@ -65,7 +65,11 @@ export const providerCapabilityManifestSchema: z.ZodType<{
     const names = new Set<string>();
     for (const claim of value.capabilities) {
       if (names.has(claim.name)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['capabilities'], message: 'duplicate capability claim' });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['capabilities'],
+          message: 'duplicate capability claim',
+        });
       }
       names.add(claim.name);
     }

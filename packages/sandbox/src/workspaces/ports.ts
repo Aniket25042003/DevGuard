@@ -65,24 +65,37 @@ export interface ProviderDestroyResult {
 
 /**
  * TrueForge workspace lifecycle (C036 verified adapter). Every call carries
- * the stable idempotency key and generation fence; ambiguous outcomes are
- * surfaced as `status: 'unknown'`, never assumed.
+ * the stable idempotency key AND the current workspace fence (generation +
+ * lease token + expiry) so adapters can reject create/destroy/inspect issued
+ * by a stale worker after its lease expired or was superseded; ambiguous
+ * outcomes are surfaced as `status: 'unknown'`, never assumed.
  */
 export interface TrueForgeWorkspacePort {
   create(input: {
     readonly idempotencyKey: string;
     readonly limitProfileId: LimitProfileId;
     readonly capabilitySnapshotId: CapabilitySnapshotId;
+    /** The current generation fence (see `fence.leaseToken`/`leaseExpiresAtMs`). */
     readonly generation: number;
+    /** Lease identity token of the worker issuing this create (C041 §19). */
+    readonly leaseToken: string;
+    /** Lease expiry epoch ms; a stale worker's create must be rejected. */
+    readonly leaseExpiresAtMs: number;
     readonly checkout: SafeCheckoutPlan;
   }): Promise<ProviderWorkspaceCreateResult>;
   inspect(input: {
     readonly providerWorkspaceId: ProviderWorkspaceId;
     readonly idempotencyKey: string;
+    readonly generation: number;
+    readonly leaseToken: string;
+    readonly leaseExpiresAtMs: number;
   }): Promise<ProviderWorkspaceSnapshot>;
   destroy(input: {
     readonly providerWorkspaceId: ProviderWorkspaceId;
     readonly idempotencyKey: string;
+    readonly generation: number;
+    readonly leaseToken: string;
+    readonly leaseExpiresAtMs: number;
   }): Promise<ProviderDestroyResult>;
 }
 
