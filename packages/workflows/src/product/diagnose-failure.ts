@@ -132,7 +132,7 @@ export function validateDefinition(): DefinitionValidation {
     if (step.maxWallMillis <= 0 || step.maxWallMillis > 24 * 60 * 60_000)
       return { ok: false, violation: `wall ${step.id}` };
     for (const action of step.actionTypes)
-      if (!findActionDefinition(action) !== undefined)
+      if (findActionDefinition(action) === undefined)
         return { ok: false, violation: `unallowed action ${action}` };
   }
   if (!DIAGNOSE_FAILURE_STEPS.some((s) => s.actionTypes.includes('sandbox_run_test')))

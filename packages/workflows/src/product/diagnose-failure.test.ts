@@ -8,9 +8,9 @@ import {
 describe('C050 diagnose_failure product workflow definition', () => {
   it('is a bounded, fail-closed definition requiring reproduction', () => {
     expect(validateDefinition().ok).toBe(true);
-    expect(
-      DIAGNOSE_FAILURE_STEPS.some((s) => s.actionTypes.includes('action:sandbox_reproduce')),
-    ).toBe(true);
+    expect(DIAGNOSE_FAILURE_STEPS.some((s) => s.actionTypes.includes('sandbox_run_test'))).toBe(
+      true,
+    );
   });
 
   it('every step action is within the allowed-action ceiling', () => {
