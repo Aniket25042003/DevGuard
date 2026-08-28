@@ -101,7 +101,8 @@ export class InstructionTrustServiceGate implements InstructionTrustService {
 
     const existing = await this.#store.findByOperationKey(operation.operationKey);
     if (existing !== undefined && existing.status !== 'superseded') {
-      const sameBinding = existing.repositoryId === operation.repositoryId &&
+      const sameBinding =
+        existing.repositoryId === operation.repositoryId &&
         existing.workflowRunId === operation.workflowRunId &&
         existing.headSha === operation.headSha &&
         existing.policyVersionId === operation.policyVersionId &&
@@ -165,8 +166,10 @@ export class InstructionTrustServiceGate implements InstructionTrustService {
       { tier: 'global_safety' as InstructionTier, sources: global },
       { tier: 'repository_policy' as InstructionTier, sources: policy },
       { tier: 'workflow_rule' as InstructionTier, sources: workflow },
-      { tier: 'task_request' as InstructionTier, sources: task },
+      // Precedence order (C016 §4): repository instructions rank above task
+      // requests, so process repository_instruction BEFORE task_request.
       { tier: 'repository_instruction' as InstructionTier, sources: repository },
+      { tier: 'task_request' as InstructionTier, sources: task },
     ]) {
       for (const source of group.sources) {
         await this.#emitEvent('instruction.loaded', source.id, {
@@ -186,7 +189,10 @@ export class InstructionTrustServiceGate implements InstructionTrustService {
             break enumerateGroups;
           }
           totalBytes += Buffer.byteLength(trimmed, 'utf8');
-          const text = trimmed.slice(0, MAX_LINE_BYTES);
+          // Stored text is sanitized (control chars neutralized) so assembly
+          // agrees with the classifier and smuggling via control chars is
+          // defeated at rest (C016 §17), not only in the matching copy.
+          const text = sanitizeLine(trimmed).slice(0, MAX_LINE_BYTES);
           const classification = classifyDirective(text);
 
           if (AUTHORITATIVE_TIERS.includes(group.tier)) {
@@ -345,9 +351,19 @@ export class InstructionTrustServiceGate implements InstructionTrustService {
         headSha: operation.headSha,
         policyVersionId: operation.policyVersionId,
         workflowDefinitionVersion: operation.workflowDefinitionVersion,
-        segments: segments.map((s) => sha256Hex(canonicalize({ tier: s.tier, sourceId: s.sourceId, category: s.category, text: s.text, applicablePaths: s.applicablePaths ?? [] }))),
-          conflicts,
-          truncation: { truncated, reason },
+        segments: segments.map((s) =>
+          sha256Hex(
+            canonicalize({
+              tier: s.tier,
+              sourceId: s.sourceId,
+              category: s.category,
+              text: s.text,
+              applicablePaths: s.applicablePaths ?? [],
+            }),
+          ),
+        ),
+        conflicts,
+        truncation: { truncated, reason },
         rejected: (rejected.length > 0 ? rejected : rejections).map((r) => r.reasonCode),
       }),
     );
@@ -376,8 +392,21 @@ export class InstructionTrustServiceGate implements InstructionTrustService {
     aggregateId: string,
     payload: Readonly<Record<string, unknown>>,
   ): Promise<void> {
-    await this.#emit.emit({ type, aggregateId, payload });
+    // Event emission is best-effort domain signaling (shared.ts): a sink
+    // failure must never reject assemble() after a snapshot was already saved.
+    try {
+      await this.#emit.emit({ type, aggregateId, payload });
+    } catch {
+      /* non-blocking; never surfaces as an assembly failure */
+    }
   }
+}
+
+/** Neutralize control characters so stored segments are safe at rest. */
+function sanitizeLine(text: string): string {
+  return Array.from(text.normalize('NFKC'))
+    .map((ch) => (ch < '\u0020' || ch === '\u007f' ? ' ' : ch))
+    .join('');
 }
 
 function governingTier(category: DirectiveCategory, fallback: InstructionTier): InstructionTier {
