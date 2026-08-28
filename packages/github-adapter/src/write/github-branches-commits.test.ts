@@ -14,12 +14,14 @@ import { advanceBranchInputSchema, createCommitInputSchema } from './contracts.j
 const RUN_ID = '9b5d2b1c-1122-4433-a5de-0f0f0f0f0f0f';
 const OP1 = 'e1f2a3b4-0000-4000-8000-123456789abc';
 const OP2 = 'a1b2c3d4-0000-4000-8000-abcdefabcdef';
+const OP3 = 'c3d4e5f6-0000-4000-8000-abcdabcdabcd';
 const SHA_A = 'a'.repeat(40);
 const SHA_B = 'b'.repeat(40);
 const SHA_C = 'c'.repeat(40);
 const REPO = { owner: 'octo', repo: 'demo' };
 const BRANCH = buildWorkflowBranchName(RUN_ID, OP1);
 const BRANCH2 = buildWorkflowBranchName(RUN_ID, OP2);
+const BRANCH3 = buildWorkflowBranchName(RUN_ID, OP3);
 
 function ctx(): WriteContext {
   return { correlationId: 'corr-1', actionId: 'action-1', authorization: true };
@@ -201,6 +203,53 @@ describe('C020 createBranch', () => {
       ctx(),
     );
     expect(result.status).toBe('conflict');
+  });
+
+  it('rejects a branch not bound to its workflow run and operation', async () => {
+    const { service } = setup();
+    // Same namespace, but the canonical branch for a DIFFERENT operation key.
+    const unbound = buildWorkflowBranchName(RUN_ID, OP2);
+    await expect(
+      service.createBranch(
+        {
+          repository: REPO,
+          branch: unbound,
+          baseSha: SHA_A,
+          workflowRunId: RUN_ID,
+          operationKey: OP1,
+        },
+        ctx(),
+      ),
+    ).rejects.toThrow('GITHUB_MUTATION_BRANCH_UNBOUND');
+  });
+
+  it('does not claim an applied replay for an uncertain prior attempt', async () => {
+    const { provider, service } = setup();
+    provider.failNext = { op: 'createRef', code: 'TIMEOUT' };
+    const first = await service.createBranch(
+      {
+        repository: REPO,
+        branch: BRANCH2,
+        baseSha: SHA_A,
+        workflowRunId: RUN_ID,
+        operationKey: OP2,
+      },
+      ctx(),
+    );
+    expect(first.status).toBe('outcome_unknown');
+    // Same key/digest retried while the prior attempt is still uncertain must NOT
+    // claim an applied replay — reconciliation must resolve it first.
+    const retry = await service.createBranch(
+      {
+        repository: REPO,
+        branch: BRANCH2,
+        baseSha: SHA_A,
+        workflowRunId: RUN_ID,
+        operationKey: OP2,
+      },
+      ctx(),
+    );
+    expect(retry.status).toBe('outcome_unknown');
   });
 });
 
@@ -387,5 +436,27 @@ describe('C020 reconcile', () => {
     const { service } = setup();
     const result = await service.reconcile({ operationId: 'does-not-exist' });
     expect(result.state).toBe('failed');
+  });
+
+  it('escalates to manual_review when the reconcile read itself fails', async () => {
+    const { provider, service } = setup();
+    provider.failNext = { op: 'createRef', code: 'TIMEOUT' };
+    await service.createBranch(
+      {
+        repository: REPO,
+        branch: BRANCH3,
+        baseSha: SHA_A,
+        workflowRunId: RUN_ID,
+        operationKey: OP3,
+      },
+      ctx(),
+    );
+    const op = await service.operationStore().findByIdempotency(OP3);
+    if (op === undefined) throw new Error('op missing');
+    // Reconcile cannot read the provider: absence is NOT authoritative, so the
+    // possibly-applied write must not be classified as not_applied/conflicted.
+    provider.failNext = { op: 'branchState', code: 'TIMEOUT' };
+    const reconciled = await service.reconcile({ operationId: op.id });
+    expect(reconciled.state).toBe('manual_review');
   });
 });

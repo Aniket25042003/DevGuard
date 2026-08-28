@@ -28,6 +28,7 @@ import { resolveMutationEdge, type MutationTrigger } from './fsm.js';
 import {
   assertMutationBranch,
   assertWritableTarget,
+  buildWorkflowBranchName,
   mutationInputDigest,
   sanitizeCommitMessage,
 } from './mutation-identity.js';
@@ -151,6 +152,7 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
       throw makeError('VALIDATION_FAILED', { details: { reasonCode: 'CREATE_BRANCH_INPUT' } });
     const req = parsed.data;
     protect(req.branch, ctx);
+    assertBoundBranch(req);
 
     const digest = mutationInputDigest({ kind: 'create_branch', ...req });
     const op = this.#newOperation(
@@ -166,6 +168,21 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return { status: 'conflict', detail: claimed.code };
     if (claimed.replayed) {
+      if (claimed.operation.state !== 'applied') {
+        // The prior attempt did not confirm the branch was created. Do not
+        // claim an applied replay; surface the uncertain/rejected outcome so
+        // reconciliation can resolve it before any retry.
+        const status =
+          claimed.operation.state === 'outcome_unknown' ||
+          claimed.operation.state === 'reconciling' ||
+          claimed.operation.state === 'executing'
+            ? 'outcome_unknown'
+            : 'conflict';
+        return {
+          status,
+          detail: 'prior operation not confirmed applied; reconcile required',
+        } as MutationResult<GitBranch>;
+      }
       return {
         status: 'replayed',
         value: branchOf(req.repository, req.branch, req.baseSha),
@@ -220,6 +237,7 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
       throw makeError('VALIDATION_FAILED', { details: { reasonCode: 'CREATE_COMMIT_INPUT' } });
     const req = parsed.data;
     protect(req.branch, ctx);
+    assertBoundBranch(req);
     const message = sanitizeCommitMessage(req.message);
 
     const digest = mutationInputDigest({ kind: 'create_commit', ...req, message });
@@ -377,6 +395,7 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
       throw makeError('VALIDATION_FAILED', { details: { reasonCode: 'ADVANCE_BRANCH_INPUT' } });
     const req = parsed.data;
     protect(req.branch, ctx);
+    assertBoundBranch(req);
 
     const digest = mutationInputDigest({ kind: 'advance_branch', ...req });
     const op = this.#newOperation(
@@ -468,8 +487,14 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
       else if (op.kind === 'create_branch' && state.value.headSha === op.expectedBeforeSha)
         trigger = 'reconciled_applied';
       else trigger = 'reconciled_conflicted';
-    } else {
+    } else if (state.ok) {
+      // Authoritative absence. A confirmed-absent branch is definitive.
       trigger = op.kind === 'create_branch' ? 'reconciled_not_applied' : 'reconciled_conflicted';
+    } else {
+      // Provider read failed — absence (or presence) is NOT authoritative. Escalate
+      // to manual review rather than misclassifying a possibly-applied write as
+      // not_applied / conflicted (Qodo #10).
+      trigger = 'manual';
     }
     const verdict = resolveMutationEdge('reconciling', trigger);
     const next = verdict.allowed ? verdict.to : 'manual_review';
@@ -578,6 +603,17 @@ function protect(branch: string, ctx: WriteContext): void {
   assertWritableTarget(branch);
   if (!ctx.authorization)
     throw makeError('REPOSITORY_FORBIDDEN', { details: { reasonCode: 'WRITE_NOT_AUTHORIZED' } });
+}
+
+/** A mutation branch must be the canonical branch for THIS workflow run + operation. */
+function assertBoundBranch(req: {
+  branch: string;
+  workflowRunId: string;
+  operationKey: string;
+}): void {
+  if (req.branch !== buildWorkflowBranchName(req.workflowRunId, req.operationKey)) {
+    throw new Error('GITHUB_MUTATION_BRANCH_UNBOUND');
+  }
 }
 
 function repositoryKey(repository: GitRepoRef): string {
