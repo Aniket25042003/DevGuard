@@ -221,7 +221,12 @@ export function validateDefinition(): DefinitionValidation {
     }
   }
   // Merge must be approval-gated.
-  if (IMPLEMENT_ISSUE_STEPS.filter((s) => s.id === 'merge').length !== 1 || IMPLEMENT_ISSUE_STEPS[IMPLEMENT_ISSUE_STEPS.length - 2]?.id !== 'approve_merge' || IMPLEMENT_ISSUE_STEPS[IMPLEMENT_ISSUE_STEPS.length - 2]?.kind !== 'approval' || !IMPLEMENT_ISSUE_STEPS[IMPLEMENT_ISSUE_STEPS.length - 2]?.validatorIds.includes('v_merge_gate'))
+  if (
+    IMPLEMENT_ISSUE_STEPS.filter((s) => s.id === 'merge').length !== 1 ||
+    IMPLEMENT_ISSUE_STEPS[IMPLEMENT_ISSUE_STEPS.length - 2]?.id !== 'approve_merge' ||
+    IMPLEMENT_ISSUE_STEPS[IMPLEMENT_ISSUE_STEPS.length - 2]?.kind !== 'approval' ||
+    !IMPLEMENT_ISSUE_STEPS[IMPLEMENT_ISSUE_STEPS.length - 2]?.validatorIds.includes('v_merge_gate')
+  )
     return { ok: false, violation: 'missing approval gate' };
   return { ok: true };
 }

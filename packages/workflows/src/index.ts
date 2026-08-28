@@ -1,7 +1,12 @@
 /**
- * @devguard/workflows — Durable workflow engine. This PR ships the C049
- * `implement_issue` product workflow definition (a C045-style build asset).
+ * @devguard/workflows — Durable workflow engine (C045-C060): versioned registry,
+ * run/step FSM orchestration, executor concurrency/retry/locks and
+ * validation/completion aggregation, and in later trains product workflows.
+ * Provider-neutral application layer; SDK types and SQL row shapes never cross.
  */
+import './errors.js';
+
+// ---- C049 product workflow: implement_issue ----
 export {
   IMPLEMENT_ISSUE_STEPS,
   IMPLEMENT_ISSUE_ALLOWED_ACTIONS,
@@ -14,3 +19,99 @@ export {
   type DefinitionValidation,
   type ProductStep,
 } from './product/implement-issue.js';
+
+// ---- C047 workflow executor ----
+export {
+  EXECUTOR_SCHEMA_VERSION,
+  EXECUTOR_ATTEMPT_STATES,
+  LOCK_STATES,
+  RETRY_CLASSES,
+  WorkflowExecutor,
+  RetryClassifier,
+  InMemoryLockManager,
+  type ExecuteStepJob,
+  type ExecutorAttemptState,
+  type ExecutorCommandPort,
+  type ExecutorDeps,
+  type LockResult,
+  type LockState,
+  type RetryClass,
+  type RetryDisposition,
+  type StepHandler,
+} from './executor/executor.js';
+
+// ---- C048 validation / completion / failure ----
+export {
+  VALIDATION_SCHEMA_VERSION,
+  VALIDATION_ITEM_STATES,
+  GATE_STATES,
+  ValidationAggregator,
+  NoopFreshnessEvaluator,
+  InMemoryOutcomeStore,
+  validationContractsSchema,
+  workflowOutcomeKindSchema,
+  type AggregateVerdict,
+  type FreshnessEvaluator,
+  type GateState,
+  type OutcomeCommitStorePort,
+  type OutcomeEvidenceInput,
+  type ValidationItemState,
+  type ValidationResult,
+  type WorkflowOutcome,
+  type WorkflowOutcomeKind,
+} from './validation/aggregator.js';
+
+// ---- C045 workflow definition registry + skills ----
+export {
+  WORKFLOW_DEFINITION_SCHEMA_VERSION,
+  DEFINITION_STATUSES,
+  TRUST_TIERS,
+  workflowDefinitionContractsSchema,
+  workflowDefinitionSchema,
+  skillAssetSchema,
+  stepTemplateSchema,
+  type DefinitionStatus,
+  type SkillAsset,
+  type TrustTier,
+  type WorkflowCatalogEntry,
+  type WorkflowDefinition,
+  type WorkflowDefinitionSnapshot,
+  type WorkflowStepTemplate,
+  type RegisterResult,
+} from './definitions/contracts.js';
+export {
+  WorkflowDefinitionRegistry,
+  canonicalDigest,
+  sha256,
+  type RegistryKnownIds,
+  type WorkflowDefinitionRegistryDeps,
+} from './definitions/registry.js';
+
+// ---- C046 run/step orchestration ----
+export {
+  WORKFLOW_RUN_SCHEMA_VERSION,
+  RUN_STATES,
+  STEP_STATES,
+  runSchema,
+  workflowRunContractsSchema,
+  type LaunchWorkflowInput,
+  type RunState,
+  type StepState,
+  type WorkflowRun,
+  type WorkflowRunStep,
+} from './runs/contracts.js';
+export {
+  resolveRunEdge,
+  resolveStepEdge,
+  type RunTrigger,
+  type RunVerdict,
+  type StepTrigger,
+  type StepVerdict,
+} from './runs/fsm.js';
+export {
+  WorkflowRunOrchestrator,
+  InMemoryRunStore,
+  type LaunchResult,
+  type RunOrchestratorDeps,
+  type RunStorePort,
+} from './runs/run-orchestrator.js';
