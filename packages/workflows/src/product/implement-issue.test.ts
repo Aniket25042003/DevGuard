@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { findActionDefinition } from '../../../policy-engine/src/actions/catalog.js';
 import {
   IMPLEMENT_ISSUE_STEPS,
   IMPLEMENT_ISSUE_ALLOWED_ACTIONS,
@@ -11,9 +12,12 @@ describe('C049 implement_issue product workflow definition', () => {
     expect(validateDefinition().ok).toBe(true);
   });
 
-  it('every step action is within the allowed-action ceiling', () => {
+  it('every declared action resolves through the canonical policy catalog', () => {
     const used = new Set(IMPLEMENT_ISSUE_STEPS.flatMap((s) => s.actionTypes));
-    for (const action of used) expect(IMPLEMENT_ISSUE_ALLOWED_ACTIONS).toContain(action);
+    for (const action of used) {
+      expect(IMPLEMENT_ISSUE_ALLOWED_ACTIONS).toContain(action);
+      expect(findActionDefinition(action)).toBeDefined();
+    }
   });
 
   it('orders evidence-bearing stages before any publish/merge', () => {

@@ -26,7 +26,7 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
   {
     id: 'context',
     kind: 'turn',
-    actionTypes: ['action:repo_map', 'action:issue_read'],
+    actionTypes: ['repository_read', 'issue_read'],
     maxRetries: 1,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
@@ -35,7 +35,7 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
   {
     id: 'plan',
     kind: 'turn',
-    actionTypes: ['action:plan'],
+    actionTypes: [],
     maxRetries: 1,
     maxWallMillis: 120_000,
     failureBehavior: 'stop',
@@ -53,7 +53,7 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
   {
     id: 'branch',
     kind: 'command',
-    actionTypes: ['action:create_branch'],
+    actionTypes: ['branch_create'],
     maxRetries: 2,
     maxWallMillis: 60_000,
     failureBehavior: 'fail_run',
@@ -62,7 +62,7 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
   {
     id: 'edit',
     kind: 'turn',
-    actionTypes: ['action:edit_patch'],
+    actionTypes: ['workspace_apply_patch'],
     maxRetries: 2,
     maxWallMillis: 600_000,
     failureBehavior: 'repair_turn',
@@ -71,7 +71,7 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
   {
     id: 'focused_tests',
     kind: 'command',
-    actionTypes: ['action:sandbox_test'],
+    actionTypes: ['sandbox_run_test'],
     maxRetries: 2,
     maxWallMillis: 600_000,
     failureBehavior: 'repair_turn',
@@ -80,7 +80,7 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
   {
     id: 'broad_tests',
     kind: 'command',
-    actionTypes: ['action:sandbox_test'],
+    actionTypes: ['sandbox_run_test'],
     maxRetries: 1,
     maxWallMillis: 900_000,
     failureBehavior: 'fail_run',
@@ -89,7 +89,7 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
   {
     id: 'security',
     kind: 'command',
-    actionTypes: ['action:sandbox_scan'],
+    actionTypes: ['sandbox_run_security_scan'],
     maxRetries: 1,
     maxWallMillis: 900_000,
     failureBehavior: 'fail_run',
@@ -98,7 +98,7 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
   {
     id: 'commit_push',
     kind: 'command',
-    actionTypes: ['action:commit', 'action:push_branch'],
+    actionTypes: ['commit_create', 'branch_push'],
     maxRetries: 2,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
@@ -107,7 +107,7 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
   {
     id: 'open_pr',
     kind: 'published',
-    actionTypes: ['action:create_pr'],
+    actionTypes: ['pull_request_create'],
     maxRetries: 2,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
@@ -116,16 +116,52 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
   {
     id: 'remediate',
     kind: 'turn',
-    actionTypes: ['action:review_remediate'],
+    actionTypes: ['workspace_apply_patch'],
     maxRetries: 2,
     maxWallMillis: 900_000,
     failureBehavior: 'repair_turn',
     validatorIds: ['v_review'],
   },
   {
+    id: 'remediation_focused_tests',
+    kind: 'command',
+    actionTypes: ['sandbox_run_test'],
+    maxRetries: 2,
+    maxWallMillis: 600_000,
+    failureBehavior: 'fail_run',
+    validatorIds: ['v_test_focused'],
+  },
+  {
+    id: 'remediation_broad_tests',
+    kind: 'command',
+    actionTypes: ['sandbox_run_test'],
+    maxRetries: 1,
+    maxWallMillis: 900_000,
+    failureBehavior: 'fail_run',
+    validatorIds: ['v_test_broad'],
+  },
+  {
+    id: 'remediation_security',
+    kind: 'command',
+    actionTypes: ['sandbox_run_security_scan'],
+    maxRetries: 1,
+    maxWallMillis: 900_000,
+    failureBehavior: 'fail_run',
+    validatorIds: ['v_sec_scan'],
+  },
+  {
+    id: 'remediation_commit_push',
+    kind: 'command',
+    actionTypes: ['commit_create', 'branch_push'],
+    maxRetries: 2,
+    maxWallMillis: 120_000,
+    failureBehavior: 'fail_run',
+    validatorIds: [],
+  },
+  {
     id: 'approve_merge',
     kind: 'approval',
-    actionTypes: ['action:request_approval'],
+    actionTypes: ['approval_checkpoint_create'],
     maxRetries: 0,
     maxWallMillis: 3600_000,
     failureBehavior: 'stop',
@@ -134,7 +170,7 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
   {
     id: 'merge',
     kind: 'published',
-    actionTypes: ['action:merge_pr'],
+    actionTypes: ['pull_request_merge'],
     maxRetries: 0,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
@@ -143,19 +179,17 @@ export const IMPLEMENT_ISSUE_STEPS: readonly ProductStep[] = [
 ];
 
 export const IMPLEMENT_ISSUE_ALLOWED_ACTIONS: readonly string[] = [
-  'action:repo_map',
-  'action:issue_read',
-  'action:plan',
-  'action:create_branch',
-  'action:edit_patch',
-  'action:sandbox_test',
-  'action:sandbox_scan',
-  'action:commit',
-  'action:push_branch',
-  'action:create_pr',
-  'action:review_remediate',
-  'action:request_approval',
-  'action:merge_pr',
+  'repository_read',
+  'issue_read',
+  'branch_create',
+  'workspace_apply_patch',
+  'sandbox_run_test',
+  'sandbox_run_security_scan',
+  'commit_create',
+  'branch_push',
+  'pull_request_create',
+  'approval_checkpoint_create',
+  'pull_request_merge',
 ];
 
 export const IMPLEMENT_ISSUE_REQUIRED_CAPABILITIES: readonly string[] = [
@@ -187,7 +221,7 @@ export function validateDefinition(): DefinitionValidation {
     }
   }
   // Merge must be approval-gated.
-  if (!IMPLEMENT_ISSUE_STEPS.some((s) => s.kind === 'approval'))
+  if (IMPLEMENT_ISSUE_STEPS.filter((s) => s.id === 'merge').length !== 1 || IMPLEMENT_ISSUE_STEPS[IMPLEMENT_ISSUE_STEPS.length - 2]?.id !== 'approve_merge' || IMPLEMENT_ISSUE_STEPS[IMPLEMENT_ISSUE_STEPS.length - 2]?.kind !== 'approval' || !IMPLEMENT_ISSUE_STEPS[IMPLEMENT_ISSUE_STEPS.length - 2]?.validatorIds.includes('v_merge_gate'))
     return { ok: false, violation: 'missing approval gate' };
   return { ok: true };
 }
