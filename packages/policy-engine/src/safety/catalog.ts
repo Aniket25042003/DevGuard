@@ -141,6 +141,7 @@ const SANDBOX_ACTIONS = set([
   'workspace_collect_artifact',
   'workspace_destroy',
   'sandbox_run_readonly',
+  'sandbox_run_dependency_freshness',
   'sandbox_run_build',
   'sandbox_run_test',
   'sandbox_run_lint',
