@@ -26,7 +26,10 @@ export class OutputNormalizer {
   #carry = '';
 
   private longestSecret(): number {
-    return this.secretValues.reduce((max, secret) => Math.max(max, Buffer.byteLength(secret, 'utf8')), 0);
+    return this.secretValues.reduce(
+      (max, secret) => Math.max(max, Buffer.byteLength(secret, 'utf8')),
+      0,
+    );
   }
 
   private redact(text: string): string {
@@ -45,11 +48,16 @@ export class OutputNormalizer {
   #flush(final: boolean): number {
     const redacted = this.redact(this.#carry);
     const keep = final ? 0 : Math.max(0, this.longestSecret() - 1);
-    const boundary = Array.from(redacted).slice(0, Math.max(0, Array.from(redacted).length - keep)).join('');
-    this.#carry = final ? '' : Array.from(redacted).slice(Math.max(0, Array.from(redacted).length - keep)).join('');
+    const boundary = Array.from(redacted)
+      .slice(0, Math.max(0, Array.from(redacted).length - keep))
+      .join('');
+    this.#carry = final
+      ? ''
+      : Array.from(redacted)
+          .slice(Math.max(0, Array.from(redacted).length - keep))
+          .join('');
     return this.accept(boundary);
   }
-
 
   constructor(
     private readonly outputId: string,

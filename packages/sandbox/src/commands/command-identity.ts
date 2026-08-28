@@ -22,7 +22,7 @@ export function canonicalDigest(command: SandboxCommand): string {
       args: command.args,
       cwd: command.cwd,
       env: command.env,
-        output: command.output,
+      output: command.output,
       timeoutMs: command.timeoutMs,
       generation: command.generation,
     }),
@@ -33,7 +33,12 @@ export function assertSafeArgv(command: SandboxCommand): void {
   if (command.executable.includes('\u0000') || command.args.some((a) => a.includes('\u0000'))) {
     throw new Error('SANDBOX_ARGV_NUL_DENIED');
   }
-  if (/^(?:[A-Za-z]:[\\/]|[\\\\/])/.test(command.cwd) || command.cwd.startsWith('/') || command.cwd.includes('\u0000') || command.cwd.split(/[\\/]/).includes('..')) {
+  if (
+    /^(?:[A-Za-z]:[\\/]|[\\\\/])/.test(command.cwd) ||
+    command.cwd.startsWith('/') ||
+    command.cwd.includes('\u0000') ||
+    command.cwd.split(/[\\/]/).includes('..')
+  ) {
     throw new Error('SANDBOX_CWD_DENIED');
   }
   for (const [name] of command.env) {
