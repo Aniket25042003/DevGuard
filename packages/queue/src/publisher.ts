@@ -82,7 +82,7 @@ export class OutboxPublisher {
         row.correlation['runId'] ?? row.payload['runId'] ?? row.correlation['workflowRunId'] ?? '',
       );
       const deliveryId = String(
-        row.correlation['deliveryId'] ?? row.correlation['deliveryId'] ?? '',
+        row.correlation['deliveryId'] ?? row.payload['deliveryId'] ?? '',
       );
       const repositoryId = String(
         row.correlation['repositoryId'] ?? row.payload['repositoryId'] ?? '',
