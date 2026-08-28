@@ -125,7 +125,7 @@ const payloads: Record<SandboxEventType, z.ZodType<unknown>> = {
     .object({
       workspaceId: sandboxIdSchemas.workspaceId,
       expectedSha: hexSha,
-      observedSha: z.string().min(1).max(128),
+      observedSha: z.string().max(128),
       mismatchKind: z.string().min(1).max(64),
     })
     .strict(),
