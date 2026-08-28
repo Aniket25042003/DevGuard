@@ -3,6 +3,7 @@
  */
 import { type Hono } from 'hono';
 import type { ApiContainer } from './composition/container.js';
+import type { WorkflowStatus } from '@devguard/contracts';
 import { createTransportKernel, type AppEnv, type RouteMetadata } from './transport/kernel.js';
 import { InMemoryRateLimiter } from './transport/rate-limit.js';
 import { enforceCsrfAndOrigin } from './transport/security.js';
@@ -33,16 +34,18 @@ class VolatileWorkflowService
     {
       runId: string;
       userId: string;
-      state: string;
+      state: WorkflowStatus;
       workflowType: string;
       version: string;
       idempotencyKey: string;
+      input: unknown;
     }
   >();
   private counter = 0;
 
   async launch(
-    input: { workflowType: string; version: string; idempotencyKey: string; input: unknown },
+    input: { workflowType: string; version: string; idempotencyKey: string;
+      input: unknown; input: unknown },
     userId: string,
   ): Promise<
     { ok: true; runId: string; replayed: boolean } | { ok: false; code: string; detail: string }
@@ -50,16 +53,22 @@ class VolatileWorkflowService
     const existing = [...this.runs.values()].find(
       (r) => r.userId === userId && r.idempotencyKey === input.idempotencyKey,
     );
-    if (existing !== undefined) return { ok: true, runId: existing.runId, replayed: true };
+    if (existing !== undefined) {
+        if (existing.workflowType !== input.workflowType || existing.version !== input.version || JSON.stringify(existing.input) !== JSON.stringify(input.input)) {
+          return { ok: false, code: 'IDEMPOTENCY_KEY_REUSED', detail: 'Idempotency key was reused.' };
+        }
+        return { ok: true, runId: existing.runId, replayed: true };
+      }
     this.counter += 1;
-    const runId = `run-${this.counter}`;
+    const runId = crypto.randomUUID();
     this.runs.set(runId, {
       runId,
       userId,
-      state: 'QUEUED',
+      state: 'queued',
       workflowType: input.workflowType,
       version: input.version,
       idempotencyKey: input.idempotencyKey,
+        input: input.input,
     });
     return { ok: true, runId, replayed: false };
   }
@@ -72,7 +81,7 @@ class VolatileWorkflowService
     return run !== undefined && run.userId === userId ? { runId, state: run.state } : undefined;
   }
 
-  async commandsOf(_runId: string) {
+  async commandsOf(_runId: string, _userId: string) {
     return [];
   }
 }
