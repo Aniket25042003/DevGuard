@@ -64,12 +64,16 @@ export class WorkflowDefinitionRegistry {
 
     // Cross-reference validation (fail closed on unknown ids).
     for (const action of definition.allowedActionTypes)
-        if (!this.#deps.known.actionTypes.has(action))
-          return { ok: false, code: 'UNKNOWN_REFERENCE', detail: `action ${action}` };
-      for (const step of definition.steps) {
-        for (const action of step.actionTypes)
-          if (!definition.allowedActionTypes.includes(action))
-            return { ok: false, code: 'UNKNOWN_REFERENCE', detail: `action ${action} exceeds ceiling` };
+      if (!this.#deps.known.actionTypes.has(action))
+        return { ok: false, code: 'UNKNOWN_REFERENCE', detail: `action ${action}` };
+    for (const step of definition.steps) {
+      for (const action of step.actionTypes)
+        if (!definition.allowedActionTypes.includes(action))
+          return {
+            ok: false,
+            code: 'UNKNOWN_REFERENCE',
+            detail: `action ${action} exceeds ceiling`,
+          };
       for (const action of step.actionTypes)
         if (!this.#deps.known.actionTypes.has(action))
           return { ok: false, code: 'UNKNOWN_REFERENCE', detail: `action ${action}` };
@@ -101,7 +105,9 @@ export class WorkflowDefinitionRegistry {
       };
     }
 
-    const activated = deepFreeze(deepClone({ ...definition, status: 'ACTIVE' })) as WorkflowDefinition;
+    const activated = deepFreeze(
+      deepClone({ ...definition, status: 'ACTIVE' }),
+    ) as WorkflowDefinition;
     this.#definitions.set(key, activated);
     this.generation += 1;
     return { ok: true, definition: activated };
@@ -172,18 +178,27 @@ export function sha256(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
-function deepClone<T>(value: T): T { return structuredClone(value); }
-  function deepFreeze<T>(value: T): T {
-    if (value !== null && typeof value === 'object') { Object.freeze(value); for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child); }
-    return value;
+function deepClone<T>(value: T): T {
+  return structuredClone(value);
+}
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === 'object') {
+    Object.freeze(value);
+    for (const child of Object.values(value as Record<string, unknown>)) deepFreeze(child);
   }
-  function stableStringify(value: unknown): string {
-    if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
-    if (value !== null && typeof value === 'object') return `{${Object.keys(value as object).sort().map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`).join(',')}}`;
-    return JSON.stringify(value);
-  }
+  return value;
+}
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value !== null && typeof value === 'object')
+    return `{${Object.keys(value as object)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`)
+      .join(',')}}`;
+  return JSON.stringify(value);
+}
 
-  function firstKey(keys: IterableIterator<string>, id: string): string | undefined {
+function firstKey(keys: IterableIterator<string>, id: string): string | undefined {
   for (const key of keys) if (key.startsWith(`${id}@`)) return key;
   return undefined;
 }
