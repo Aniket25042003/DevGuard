@@ -7,6 +7,75 @@ import { createTransportKernel, type AppEnv, type RouteMetadata } from './transp
 import { InMemoryRateLimiter } from './transport/rate-limit.js';
 import { enforceCsrfAndOrigin } from './transport/security.js';
 import { registerAuthRoutes } from './routes/auth.routes.js';
+import {
+  registerPolicyRoutes,
+  registerWorkflowRoutes,
+  registerCommandRoutes,
+  type PolicySummaryPort,
+  type WorkflowLaunchPort,
+  type WorkflowStatusPort,
+  type CommandCatalogPort,
+} from './routes/workflow.routes.js';
+
+/** No durable policy store yet (C026/C030): safe empty summary. */
+const VolatilePolicySummaries: PolicySummaryPort = {
+  async summaryFor(_userId: string) {
+    return [];
+  },
+};
+
+/** In-memory workflow launch/status/command projection until C046/C058 wiring. */
+class VolatileWorkflowService
+  implements WorkflowLaunchPort, WorkflowStatusPort, CommandCatalogPort
+{
+  readonly runs = new Map<
+    string,
+    {
+      runId: string;
+      userId: string;
+      state: string;
+      workflowType: string;
+      version: string;
+      idempotencyKey: string;
+    }
+  >();
+  private counter = 0;
+
+  async launch(
+    input: { workflowType: string; version: string; idempotencyKey: string; input: unknown },
+    userId: string,
+  ): Promise<
+    { ok: true; runId: string; replayed: boolean } | { ok: false; code: string; detail: string }
+  > {
+    const existing = [...this.runs.values()].find(
+      (r) => r.userId === userId && r.idempotencyKey === input.idempotencyKey,
+    );
+    if (existing !== undefined) return { ok: true, runId: existing.runId, replayed: true };
+    this.counter += 1;
+    const runId = `run-${this.counter}`;
+    this.runs.set(runId, {
+      runId,
+      userId,
+      state: 'QUEUED',
+      workflowType: input.workflowType,
+      version: input.version,
+      idempotencyKey: input.idempotencyKey,
+    });
+    return { ok: true, runId, replayed: false };
+  }
+
+  async statusOf(
+    runId: string,
+    userId: string,
+  ): Promise<{ runId: string; state: string } | undefined> {
+    const run = this.runs.get(runId);
+    return run !== undefined && run.userId === userId ? { runId, state: run.state } : undefined;
+  }
+
+  async commandsOf(_runId: string) {
+    return [];
+  }
+}
 
 export interface AssembledApi {
   readonly app: Hono<AppEnv>;
@@ -33,6 +102,12 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   });
 
   registerAuthRoutes(kernel, container);
+
+  // C066 policies summary, C067 workflow launch/status, C069 command catalog.
+  const volatileWorkflows = new VolatileWorkflowService();
+  registerPolicyRoutes(kernel, VolatilePolicySummaries);
+  registerWorkflowRoutes(kernel, volatileWorkflows, volatileWorkflows);
+  registerCommandRoutes(kernel, volatileWorkflows);
 
   return { app: kernel.app, routeMetadata: kernel.routeMetadata };
 }
