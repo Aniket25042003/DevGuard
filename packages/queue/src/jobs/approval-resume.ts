@@ -86,8 +86,6 @@ export class InMemoryApprovalStore implements ApprovalStorePort {
   }
 }
 
-import { RetryClassifier } from './cleanup.js';
-
 export interface ResumeExecutorPort {
   execute(runId: string, approvalId: string): Promise<{ ok: true } | { ok: false; code: string }>;
 }
