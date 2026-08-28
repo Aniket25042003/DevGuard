@@ -1,9 +1,15 @@
 /**
- * @devguard/workflows — Durable workflow engine (C045-C056): versioned registry, run/step FSM, executor concurrency, validation/completion and product workflows.
- *
- * Provider-neutral application layer. External providers and policy/approval
- * wiring reach this package only through typed ports owned here; the
- * composition root (apps) supplies concrete implementations. Provider SDK
- * types and SQL row shapes never cross this boundary.
+ * @devguard/workflows — ships the C054 `review_remediation` product workflow
+ * definition (a C045-style build asset).
  */
-export {};
+export {
+  REVIEW_REMEDIATION_STEPS,
+  REVIEW_REMEDIATION_ALLOWED_ACTIONS,
+  REVIEW_REMEDIATION_CYCLE_BUDGET,
+  REVIEW_REMEDIATION_DEFINITION_ID,
+  REVIEW_REMEDIATION_DEFINITION_VERSION,
+  reviewRemediationDefinition,
+  validateDefinition,
+  type DefinitionValidation,
+  type ReviewStep,
+} from './product/review-remediation.js';
