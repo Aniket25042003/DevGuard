@@ -35,7 +35,7 @@ export class InMemoryMetricsPort implements MetricsPort {
 }
 
 function seriesKey(name: string, labels: ApprovedLabels): string {
-  return `${name}{${Object.entries(labels)
+  return `${name}{${Object.entries(labels).sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${v}`)
     .join(',')}}`;
 }
