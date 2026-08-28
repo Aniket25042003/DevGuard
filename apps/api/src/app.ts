@@ -27,6 +27,31 @@ import {
   type RepositoryCatalogPort,
   type WebhookAcceptancePort,
 } from './routes/github.routes.js';
+import { registerArtifactRoutes, type ArtifactPort } from './routes/artifact.routes.js';
+import { registerAuditRoutes, type AuditPort } from './routes/audit.routes.js';
+import { registerFindingsRoutes, type FindingsPort } from './routes/findings.routes.js';
+
+/** In-memory safe-artifact/audit/findings projections until C044/C064/C051 wiring. */
+const VolatileArtifacts: ArtifactPort = {
+  async listFor(_runId: string) {
+    return [];
+  },
+  async getSafe(_id: string) {
+    return undefined;
+  },
+};
+const VolatileAudit: AuditPort = {
+  async list(_userId: string) {
+    // No hash-chain verifier is composed for this volatile adapter. Never
+    // present an unverified projection as integrity-verified.
+    return { verified: false, rows: [] };
+  },
+};
+const VolatileFindings: FindingsPort = {
+  async listFor(_runId: string) {
+    return [];
+  },
+};
 
 /** No durable policy store yet (C026/C030): safe empty summary. */
 const VolatilePolicySummaries: PolicySummaryPort = {
@@ -154,6 +179,11 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   });
 
   registerAuthRoutes(kernel, container);
+
+  // C071 safe artifacts, C072 audit, C073 security findings.
+  registerArtifactRoutes(kernel, VolatileArtifacts);
+  registerAuditRoutes(kernel, VolatileAudit);
+  registerFindingsRoutes(kernel, VolatileFindings);
 
   // C068 session/event routes, C070 approval routes.
   registerSessionRoutes(kernel, container.bindings.sessionEvents);
