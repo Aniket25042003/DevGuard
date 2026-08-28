@@ -6,6 +6,17 @@
  */
 import './errors.js';
 
+// ---- C054 product workflow: review_remediation ----
+export {
+  REVIEW_REMEDIATION_STEPS,
+  REVIEW_REMEDIATION_ALLOWED_ACTIONS,
+  REVIEW_REMEDIATION_CYCLE_BUDGET,
+  REVIEW_REMEDIATION_DEFINITION_ID,
+  REVIEW_REMEDIATION_DEFINITION_VERSION,
+  reviewRemediationDefinition,
+  type ReviewStep,
+} from './product/review-remediation.js';
+
 // ---- C049 product workflow: implement_issue ----
 export {
   IMPLEMENT_ISSUE_STEPS,
