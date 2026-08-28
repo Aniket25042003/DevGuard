@@ -64,7 +64,7 @@ export function normalizeTokenLabel(raw: unknown): string {
     throw validationFailed([{ path: 'label', constraint: `must be 1..${LABEL_MAX} characters` }]);
   }
   // eslint-disable-next-line no-control-regex
-  if (/[\u0000-\u001f\u007f]/.test(label)) {
+  if (/[\u0000-\u001f\u007f\u0080-\u009f]/.test(label)) {
     throw validationFailed([{ path: 'label', constraint: 'must not contain control characters' }]);
   }
   return label;
@@ -132,7 +132,7 @@ export class ApiTokenService {
     if (record === undefined) return undefined;
     if (record.revokedAt !== undefined) return undefined;
     const now = this.deps.now();
-    if (Date.parse(record.expiresAt) < now.getTime()) return undefined;
+    if (Date.parse(record.expiresAt) <= now.getTime()) return undefined;
 
     const profile = this.deps.ownerProfile;
     return {
