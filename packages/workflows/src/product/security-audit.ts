@@ -8,24 +8,28 @@
  * provide. Findings are untrusted provider output requiring schema/path/output
  * validation.
  */
+import { findActionDefinition, type CanonicalActionId } from '@devguard/policy-engine';
+
 export const SECURITY_AUDIT_DEFINITION_ID = 'security_audit';
 export const SECURITY_AUDIT_DEFINITION_VERSION = '1.0.0';
 
 export interface AuditStep {
   readonly id: string;
   readonly kind: 'turn' | 'validator' | 'command' | 'published';
-  readonly actionTypes: readonly string[];
+  readonly actionTypes: readonly CanonicalActionId[];
   readonly maxRetries: number;
   readonly maxWallMillis: number;
   readonly failureBehavior: 'fail_run' | 'stop';
   readonly validatorIds: readonly string[];
+  /** Finalizers run even when an earlier step stops due to failure. */
+  readonly alwaysRun?: boolean;
 }
 
 export const SECURITY_AUDIT_STEPS: readonly AuditStep[] = [
   {
     id: 'resolve_ref',
     kind: 'turn',
-    actionTypes: ['action:repo_read'],
+    actionTypes: ['repository_read'],
     maxRetries: 1,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
@@ -43,7 +47,7 @@ export const SECURITY_AUDIT_STEPS: readonly AuditStep[] = [
   {
     id: 'select_scanners',
     kind: 'turn',
-    actionTypes: ['action:scanner_select'],
+    actionTypes: ['validation_run'],
     maxRetries: 1,
     maxWallMillis: 60_000,
     failureBehavior: 'stop',
@@ -52,7 +56,7 @@ export const SECURITY_AUDIT_STEPS: readonly AuditStep[] = [
   {
     id: 'scan',
     kind: 'command',
-    actionTypes: ['action:sandbox_scan'],
+    actionTypes: ['sandbox_run_security_scan'],
     maxRetries: 1,
     maxWallMillis: 900_000,
     failureBehavior: 'stop',
@@ -88,19 +92,20 @@ export const SECURITY_AUDIT_STEPS: readonly AuditStep[] = [
   {
     id: 'report',
     kind: 'published',
-    actionTypes: ['action:report_publish'],
+    actionTypes: ['security_finding_record'],
     maxRetries: 1,
     maxWallMillis: 120_000,
     failureBehavior: 'fail_run',
     validatorIds: [],
+    alwaysRun: true,
   },
 ];
 
 export const SECURITY_AUDIT_ALLOWED_ACTIONS: readonly string[] = [
-  'action:repo_read',
-  'action:scanner_select',
-  'action:sandbox_scan',
-  'action:report_publish',
+  'repository_read',
+  'validation_run',
+  'sandbox_run_security_scan',
+  'security_finding_record',
 ];
 
 export type DefinitionValidation =
@@ -113,7 +118,7 @@ export function validateDefinition(): DefinitionValidation {
     if (step.maxWallMillis <= 0 || step.maxWallMillis > 24 * 60 * 60_000)
       return { ok: false, violation: `wall ${step.id}` };
     for (const action of step.actionTypes)
-      if (!SECURITY_AUDIT_ALLOWED_ACTIONS.includes(action))
+      if (!SECURITY_AUDIT_ALLOWED_ACTIONS.includes(action) || !findActionDefinition(action))
         return { ok: false, violation: `unallowed action ${action}` };
   }
   // Non-mutating: report publish is the ONLY published step and no mutative
