@@ -7,6 +7,33 @@ import { createTransportKernel, type AppEnv, type RouteMetadata } from './transp
 import { InMemoryRateLimiter } from './transport/rate-limit.js';
 import { enforceCsrfAndOrigin } from './transport/security.js';
 import { registerAuthRoutes } from './routes/auth.routes.js';
+import { registerSessionRoutes, type SessionPort } from './routes/session.routes.js';
+import { registerApprovalRoutes, type ApprovalPort } from './routes/approval.routes.js';
+
+/** In-memory session/event projection until C037/C038 wiring. */
+const VolatileSessions: SessionPort = {
+  async get(_sessionId: string, _userId: string) {
+    return undefined;
+  },
+  async events(_sessionId: string, _userId: string, _limit: number) {
+    return [];
+  },
+};
+
+/** In-memory approval projection/resolution until C070/C035 wiring. */
+const VolatileApprovals: ApprovalPort = {
+  async listFor(_runId: string) {
+    return [];
+  },
+  async resolve(
+    _runId: string,
+    _approvalId: string,
+    _resolution: 'approved' | 'rejected',
+    _userId: string,
+  ) {
+    return { ok: false, code: 'APPROVAL_UNKNOWN', detail: 'no approval store wired' };
+  },
+};
 
 export interface AssembledApi {
   readonly app: Hono<AppEnv>;
@@ -33,6 +60,10 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   });
 
   registerAuthRoutes(kernel, container);
+
+  // C068 session/event routes, C070 approval routes.
+  registerSessionRoutes(kernel, VolatileSessions);
+  registerApprovalRoutes(kernel, VolatileApprovals);
 
   return { app: kernel.app, routeMetadata: kernel.routeMetadata };
 }
