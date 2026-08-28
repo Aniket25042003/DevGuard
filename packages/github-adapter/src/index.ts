@@ -167,3 +167,92 @@ export {
   type EventSinkPort,
   type ReadComponentEventType,
 } from './read/ports/shared.js';
+
+// ---- C015 repository understanding map ----
+export {
+  BUDGET_KINDS,
+  MAP_FACT_KINDS,
+  MAP_TERMINAL_STATUSES,
+  MAP_TRUST_LABELS,
+  REPOSITORY_MAP_SCHEMA_VERSION,
+  REPOSITORY_MAP_STATUSES,
+  buildRepositoryMapSchema,
+  invalidateRepositoryMapSchema,
+  mapBudgetSchema,
+  queryRepositoryMapSchema,
+  type BudgetKind,
+  type BuildRepositoryMap,
+  type BuildRepositoryMapInput,
+  type CiWorkflowRecord,
+  type CommandCandidate,
+  type CommitRecord,
+  type InvalidateRepositoryMapInput,
+  type InstructionCandidateRecord,
+  type LanguageProjection,
+  type LinkedContextRecord,
+  type ManifestRecord,
+  type MapBudget,
+  type MapFact,
+  type MapFactKind,
+  type MapProvenance,
+  type MapQueryResult,
+  type MapTruncation,
+  type MapTrustLabel,
+  type QueryRepositoryMapInput,
+  type RepositoryMap,
+  type RepositoryMapRef,
+  type RepositoryMapStatus,
+  type TargetedPath,
+  type TreeSummary,
+} from './read/repository-map/contracts.js';
+export {
+  RepositoryMapServiceGate,
+  REPOSITORY_MAP_FRESHNESS_MS,
+  type RepositoryMapService,
+  type RepositoryMapServiceDeps,
+} from './read/repository-map/repository-map-service.js';
+export {
+  MAX_INSTRUCTION_CANDIDATES,
+  MAX_LANGUAGES,
+  MAX_RECENT_COMMITS,
+  MAX_TARGETED_PATHS,
+  collectRepositoryMapEvidence,
+  type CollectedEvidence,
+  type CollectEvidenceInput,
+} from './read/repository-map/collectors.js';
+export { BudgetTracker, type BudgetState } from './read/repository-map/budget.js';
+export {
+  CommandCandidateDetector,
+  CiDescriptorCollector,
+  InstructionCandidateCollector,
+  ManifestDetector,
+} from './read/repository-map/detectors.js';
+export {
+  canonicalizeRepoPath,
+  isBinaryPath,
+  isVendorOrGeneratedPath,
+} from './read/repository-map/path-safety.js';
+export {
+  RepositoryMapStateMachine,
+  type MapTransition,
+} from './read/repository-map/state-machine.js';
+export { taskFingerprint, type FingerprintInput } from './read/repository-map/task-fingerprint.js';
+export { TargetRanker, scorePath } from './read/repository-map/target-ranker.js';
+export { TreeCollector, type TreeCollectionResult } from './read/repository-map/tree-summary.js';
+export {
+  InMemoryMapArtifactStore,
+  type MapArtifactRef,
+  type MapArtifactStorePort,
+} from './read/ports/map-artifact-store.js';
+export {
+  InMemoryRepositoryMapStore,
+  type MapSaveResult,
+  type RepositoryMapStorePort,
+} from './read/ports/repository-map-store.js';
+export {
+  InMemoryMapProvider,
+  type MapProviderErrorCode,
+  type MapProviderResult,
+  type RepositoryContentProviderPort,
+  type TreeEntryLike,
+} from './read/repository-map/provider-port.js';
