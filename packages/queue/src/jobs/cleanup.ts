@@ -32,7 +32,8 @@ export class RetryClassifier {
     if (
       code === 'SIDE_EFFECT_OUTCOME_UNKNOWN' ||
       code === 'COMMAND_OUTCOME_UNKNOWN' ||
-      code === 'AGENT_OUTCOME_UNKNOWN'
+      code === 'AGENT_OUTCOME_UNKNOWN' ||
+        code === 'OUTCOME_UNKNOWN'
     ) {
       return {
         kind: 'reconcile',
@@ -67,6 +68,7 @@ export interface OutboxStorePort {
   list(limit: number): Promise<readonly OutboxRow[]>;
   mark(rowId: string, updates: Partial<OutboxRow>): Promise<void>;
   moveToDlq(rowId: string, reason: string): Promise<void>;
+    delete(rowId: string): Promise<void>;
 }
 
 export class InMemoryOutboxStore implements OutboxStorePort {
@@ -79,7 +81,10 @@ export class InMemoryOutboxStore implements OutboxStorePort {
     const row = this.rows.get(rowId);
     if (row !== undefined) this.rows.set(rowId, { ...row, ...updates });
   }
-  async moveToDlq(rowId: string, reason: string): Promise<void> {
+  async delete(rowId: string): Promise<void> {
+      this.rows.delete(rowId);
+    }
+    async moveToDlq(rowId: string, reason: string): Promise<void> {
     this.dlq.push({ rowId, reason });
     this.rows.delete(rowId);
   }
@@ -100,7 +105,7 @@ export class OutboxCleanupService {
     for (const row of queried) {
       if (row.acknowledged) {
         await this.deps.store.mark(row.rowId, { attempts: row.attempts + 1 });
-        await this.deps.store.moveToDlq(row.rowId, 'acknowledged_cleanup');
+        await this.deps.store.delete(row.rowId);
         continue;
       }
       const max = this.deps.maxAttempts ?? 5;
