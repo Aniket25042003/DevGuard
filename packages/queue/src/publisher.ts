@@ -12,7 +12,10 @@ import type { QueuePortShape } from './runtime.js';
 
 /** Application-side port over the durable outbox ledger. */
 export interface OutboxScanPort {
-  listUnpublished(afterId: bigint, limit: number): Promise<
+  listUnpublished(
+    afterId: bigint,
+    limit: number,
+  ): Promise<
     Array<{
       readonly id: bigint;
       readonly eventType: string;
@@ -75,9 +78,15 @@ export class OutboxPublisher {
         published += 1;
         continue;
       }
-      const runId = String(row.correlation['runId'] ?? row.payload['runId'] ?? row.correlation['workflowRunId'] ?? '');
-      const deliveryId = String(row.correlation['deliveryId'] ?? row.correlation['deliveryId'] ?? '');
-      const repositoryId = String(row.correlation['repositoryId'] ?? row.payload['repositoryId'] ?? '');
+      const runId = String(
+        row.correlation['runId'] ?? row.payload['runId'] ?? row.correlation['workflowRunId'] ?? '',
+      );
+      const deliveryId = String(
+        row.correlation['deliveryId'] ?? row.correlation['deliveryId'] ?? '',
+      );
+      const repositoryId = String(
+        row.correlation['repositoryId'] ?? row.payload['repositoryId'] ?? '',
+      );
       const uniqueKey = this.buildUniqueKey(row, mapping, runId, deliveryId);
       const envelope = buildEnvelope({
         jobType: mapping.jobType,
@@ -112,7 +121,10 @@ export class OutboxPublisher {
 
   private buildPayload(
     jobType: JobTypeV1,
-    row: { readonly payload: Record<string, unknown>; readonly correlation: Record<string, unknown> },
+    row: {
+      readonly payload: Record<string, unknown>;
+      readonly correlation: Record<string, unknown>;
+    },
     runId: string,
     deliveryId: string,
   ): Record<string, unknown> {

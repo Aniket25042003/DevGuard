@@ -105,7 +105,10 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
     : undefined;
 
   const registry = new JobRegistry();
-  registerWorkflowExecute(registry, pool !== undefined ? durableRunTransitions(pool) : volatileRunTransitions());
+  registerWorkflowExecute(
+    registry,
+    pool !== undefined ? durableRunTransitions(pool) : volatileRunTransitions(),
+  );
   registerFailClosedHandlers(registry);
 
   const runtime = new WorkerRuntime(
@@ -123,7 +126,15 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
     Math.random,
   );
 
-  return { config, authorizer, queue, registry, runtime, transportDurability, ...(pool !== undefined ? { pool } : {}) };
+  return {
+    config,
+    authorizer,
+    queue,
+    registry,
+    runtime,
+    transportDurability,
+    ...(pool !== undefined ? { pool } : {}),
+  };
 }
 
 /** Refuse to run the worker on a non-durable queue in production (CP002 §5). */

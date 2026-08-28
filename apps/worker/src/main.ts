@@ -44,7 +44,9 @@ const bootstrap = async (): Promise<void> => {
       try {
         await runtime.processOnce(Date.now());
       } catch (error) {
-        console.error(JSON.stringify({ msg: 'worker.poll_failed', ...toErrorEnvelope(error, 'poll') }));
+        console.error(
+          JSON.stringify({ msg: 'worker.poll_failed', ...toErrorEnvelope(error, 'poll') }),
+        );
       }
     }, container.runtime.pollIntervalMs);
     const shutdown = (): void => {

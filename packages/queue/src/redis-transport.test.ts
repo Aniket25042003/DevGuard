@@ -40,7 +40,9 @@ class MemRedis implements RedisLikeClient {
   }
 }
 
-function envelope(overrides: Partial<Parameters<typeof buildEnvelope>[0]> = {}): ReturnType<typeof buildEnvelope> {
+function envelope(
+  overrides: Partial<Parameters<typeof buildEnvelope>[0]> = {},
+): ReturnType<typeof buildEnvelope> {
   return buildEnvelope({
     jobType: 'workflow.execute',
     schemaVersion: 1,

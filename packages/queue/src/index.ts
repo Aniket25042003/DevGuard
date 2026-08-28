@@ -77,8 +77,17 @@ export {
 } from './jobs/cleanup.js';
 
 // ---- CP008 Redis transport + outbox publisher ----
-export { RedisQueueTransport, type RedisLikeClient, type RedisQueueTransportOptions } from './redis-transport.js';
-export { OutboxPublisher, type OutboxMapping, type OutboxPublisherDeps, type OutboxScanPort } from './publisher.js';
+export {
+  RedisQueueTransport,
+  type RedisLikeClient,
+  type RedisQueueTransportOptions,
+} from './redis-transport.js';
+export {
+  OutboxPublisher,
+  type OutboxMapping,
+  type OutboxPublisherDeps,
+  type OutboxScanPort,
+} from './publisher.js';
 
 // ---- C059 approval resumption / expiry ----
 export {

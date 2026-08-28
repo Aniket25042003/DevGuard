@@ -5,7 +5,12 @@ import type { QueuePortShape } from './runtime.js';
 import type { JobEnvelope } from './envelope.js';
 
 class FakeOutbox implements OutboxScanPort {
-  readonly rows: Array<{ id: bigint; eventType: string; payload: Record<string, unknown>; correlation: Record<string, unknown> }>;
+  readonly rows: Array<{
+    id: bigint;
+    eventType: string;
+    payload: Record<string, unknown>;
+    correlation: Record<string, unknown>;
+  }>;
   readonly published: bigint[] = [];
   private cursor = 0n;
   constructor(rows: FakeOutbox['rows']) {
@@ -40,11 +45,20 @@ class RecordingQueue implements QueuePortShape {
 describe('OutboxPublisher (CP008)', () => {
   it('publishes workflow.queued rows as workflow-execution jobs and advances the cursor', async () => {
     const outbox = new FakeOutbox([
-      { id: 1n, eventType: 'workflow.queued', payload: {}, correlation: { runId: 'run-1', repositoryId: 'repo-1' } },
+      {
+        id: 1n,
+        eventType: 'workflow.queued',
+        payload: {},
+        correlation: { runId: 'run-1', repositoryId: 'repo-1' },
+      },
       { id: 2n, eventType: 'workflow.queued', payload: {}, correlation: { runId: 'run-2' } },
     ]);
     const queue = new RecordingQueue();
-    const publisher = new OutboxPublisher({ outbox, queue, now: () => Date.parse('2026-01-01T00:00:00Z') });
+    const publisher = new OutboxPublisher({
+      outbox,
+      queue,
+      now: () => Date.parse('2026-01-01T00:00:00Z'),
+    });
     const published = await publisher.publishOnce();
     expect(published).toBe(2);
     expect(queue.enqueued.map((j) => j.jobType)).toEqual(['workflow.execute', 'workflow.execute']);
@@ -58,8 +72,18 @@ describe('OutboxPublisher (CP008)', () => {
   it('skips unknown event types but still advances the cursor, and tolerates duplicate enqueues', async () => {
     const outbox = new FakeOutbox([
       { id: 1n, eventType: 'unknown.type', payload: {}, correlation: {} },
-      { id: 2n, eventType: 'webhook.accepted', payload: { deliveryId: 'd1', payloadRef: 'ref-1', repositoryId: 'repo-1' }, correlation: { deliveryId: 'd1' } },
-      { id: 3n, eventType: 'webhook.accepted', payload: { deliveryId: 'd1', payloadRef: 'ref-1', repositoryId: 'repo-1' }, correlation: { deliveryId: 'd1' } },
+      {
+        id: 2n,
+        eventType: 'webhook.accepted',
+        payload: { deliveryId: 'd1', payloadRef: 'ref-1', repositoryId: 'repo-1' },
+        correlation: { deliveryId: 'd1' },
+      },
+      {
+        id: 3n,
+        eventType: 'webhook.accepted',
+        payload: { deliveryId: 'd1', payloadRef: 'ref-1', repositoryId: 'repo-1' },
+        correlation: { deliveryId: 'd1' },
+      },
     ]);
     const queue = new RecordingQueue();
     const publisher = new OutboxPublisher({ outbox, queue, now: () => 0 });

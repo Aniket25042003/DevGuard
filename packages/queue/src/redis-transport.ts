@@ -49,7 +49,11 @@ export class RedisQueueTransport implements QueueTransport {
     delayMs: number,
   ): Promise<{ accepted: boolean; duplicate: boolean }> {
     const availableAtMs = this.clockNow() + delayMs;
-    const added = await this.client.zadd(q('pending', envelope.queue), availableAtMs, envelope.uniqueKey);
+    const added = await this.client.zadd(
+      q('pending', envelope.queue),
+      availableAtMs,
+      envelope.uniqueKey,
+    );
     await this.client.set(jobKey(envelope.uniqueKey), JSON.stringify(envelope));
     return { accepted: added === 1, duplicate: added === 0 };
   }
@@ -63,10 +67,13 @@ export class RedisQueueTransport implements QueueTransport {
       if (removed === 0) continue; // another worker claimed it first
       await this.client.zadd(q('active', queueName), now + leaseMs, key);
       const raw = await this.client.get(jobKey(key));
-      if (raw == null) continue; // payload lost; PG is authoritative
+      if (raw === null) continue; // payload lost; PG is authoritative
       const envelope = JSON.parse(raw) as JobEnvelope;
       const attempts = await this.client.get(`dg:q:attempts:${key}`);
-      await this.client.set(`dg:q:attempts:${key}`, String(attempts == null ? 1 : Number(attempts) + 1));
+      await this.client.set(
+        `dg:q:attempts:${key}`,
+        String(attempts === null ? 1 : Number(attempts) + 1),
+      );
       claimed.push(envelope);
     }
     return claimed;
@@ -79,7 +86,10 @@ export class RedisQueueTransport implements QueueTransport {
     return true;
   }
 
-  async complete(uniqueKey: string, _workerId: string): Promise<'completed' | 'fenced' | 'missing'> {
+  async complete(
+    uniqueKey: string,
+    _workerId: string,
+  ): Promise<'completed' | 'fenced' | 'missing'> {
     const queue = await this.queueOf(uniqueKey);
     if (queue === null) return 'missing';
     const removed = await this.client.zrem(q('active', queue), uniqueKey);
@@ -130,7 +140,7 @@ export class RedisQueueTransport implements QueueTransport {
 
   private async queueOf(uniqueKey: string): Promise<string | null> {
     const raw = await this.client.get(jobKey(uniqueKey));
-    if (raw == null) return null;
+    if (raw === null) return null;
     try {
       return (JSON.parse(raw) as JobEnvelope).queue;
     } catch {
