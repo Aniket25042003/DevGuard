@@ -1,6 +1,6 @@
 /**
  * CP006 §22/§25 — repository-scoped command routes over the full assembled API:
- * list, submit (durable receipt), idempotent dedupe, origin-forge rejection,
+ * list, submit (CommandReceiptV1), idempotent dedupe, origin-forge rejection,
  * unknown/extension command mapping, and cross-repo denial via the authorizer.
  */
 import { describe, expect, it } from 'vitest';
@@ -20,6 +20,10 @@ const API_ENV = {
   DEVGUARD_PUBLIC_ORIGIN: 'http://localhost:3000',
 } as const;
 
+/** Canonical (UUID) repositories — repo-1 is linked, repo-other is not. */
+const REPO = '11111111-2222-4333-8444-555555555555';
+const REPO_OTHER = '99999999-2222-4333-8444-555555555555';
+
 function fakeIdp(): IdentityProviderClient {
   return {
     buildAuthorizeUrl(input: { state: string }) {
@@ -34,14 +38,12 @@ function fakeIdp(): IdentityProviderClient {
   };
 }
 
-/** Grant linkage + admin role on repo-1 only; everything else fails closed. */
+/** Grant linkage + admin role on REPO only; everything else fails closed. */
 const authzOverrides: Parameters<typeof buildContainer>[2] = {
   identityProvider: fakeIdp(),
   localAccess: {
     async findLinkage(repositoryId: string) {
-      return repositoryId === 'repo-1'
-        ? { status: 'active', installationRef: 'inst-1' }
-        : undefined;
+      return repositoryId === REPO ? { status: 'active', installationRef: 'inst-1' } : undefined;
     },
     async isConnectingOwner() {
       return false;
@@ -109,11 +111,23 @@ function errorCode(body: unknown): string {
   return (body as { error?: { code: string } }).error?.code ?? '';
 }
 
+interface Receipt {
+  data: {
+    id: string;
+    repositoryId: string;
+    commandId: string;
+    originSurface: string;
+    status: string;
+    workflowRunId: string;
+    createdAt: string;
+  };
+}
+
 describe('CP006 repository-scoped command routes', () => {
   it('lists only MVP commands (capability repository:read)', async () => {
     const api = boot();
     const c = await session(api);
-    const response = await api.app.request('/api/v1/repositories/repo-1/commands', {
+    const response = await api.app.request(`/api/v1/repositories/${REPO}/commands`, {
       headers: { cookie: `devguard_session=${c.sessionToken}` },
     });
     expect(response.status).toBe(200);
@@ -122,10 +136,10 @@ describe('CP006 repository-scoped command routes', () => {
     expect(body.data.commands.map((cmd) => cmd.workflowId)).not.toContain('dependency_upgrade');
   });
 
-  it('submits a command into a durable queued run (202, not replayed)', async () => {
+  it('submits a command into a durable queued run (202, canonical receipt)', async () => {
     const api = boot();
     const c = await session(api);
-    const response = await api.app.request('/api/v1/repositories/repo-1/commands', {
+    const response = await api.app.request(`/api/v1/repositories/${REPO}/commands`, {
       method: 'POST',
       headers: {
         ...mutationHeaders(c),
@@ -135,17 +149,18 @@ describe('CP006 repository-scoped command routes', () => {
       body: submitBody({}),
     });
     expect(response.status).toBe(202);
-    const body = (await response.json()) as {
-      data: { runId: string; replayed: boolean; status: string };
-    };
-    expect(body.data.runId).toBeDefined();
-    expect(body.data.replayed).toBe(false);
+    const body = (await response.json()) as Receipt;
+    expect(body.data.status).toBe('accepted');
+    expect(body.data.workflowRunId).toBe(body.data.id);
+    expect(body.data.repositoryId).toBe(REPO);
+    expect(body.data.commandId).toBe('review_remediation');
+    expect(body.data.originSurface).toBe('cli');
   });
 
   it('dedupes a replayed idempotency key into the same run (200, one run)', async () => {
     const api = boot();
     const c = await session(api);
-    const first = await api.app.request('/api/v1/repositories/repo-1/commands', {
+    const first = await api.app.request(`/api/v1/repositories/${REPO}/commands`, {
       method: 'POST',
       headers: {
         ...mutationHeaders(c),
@@ -154,8 +169,8 @@ describe('CP006 repository-scoped command routes', () => {
       },
       body: submitBody({}),
     });
-    const firstBody = (await first.json()) as { data: { runId: string } };
-    const second = await api.app.request('/api/v1/repositories/repo-1/commands', {
+    const firstBody = (await first.json()) as Receipt;
+    const second = await api.app.request(`/api/v1/repositories/${REPO}/commands`, {
       method: 'POST',
       headers: {
         ...mutationHeaders(c),
@@ -165,15 +180,41 @@ describe('CP006 repository-scoped command routes', () => {
       body: submitBody({}),
     });
     expect(second.status).toBe(200);
-    const secondBody = (await second.json()) as { data: { runId: string; replayed: boolean } };
-    expect(secondBody.data.replayed).toBe(true);
-    expect(secondBody.data.runId).toBe(firstBody.data.runId);
+    const secondBody = (await second.json()) as Receipt;
+    expect(secondBody.data.workflowRunId).toBe(firstBody.data.workflowRunId);
+  });
+
+  it('conflicts (409) when an idempotency key is reused with a different request', async () => {
+    const api = boot();
+    const c = await session(api);
+    const first = await api.app.request(`/api/v1/repositories/${REPO}/commands`, {
+      method: 'POST',
+      headers: {
+        ...mutationHeaders(c),
+        'idempotency-key': KEY1,
+        'content-type': 'application/json',
+      },
+      body: submitBody({}),
+    });
+    expect(first.status).toBe(202);
+    const second = await api.app.request(`/api/v1/repositories/${REPO}/commands`, {
+      method: 'POST',
+      headers: {
+        ...mutationHeaders(c),
+        'idempotency-key': KEY1,
+        'content-type': 'application/json',
+      },
+      // Same idempotency key but a DIFFERENT command → must not silently replay.
+      body: submitBody({ commandId: 'implement' }),
+    });
+    expect(second.status).toBe(409);
+    expect(errorCode(await second.json())).toBe('IDEMPOTENCY_KEY_CONFLICT');
   });
 
   it('rejects a forged github_comment origin from an HTTP client', async () => {
     const api = boot();
     const c = await session(api);
-    const response = await api.app.request('/api/v1/repositories/repo-1/commands', {
+    const response = await api.app.request(`/api/v1/repositories/${REPO}/commands`, {
       method: 'POST',
       headers: {
         ...mutationHeaders(c),
@@ -189,7 +230,7 @@ describe('CP006 repository-scoped command routes', () => {
   it('rejects an unknown command with 400 COMMAND_UNKNOWN', async () => {
     const api = boot();
     const c = await session(api);
-    const response = await api.app.request('/api/v1/repositories/repo-1/commands', {
+    const response = await api.app.request(`/api/v1/repositories/${REPO}/commands`, {
       method: 'POST',
       headers: {
         ...mutationHeaders(c),
@@ -205,7 +246,7 @@ describe('CP006 repository-scoped command routes', () => {
   it('denies extension (non-MVP) commands with 403 COMMAND_NO_LONGER_ALLOWED', async () => {
     const api = boot();
     const c = await session(api);
-    const response = await api.app.request('/api/v1/repositories/repo-1/commands', {
+    const response = await api.app.request(`/api/v1/repositories/${REPO}/commands`, {
       method: 'POST',
       headers: {
         ...mutationHeaders(c),
@@ -221,7 +262,7 @@ describe('CP006 repository-scoped command routes', () => {
   it('requires an Idempotency-Key header on submit', async () => {
     const api = boot();
     const c = await session(api);
-    const response = await api.app.request('/api/v1/repositories/repo-1/commands', {
+    const response = await api.app.request(`/api/v1/repositories/${REPO}/commands`, {
       method: 'POST',
       headers: { ...mutationHeaders(c), 'content-type': 'application/json' },
       body: submitBody({}),
@@ -232,7 +273,7 @@ describe('CP006 repository-scoped command routes', () => {
   it('403 REPOSITORY_FORBIDDEN for a cross-repository submit', async () => {
     const api = boot();
     const c = await session(api);
-    const response = await api.app.request('/api/v1/repositories/repo-OTHER/commands', {
+    const response = await api.app.request(`/api/v1/repositories/${REPO_OTHER}/commands`, {
       method: 'POST',
       headers: {
         ...mutationHeaders(c),

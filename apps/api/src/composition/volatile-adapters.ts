@@ -9,6 +9,7 @@
  * `UnavailableWorkflowAdapter` until a real adapter binds (CP006/CP007/CP011).
  */
 import type { TimestampIso, WorkflowStatus } from '@devguard/contracts';
+import { idempotencyKeyConflict } from '@devguard/errors';
 import type { ApiTokenRecord, ApiTokenRepository } from '@devguard/auth';
 import type { CommandBusPersistencePort, CreateQueuedRunInput } from '@devguard/workflows';
 import type {
@@ -256,8 +257,7 @@ export class VolatileCommandBusPersistencePort
   readonly bindingKind = VOLATILE_BINDING_KIND;
   readonly bindingName = 'command_bus_in_memory';
 
-  private readonly runs = new Map<string, CreateQueuedRunInput>();
-  private readonly byHash = new Map<string, string>();
+  private readonly byHash = new Map<string, { runId: string; fingerprint: string }>();
 
   async createQueuedRun(
     input: CreateQueuedRunInput,
@@ -267,10 +267,17 @@ export class VolatileCommandBusPersistencePort
   > {
     const existing = this.byHash.get(input.idempotencyKeyHash);
     if (existing !== undefined) {
-      return { outcome: 'replayed', runId: existing };
+      // Mirror the durable port: an identical replay dedupes; a mismatched
+      // reuse of the same key is a conflict, never a silent wrong-run return.
+      if (existing.fingerprint === input.requestFingerprint) {
+        return { outcome: 'replayed', runId: existing.runId };
+      }
+      throw idempotencyKeyConflict(new Error('idempotency_key_reused_with_different_request'));
     }
-    this.byHash.set(input.idempotencyKeyHash, input.runId);
-    this.runs.set(input.runId, { ...input });
+    this.byHash.set(input.idempotencyKeyHash, {
+      runId: input.runId,
+      fingerprint: input.requestFingerprint,
+    });
     return { outcome: 'created', runId: input.runId };
   }
 }

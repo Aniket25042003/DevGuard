@@ -57,28 +57,45 @@ export class CommandOriginForgedError extends Error {
 export interface SubmitCommandShape {
   /** Client-supplied command reference (canonical id or alias). */
   readonly commandId: string;
+  /** Requested workflow definition version (raw string, e.g. "1.0.0"). */
+  readonly definitionVersion?: string | undefined;
   /** Optional payload/instruction supplied by the surface. */
   readonly input?: unknown | undefined;
 }
+
+export type SupportedTriggerTypeV1 = 'manual' | 'webhook';
 
 export interface CreateQueuedRunInput {
   readonly runId: string;
   readonly repositoryId: string;
   /** Canonical workflow id (already normalized). */
   readonly workflowType: string;
-  readonly triggerType: TriggerTypeV1;
+  readonly triggerType: SupportedTriggerTypeV1;
   readonly idempotencyKeyHash: string;
   readonly originSurface: OriginSurfaceV1;
-  /** Correlation + outbox payload for the publishable intent. */
+  /**
+   * Canonical `workflow.queued` event payload (matches the registered C004
+   * schema: repositoryId + trigger [+ requestedBy]). Command-specific context
+   * travels in the outbox correlation, NOT in the validated event payload.
+   */
   readonly eventPayload: Record<string, unknown>;
+  /**
+   * Deterministic digest over the full creation request so a replayed
+   * idempotency key is honored ONLY when it is an exact replay — a same key
+   * with a different repository/command/version/input is a conflict (CP006).
+   */
+  readonly requestFingerprint: string;
+  /** Requested definition version (raw string) for persistence/audit. */
+  readonly definitionVersion?: string | undefined;
   readonly createdBy?: string | undefined;
 }
 
 /**
  * Durable persistence abstraction. The implant MUST create the run row and
- * enqueue the outbox event inside ONE transaction (steering invariant 10), and
- * MUST return `replayed` (with the existing run) when the idempotency key hash
- * already produced a run — never a duplicate.
+ * enqueue the outbox event inside ONE transaction (steering invariant 10).
+ * When the idempotency key hash already produced a run, the implant MUST
+ * compare the stored `requestFingerprint`: an exact replay returns `replayed`;
+ * a mismatched reuse throws an idempotency conflict. Never a duplicate.
  */
 export interface CommandBusPersistencePort {
   createQueuedRun(
@@ -92,6 +109,9 @@ export interface CommandBusPersistencePort {
 export interface SubmitResult {
   readonly runId: string;
   readonly replayed: boolean;
+  readonly commandId: WorkflowIdV1;
+  readonly originSurface: OriginSurfaceV1;
+  readonly createdAt: string;
 }
 
 export interface AvailableCommand {
@@ -103,6 +123,7 @@ export interface CommandBusDeps {
   readonly persistence: CommandBusPersistencePort;
   /** Opaque run-id generator (injectable for deterministic tests). */
   readonly newRunId?: (() => string) | undefined;
+  readonly now?: (() => Date) | undefined;
 }
 
 export function idempotencyKeyHashOf(key: string): string {
@@ -121,9 +142,11 @@ export function listAvailableCommands(): readonly AvailableCommand[] {
 
 export class CommandBus {
   private readonly newRunId: () => string;
+  private readonly now: () => Date;
 
   constructor(private readonly deps: CommandBusDeps) {
     this.newRunId = deps.newRunId ?? randomUUID;
+    this.now = deps.now ?? (() => new Date());
   }
 
   /** Commands the caller may launch (MVP-aware; extensions excluded). */
@@ -133,8 +156,10 @@ export class CommandBus {
 
   /**
    * Turn a submitted command into a durable queued run. Normalizes the command
-   * (unknown → COMMAND_UNKNOWN), gates MVP/policy (extension → denied), and
-   * persists atomically via the persistence port.
+   * (unknown → COMMAND_UNKNOWN), gates MVP/policy (extension → denied), rejects
+   * forged origins and unsupported schedule provenance, then persists the run +
+   * outbox atomically via the persistence port. A replayed idempotency key must
+   * be an EXACT replay (same fingerprint) or it conflicts (idempotencyKeyConflict).
    */
   async submit(input: {
     readonly command: SubmitCommandShape;
@@ -143,7 +168,7 @@ export class CommandBus {
     readonly originSurface: OriginSurfaceV1;
     readonly idempotencyKey: string;
     readonly createdBy?: string | undefined;
-    /** `true` when the caller is the server-side GitHub/woker path, not HTTP. */
+    /** `true` when the caller is the server-side GitHub/worker path, not HTTP. */
     readonly trustedSurface?: boolean | undefined;
   }): Promise<SubmitResult> {
     const workflowId = normalizeCommandId(input.command.commandId);
@@ -157,31 +182,91 @@ export class CommandBus {
     ) {
       throw new CommandOriginForgedError(input.originSurface);
     }
+    // Schedule provenance is NOT persistable yet (DB trigger_type + the C004
+    // event contract accept only manual|webhook|api). Fail closed instead of
+    // coercing a scheduled run into a manual one (CP006 §22 finding).
+    if (input.originSurface === 'schedule') {
+      throw validationFailed([{ path: 'originSurface', constraint: 'schedule_not_supported_yet' }]);
+    }
     if (input.idempotencyKey.trim().length < 16) {
       throw validationFailed([{ path: 'idempotencyKey', constraint: 'min_length_16' }]);
     }
+    if (input.command.input !== undefined && !isPlainJsonObject(input.command.input)) {
+      throw validationFailed([{ path: 'input', constraint: 'must be a JSON object' }]);
+    }
+    const definitionVersion = normalizeDefinitionVersion(input.command.definitionVersion);
 
+    const triggerType: SupportedTriggerTypeV1 =
+      input.originSurface === 'github_comment' || input.originSurface === 'github_event'
+        ? 'webhook'
+        : 'manual';
+    const createdAt = this.now().toISOString();
+    const requestFingerprint = canonicalRequestFingerprint({
+      commandId: workflowId,
+      repositoryId: input.repositoryId,
+      originSurface: input.originSurface,
+      ...(definitionVersion !== undefined ? { definitionVersion } : {}),
+      ...(input.command.input !== undefined ? { input: input.command.input } : {}),
+    });
     const runId = this.newRunId();
     const idempotencyKeyHash = idempotencyKeyHashOf(input.idempotencyKey);
+
     const persisted = await this.deps.persistence.createQueuedRun({
       runId,
       repositoryId: input.repositoryId,
       workflowType: workflowId,
-      triggerType:
-        input.originSurface === 'github_comment' || input.originSurface === 'github_event'
-          ? 'webhook'
-          : 'manual',
+      triggerType,
       idempotencyKeyHash,
       originSurface: input.originSurface,
+      // Canonical C004 workflow.queued payload: repositoryId + trigger (+ actor).
       eventPayload: {
-        commandId: workflowId,
         repositoryId: input.repositoryId,
-        originSurface: input.originSurface,
-        ...(input.command.input !== undefined ? { input: input.command.input } : {}),
+        trigger: triggerType,
+        ...(input.createdBy !== undefined ? { requestedBy: input.createdBy } : {}),
       },
+      requestFingerprint,
+      ...(definitionVersion !== undefined ? { definitionVersion } : {}),
       ...(input.createdBy !== undefined ? { createdBy: input.createdBy } : {}),
     });
 
-    return { runId: persisted.runId, replayed: persisted.outcome === 'replayed' };
+    return {
+      runId: persisted.runId,
+      replayed: persisted.outcome === 'replayed',
+      commandId: workflowId,
+      originSurface: input.originSurface,
+      createdAt,
+    };
   }
+}
+
+/** Reject empty/malformed definition versions (exact pass-through otherwise). */
+function normalizeDefinitionVersion(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  const value = raw.trim();
+  if (value.length === 0 || value.length > 64) {
+    throw validationFailed([{ path: 'definitionVersion', constraint: '1..64 chars' }]);
+  }
+  return value;
+}
+
+/** Plain (non-array, non-null) JSON-object guard for command input. */
+function isPlainJsonObject(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Deterministic, key-sorted JSON so an exact replay has a stable fingerprint. */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  }
+  if (typeof value === 'object' && value !== null) {
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function canonicalRequestFingerprint(value: Record<string, unknown>): string {
+  return stableStringify(value);
 }
