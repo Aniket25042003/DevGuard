@@ -34,12 +34,13 @@ import {
 } from './mutation-identity.js';
 import type { MutationOperationStorePort } from './mutation-operation-store.js';
 import type { CommitComparison, GitHubMutationProviderPort } from './provider-port.js';
+import type { AuthorizedActionContext } from '../core/contracts.js';
 
 export interface WriteContext {
   readonly correlationId: string;
   readonly actionId: string;
-  /** Persisted authorization token supplied by the platform action gateway. */
-  readonly authorization: boolean;
+  /** Verified C030 authorized-action context — boolean authorization is GONE. */
+  readonly authorized: AuthorizedActionContext;
 }
 
 export interface MutationEvent {
@@ -601,7 +602,8 @@ export class GithubBranchesCommitsAdapter implements GithubBranchesCommits {
 function protect(branch: string, ctx: WriteContext): void {
   assertMutationBranch(branch);
   assertWritableTarget(branch);
-  if (!ctx.authorization)
+  // Fail closed: the C030 context must carry a non-empty decision digest.
+  if (!ctx.authorized.digest)
     throw makeError('REPOSITORY_FORBIDDEN', { details: { reasonCode: 'WRITE_NOT_AUTHORIZED' } });
 }
 

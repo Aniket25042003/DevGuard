@@ -31,13 +31,15 @@ import { resolvePrMergeEdge } from './fsm.js';
 import type { PrOperationStorePort, PrOperation } from './operation-store.js';
 import type { PrProviderPort } from './provider-port.js';
 import { mutationInputDigest, sanitizePrContent } from './pr-safe.js';
+import type { AuthorizedActionContext } from '../../core/contracts.js';
 
 export interface PrReadContext {
   readonly correlationId: string;
 }
 export interface PrWriteContext extends PrReadContext {
   readonly actionId: string;
-  readonly authorization: boolean;
+  /** Verified C030 authorized-action context — boolean authorization is GONE. */
+  readonly authorized: AuthorizedActionContext;
 }
 
 export type PrMutationResult<T> =
@@ -451,7 +453,8 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
 }
 
 function authorize(ctx: PrWriteContext): void {
-  if (!ctx.authorization)
+  // Fail closed: the C030 context must carry a non-empty decision digest.
+  if (!ctx.authorized.digest)
     throw makeError('REPOSITORY_FORBIDDEN', { details: { reasonCode: 'WRITE_NOT_AUTHORIZED' } });
 }
 

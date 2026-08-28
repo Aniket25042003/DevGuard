@@ -18,10 +18,10 @@ const REPO = { owner: 'octo', repo: 'demo' };
 const REF = { owner: 'octo', repo: 'demo', number: 1 };
 
 function ctx(): PrWriteContext {
-  return { correlationId: 'corr', actionId: 'action-1', authorization: true };
+  return { correlationId: 'corr', actionId: 'action-1', authorized: { decisionId: 'd1', operationKey: 'op-1', actionFingerprint: 'fp', digest: 'abc' } };
 }
 function ctx2(): PrWriteContext {
-  return { correlationId: 'corr2', actionId: 'action-2', authorization: true };
+  return { correlationId: 'corr2', actionId: 'action-2', authorized: { decisionId: 'd2', operationKey: 'op-2', actionFingerprint: 'fp', digest: 'abc' } };
 }
 
 function seedPr(provider: InMemoryPrProvider, overrides?: Partial<PullRequest>): PullRequest {
@@ -214,7 +214,7 @@ describe('C021 PR adapter', () => {
     await expect(
       service.postPullRequestComment(
         { repository: REPO, prNumber: 1, body: 'x', workflowRunId: RUN, operationKey: OP1 },
-        { ...ctx(), authorization: false },
+        { ...ctx(), authorized: { decisionId: 'd1', operationKey: 'op-1', actionFingerprint: 'fp', digest: '' } },
       ),
     ).rejects.toThrow();
   });

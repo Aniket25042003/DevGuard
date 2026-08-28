@@ -24,7 +24,7 @@ const BRANCH2 = buildWorkflowBranchName(RUN_ID, OP2);
 const BRANCH3 = buildWorkflowBranchName(RUN_ID, OP3);
 
 function ctx(): WriteContext {
-  return { correlationId: 'corr-1', actionId: 'action-1', authorization: true };
+  return { correlationId: 'corr-1', actionId: 'action-1', authorized: { decisionId: 'd1', operationKey: 'op-1', actionFingerprint: 'fp', digest: 'abc' } };
 }
 
 function setup() {
@@ -175,7 +175,7 @@ describe('C020 createBranch', () => {
           workflowRunId: RUN_ID,
           operationKey: OP1,
         },
-        { ...ctx(), authorization: false },
+        { ...ctx(), authorized: { decisionId: 'd1', operationKey: 'op-1', actionFingerprint: 'fp', digest: '' } },
       ),
     ).rejects.toThrow();
   });
@@ -458,5 +458,13 @@ describe('C020 reconcile', () => {
     provider.failNext = { op: 'branchState', code: 'TIMEOUT' };
     const reconciled = await service.reconcile({ operationId: op.id });
     expect(reconciled.state).toBe('manual_review');
+  });
+});
+
+describe('CP010 — boolean authorization is gone', () => {
+  it('compile-time: a boolean `authorization` is rejected for a write context', () => {
+    // @ts-expect-error — writes require a verified AuthorizedActionContext, never a boolean
+    const forbidden: WriteContext = { correlationId: 'c', actionId: 'a', authorization: true };
+    void forbidden;
   });
 });
