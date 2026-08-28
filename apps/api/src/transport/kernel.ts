@@ -305,7 +305,15 @@ export function createTransportKernel(input: {
         `Route ${key} must declare capability and repositoryIdParam together (CP005).`,
       );
     }
-    registry.set(key, metadata);
+    if (
+        metadata.repositoryIdParam !== undefined &&
+        !path.split('/').some((segment) => segment === `:${metadata.repositoryIdParam}`)
+      ) {
+        throw new Error(
+          `Route ${key} must include repositoryIdParam ${metadata.repositoryIdParam} in its path (CP005).`,
+        );
+      }
+      registry.set(key, metadata);
     app.on(method, path, async (c) => {
       const context = c.get('requestContext');
       if (metadata.authClass === 'required_session' && context.principal === undefined) {
@@ -335,7 +343,10 @@ export function createTransportKernel(input: {
             );
           }
           const repositoryId = c.req.param(metadata.repositoryIdParam);
-          if (repositoryId === undefined || repositoryId.length === 0) {
+          if (repositoryId === undefined ||
+              !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                repositoryId,
+              )) {
             return fail(c, 400, 'VALIDATION_FAILED', 'Repository id is required.');
           }
           await input.authorize(c, metadata.capability, repositoryId);
