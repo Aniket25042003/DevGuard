@@ -19,7 +19,7 @@
     "@devguard/contracts": "workspace:*",
     "@devguard/errors": "workspace:*",
     "@devguard/logging": "workspace:*",
-      "@devguard/policy-engine": "workspace:*",
+    "@devguard/policy-engine": "workspace:*",
     "zod": "^4.1.12"
   }
 }
