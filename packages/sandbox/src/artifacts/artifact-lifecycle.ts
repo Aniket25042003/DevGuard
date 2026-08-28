@@ -211,13 +211,17 @@ export class CleanupCoordinator {
     const state = (await this.store.cleanupState(workspaceId)) ?? 'REQUESTED';
     if (state === 'COMPLETED' || state === 'QUARANTINED' || state === 'ESCALATED') return state;
     const before = await this.destroy.inspect(workspaceId);
-      if (!before.exists) {
-        await this.store.persistCleanup(workspaceId, 'COMPLETED', 'success');
-        return 'COMPLETED';
-      }
-      let result;
-      try { result = await this.destroy.destroy(workspaceId); }
-      catch { await this.store.persistCleanup(workspaceId, 'RETRY_WAIT', 'failure'); return 'RETRY_WAIT'; }
+    if (!before.exists) {
+      await this.store.persistCleanup(workspaceId, 'COMPLETED', 'success');
+      return 'COMPLETED';
+    }
+    let result;
+    try {
+      result = await this.destroy.destroy(workspaceId);
+    } catch {
+      await this.store.persistCleanup(workspaceId, 'RETRY_WAIT', 'failure');
+      return 'RETRY_WAIT';
+    }
     if (!result.ok) {
       await this.store.persistCleanup(workspaceId, 'RETRY_WAIT', 'failure');
       return 'RETRY_WAIT';

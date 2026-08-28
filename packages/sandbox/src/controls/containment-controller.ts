@@ -89,14 +89,18 @@ export class ContainmentController {
       secretRefs: [],
     };
     const parsed = effectiveContainmentProfileSchema.safeParse(profile);
-      return parsed.success
-        ? { ok: true, profile: parsed.data }
-        : { ok: false, code: 'BLOCKED_POLICY', detail: 'compiled profile violates policy' };
+    return parsed.success
+      ? { ok: true, profile: parsed.data }
+      : { ok: false, code: 'BLOCKED_POLICY', detail: 'compiled profile violates policy' };
   }
 
   async apply(profile: EffectiveContainmentProfile): Promise<ApplyResult> {
     let caps: ProviderCapabilityProbe;
-      try { caps = await this.provider.probe(); } catch { return { ok: false, code: 'FAILED', detail: 'provider probe failed' }; }
+    try {
+      caps = await this.provider.probe();
+    } catch {
+      return { ok: false, code: 'FAILED', detail: 'provider probe failed' };
+    }
     const s = caps.supports;
     if (!s.networkDeny || !s.allowlist || !s.resourceLimits || !s.processKill) {
       return {
@@ -106,7 +110,11 @@ export class ContainmentController {
       };
     }
     let applied;
-      try { applied = await this.provider.apply(profile); } catch { return { ok: false, code: 'FAILED', detail: 'provider apply failed' }; }
+    try {
+      applied = await this.provider.apply(profile);
+    } catch {
+      return { ok: false, code: 'FAILED', detail: 'provider apply failed' };
+    }
     if (!applied.ok)
       return {
         ok: false,
