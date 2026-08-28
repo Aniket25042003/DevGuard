@@ -48,9 +48,11 @@ const RUN_EDGES: Readonly<Record<RunTrigger, ReadonlyArray<[RunState, RunState]>
     ['WAITING_APPROVAL', 'CANCELLED'],
   ],
   reconcile: [
+    ['PENDING', 'RECONCILING'],
     ['PROVISIONING', 'RECONCILING'],
     ['RUNNING', 'RECONCILING'],
     ['PAUSED', 'RECONCILING'],
+    ['WAITING_APPROVAL', 'RECONCILING'],
   ],
 };
 
