@@ -48,7 +48,7 @@ export class PostgresCommandBusPersistencePort implements CommandBusPersistenceP
           workflowType: input.workflowType,
           // trigger_type accepts manual|webhook|api; schedule is rejected at the bus.
           triggerType: input.triggerType,
-            originSurface: input.originSurface ?? 'web',
+          originSurface: input.originSurface ?? 'web',
           // origin_surface is not a column until CP016; carry it + the request
           // fingerprint on the trigger reference so an idempotent replay can be
           // proven identical.

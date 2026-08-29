@@ -265,13 +265,13 @@ export function registerWorkflowRoutes(
         }
       }
       // CP016 provenance filters (triggerType + originSurface, alias triggerSource).
-        if (
-          raw.originSurface !== undefined &&
-          raw.triggerSource !== undefined &&
-          raw.originSurface !== raw.triggerSource
-        ) {
-          throw validationFailed([{ path: 'filters', constraint: 'conflicting provenance aliases' }]);
-        }
+      if (
+        raw.originSurface !== undefined &&
+        raw.triggerSource !== undefined &&
+        raw.originSurface !== raw.triggerSource
+      ) {
+        throw validationFailed([{ path: 'filters', constraint: 'conflicting provenance aliases' }]);
+      }
       const triggerType = parseProvenanceFilter(raw.triggerType, TRIGGER_TYPES);
       const originSurface = parseProvenanceFilter(
         raw.originSurface ?? raw.triggerSource,
