@@ -4,7 +4,7 @@
 
 DevGuard is a GitHub-focused control plane for autonomous software engineering. It lets AI agents inspect repositories, understand issues, modify code, run changes in an isolated sandbox, validate results, open pull requests, and respond to review feedback — all within explicit, enforceable autonomy policies that maintainers define per repository.
 
-**Live demo:** [devguard-olive.vercel.app](https://devguard-olive.vercel.app) · **Overview video:** [marketing/demo-video](marketing/demo-video/)
+**Live demo:** [devguard-olive.vercel.app](https://devguard-olive.vercel.app) · **Demo video:** [marketing/demo-video](marketing/demo-video/)
 
 ---
 
@@ -125,7 +125,7 @@ pnpm local
 | `pnpm test:e2e` | Gated end-to-end suites |
 | `pnpm local:status` | Container, API, and provider health summary |
 
-See [Local development](docs/local-development.md) for the full command reference.
+Copy `.env.example` to `.env.local` and add GitHub App and TrueForge credentials to enable live provider integrations.
 
 ---
 
@@ -142,12 +142,8 @@ See [Local development](docs/local-development.md) for the full command referenc
 
 ## Documentation
 
-- [Architecture](docs/architecture/README.md)
-- [Local development](docs/local-development.md)
-- [Deployment topology](docs/deployment/deployment-topology.md)
-- [Demo guide](docs/deployment/demo-guide.md)
-- [Troubleshooting](docs/deployment/troubleshooting.md)
-- [Launch demo video](marketing/demo-video/) — product overview (~2:36)
+- [Architecture](docs/architecture/README.md) — engineering architecture and ADRs
+- [Demo video](marketing/demo-video/) — product overview (~2:36)
 
 ---
 
