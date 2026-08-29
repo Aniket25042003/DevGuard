@@ -60,7 +60,13 @@ export function createSseResponse(input: {
 }): Response {
   const encoder = new TextEncoder();
   let closed = false;
+  let closeNotified = false;
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  const notifyClose = (): void => {
+    if (closeNotified) return;
+    closeNotified = true;
+    input.hooks?.onClose?.();
+  };
 
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -106,7 +112,7 @@ export function createSseResponse(input: {
             } catch {
               // already closed
             }
-            input.hooks?.onClose?.();
+            notifyClose();
           }
         },
       };
@@ -119,7 +125,7 @@ export function createSseResponse(input: {
     cancel() {
       closed = true;
       if (heartbeatTimer !== undefined) clearInterval(heartbeatTimer);
-      input.hooks?.onClose?.();
+      notifyClose();
     },
   });
 
