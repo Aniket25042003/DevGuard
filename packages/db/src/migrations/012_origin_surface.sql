@@ -3,6 +3,12 @@ ALTER TABLE workflow_runs
   ADD COLUMN origin_surface text NOT NULL DEFAULT 'web'
   CHECK (origin_surface IN ('web','cli','github_comment','github_event','schedule'));
 
+-- Recover authoritative provenance recorded in legacy trigger references.
+UPDATE workflow_runs
+SET origin_surface = trigger_reference_json->>'originSurface'
+WHERE trigger_reference_json->>'originSurface' IN
+  ('web','cli','github_comment','github_event','schedule');
+
 CREATE INDEX IF NOT EXISTS idx_runs_origin
   ON workflow_runs (repository_id, origin_surface, created_at DESC);
 
