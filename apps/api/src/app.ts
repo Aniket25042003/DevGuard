@@ -29,7 +29,26 @@ import {
 } from './routes/github.routes.js';
 import { registerArtifactRoutes } from './routes/artifact.routes.js';
 import { registerAuditRoutes } from './routes/audit.routes.js';
-import { registerFindingsRoutes } from './routes/findings.routes.js';
+import { registerFindingsRoutes, registerFindingsRemediationRoutes } from './routes/findings.routes.js';
+import { registerDiagnosticsRoutes, type PreflightStatus } from './routes/diagnostics.routes.js';
+
+/** CP015 (C074) — dependency preflight from the container config (fail closed). */
+function preflightStatus(container: ApiContainer): PreflightStatus {
+  const cfg = container.config as {
+    databaseUrlRef?: { name?: string };
+    redisUrlRef?: { name?: string };
+    github?: { appId?: number | string } | undefined;
+  };
+  const real = (ref?: { name?: string }): boolean =>
+    ref !== undefined && ref.name !== undefined && !ref.name.startsWith('<');
+  return {
+    database: real(cfg.databaseUrlRef),
+    redis: real(cfg.redisUrlRef),
+    trueforge: false,
+    sandbox: false,
+    github: cfg.github !== undefined,
+  };
+}
 
 export interface AssembledApi {
   readonly app: Hono<AppEnv>;
@@ -79,10 +98,24 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   registerArtifactRoutes(kernel, container.bindings.artifacts);
   registerAuditRoutes(kernel, container.bindings.audit);
   registerFindingsRoutes(kernel, container.bindings.findings);
+  // CP015 (C071) — start remediation from a finding, via the shared command bus.
+  registerFindingsRemediationRoutes(kernel, async (input) => {
+    // Fail closed until a remediation command id is registered in the MVP set.
+    return {
+      ok: false,
+      code: 'COMMAND_UNKNOWN',
+      detail: `no remediation command registered for finding ${input.findingId}`,
+    };
+  });
 
   // C068 session/event routes, C070 approval routes.
   registerSessionRoutes(kernel, container.bindings.sessionEvents);
   registerApprovalRoutes(kernel, container.bindings.approvals);
+  // CP015 (C074/C065) — diagnostics preflight + repo runs summary.
+  registerDiagnosticsRoutes(kernel, {
+    preflight: preflightStatus(container),
+    runs: async (input) => container.workflowQueries.listRuns(input),
+  });
 
   // C066 policies summary, C067 workflow start/list/get/cancel (durable).
   registerPolicyRoutes(kernel, container);

@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: DevGuard API
+  version: v1
+  description: >
+    DevGuard control-plane HTTP surface under /api/v1. Versioned resources with
+    stable error envelopes (error.code, error.message, error.requestId,
+    error.retryable). Auth is a dgv1_ bearer token or a devguard_session cookie.
+    Webhook ingress is public and HMAC-signed.
+servers:
+  - url: /api/v1
+paths:
+  /repositories:
+    get: { summary: 'Authorized repository catalog', security: [{ session: [] }] }
+  /repositories/{repositoryId}/workflows:
+    get: { summary: 'List durable workflow runs (keyset pagination)', security: [{ session: [] }] }
+    post: { summary: 'Start a workflow (command submit alias)', security: [{ bearer: [] }], x-mvp: true }
+  /repositories/{repositoryId}/commands:
+    post: { summary: 'Submit a command (idempotent)', security: [{ bearer: [] }], x-mvp: true }
+  /repositories/{repositoryId}/runs:
+    get: { summary: 'Runs summary projection (C065)', security: [{ session: [] }], x-mvp: true }
+  /workflows/{workflowRunId}:
+    get: { summary: 'Workflow run status', security: [{ bearer: [] }] }
+  /workflows/{workflowRunId}/cancel:
+    post: { summary: 'Cancel a queued run (If-Match CAS)', security: [{ bearer: [] }] }
+  /workflows/{runId}/approvals:
+    get: { summary: 'Approvals for a run', security: [{ session: [] }] }
+  /workflows/{runId}/artifacts:
+    get: { summary: 'Safe artifacts for a run', security: [{ session: [] }] }
+  /workflows/{runId}/security-findings:
+    get: { summary: 'Stable security findings', security: [{ session: [] }] }
+  /findings/{id}/remediation:
+    post: { summary: 'Start a remediation command', security: [{ session: [] }], x-mvp: true }
+  /sessions/{sessionId}:
+    get: { summary: 'Session status', security: [{ session: [] }] }
+  /sessions/{sessionId}/events:
+    get: { summary: 'Event timeline (SSE or ?format=json)', security: [{ session: [] }] }
+  /sessions/{sessionId}/turns:
+    post: { summary: 'Create a turn', security: [{ session: [] }], x-mvp: false }
+  /diagnostics/preflight:
+    get: { summary: 'Dependency preflight status (C074)', security: [{ session: [] }], x-mvp: true }
+  /webhooks/github:
+    post: { summary: 'GitHub webhook ingress (HMAC sha256=)', security: [] }
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: devguard_session
+    bearer:
+      type: http
+      scheme: bearer
