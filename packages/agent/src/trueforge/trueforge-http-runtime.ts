@@ -99,7 +99,15 @@ export class TrueForgeHttpAgentRuntime implements AgentRuntimePort {
       if (!res.ok)
         return { ok: false, code: 'SERVER_ERROR', detail: `session create (${res.status})` };
       const body = (await res.json()) as { sessionId?: unknown; threadId?: unknown };
-      if (typeof body.sessionId !== 'string' || body.sessionId.length === 0 || body.sessionId.length > 512 || (body.threadId !== undefined && (typeof body.threadId !== 'string' || body.threadId.length === 0 || body.threadId.length > 512)))
+      if (
+        typeof body.sessionId !== 'string' ||
+        body.sessionId.length === 0 ||
+        body.sessionId.length > 512 ||
+        (body.threadId !== undefined &&
+          (typeof body.threadId !== 'string' ||
+            body.threadId.length === 0 ||
+            body.threadId.length > 512))
+      )
         return { ok: false, code: 'SERVER_ERROR', detail: 'session id missing' };
       return {
         ok: true,
@@ -151,9 +159,12 @@ export class TrueForgeHttpAgentRuntime implements AgentRuntimePort {
       if (!res.ok)
         return { ok: false, code: 'SERVER_ERROR', detail: `turn status (${res.status})` };
       const body = (await res.json()) as { status?: unknown };
-      if (typeof body.status !== 'string' || !['pending', 'running', 'completed', 'failed', 'cancelled'].includes(body.status))
-          return { ok: false, code: 'SERVER_ERROR', detail: 'invalid turn status' };
-        return { ok: true, value: { status: body.status } };
+      if (
+        typeof body.status !== 'string' ||
+        !['pending', 'running', 'completed', 'failed', 'cancelled'].includes(body.status)
+      )
+        return { ok: false, code: 'SERVER_ERROR', detail: 'invalid turn status' };
+      return { ok: true, value: { status: body.status } };
     } catch {
       return { ok: false, code: 'TIMEOUT', detail: 'trueforge getTurnStatus timed out' };
     }
