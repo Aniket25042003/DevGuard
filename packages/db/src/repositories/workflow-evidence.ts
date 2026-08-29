@@ -42,7 +42,8 @@ export interface WorkflowRunProjection {
   readonly status: string;
   readonly triggerType: string;
   readonly originSurface: string;
-  readonly definitionVersion: number;
+  /** CP007/Qodo: definition_version is a semver string, not an integer. */
+  readonly definitionVersion: string;
   readonly createdAtIso: string;
   readonly updatedAtIso: string;
   readonly startedAtIso?: string | undefined;
@@ -82,9 +83,18 @@ function mapRunProjection(row: Record<string, unknown>): WorkflowRunProjection {
     status: String(row['status']),
     triggerType: String(row['trigger_type']),
     originSurface,
-    definitionVersion: Number.isFinite(Number(row['definition_version']))
-      ? Number(row['definition_version'])
-      : 1,
+    definitionVersion: (() => {
+      try {
+        const ref = JSON.parse(String(row['trigger_reference_json'] ?? '{}')) as {
+          definitionVersion?: unknown;
+        };
+        if (typeof ref.definitionVersion === 'string' && ref.definitionVersion.length > 0)
+          return ref.definitionVersion;
+      } catch {
+        // Legacy rows may not contain valid trigger metadata.
+      }
+      return row['definition_version'] !== undefined ? String(row['definition_version']) : '1';
+    })(),
     createdAtIso: String(row['created_at'] ?? ''),
     updatedAtIso: String(row['updated_at'] ?? ''),
     startedAtIso: iso(row['started_at']),
@@ -264,7 +274,7 @@ UPDATE workflow_runs SET
   row_version = row_version + 1
 WHERE id = $1 AND row_version = $3 AND status = $4
 RETURNING ${RUN_COLS}`,
-      values: [id, next, expectedVersion, expectedStatus],
+      values: [id, next, expectedVersion],
     });
     const row = rows[0];
     if (!row) throw new Error(`VERSION_CONFLICT:expected=${expectedVersion}`);

@@ -13,7 +13,7 @@ export interface RunRow {
   readonly status: string;
   readonly triggerType: string;
   readonly originSurface: string;
-  readonly definitionVersion: number;
+  readonly definitionVersion: string;
   readonly createdAtIso: string;
   readonly updatedAtIso: string;
   readonly startedAtIso?: string | undefined;
@@ -92,8 +92,11 @@ export class WorkflowQueryService {
     try {
       const run = await this.deps.runs.cancel(runId, expectedVersion);
       return { ok: true, run };
-    } catch {
-      return { ok: false, code: 'PRECONDITION_FAILED' };
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('CANCEL_CONFLICT:')) {
+        return { ok: false, code: 'PRECONDITION_FAILED' };
+      }
+      throw error;
     }
   }
 }
