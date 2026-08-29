@@ -409,8 +409,8 @@ async function resolveRepository(
 
 async function guessRowVersion(client: DevguardClient, runId: string): Promise<string> {
   const r = await client.runShow(runId);
-  const d = r.data as { data?: { rowVersion?: number | string } };
-  return String(d.data?.rowVersion ?? '');
+  const d = r.data as { data?: { version?: number | string } };
+  return String(d.data?.version ?? '');
 }
 
 function humanRuns(data: unknown): string {
