@@ -42,7 +42,8 @@ export interface WorkflowRunProjection {
   readonly status: string;
   readonly triggerType: string;
   readonly originSurface: string;
-  readonly definitionVersion: number;
+  /** CP007/Qodo: definition_version is a semver string, not an integer. */
+  readonly definitionVersion: string;
   readonly createdAtIso: string;
   readonly updatedAtIso: string;
   readonly startedAtIso?: string | undefined;
@@ -83,14 +84,17 @@ function mapRunProjection(row: Record<string, unknown>): WorkflowRunProjection {
     triggerType: String(row['trigger_type']),
     originSurface,
     definitionVersion: (() => {
-        try {
-          const ref = JSON.parse(String(row['trigger_reference_json'] ?? '{}')) as { definitionVersion?: unknown };
-          if (typeof ref.definitionVersion === 'string' && ref.definitionVersion.length > 0) return ref.definitionVersion;
-        } catch {
-          // Legacy rows may not contain valid trigger metadata.
-        }
-        return row['definition_version'] !== undefined ? String(row['definition_version']) : '1';
-      })(),
+      try {
+        const ref = JSON.parse(String(row['trigger_reference_json'] ?? '{}')) as {
+          definitionVersion?: unknown;
+        };
+        if (typeof ref.definitionVersion === 'string' && ref.definitionVersion.length > 0)
+          return ref.definitionVersion;
+      } catch {
+        // Legacy rows may not contain valid trigger metadata.
+      }
+      return row['definition_version'] !== undefined ? String(row['definition_version']) : '1';
+    })(),
     createdAtIso: String(row['created_at'] ?? ''),
     updatedAtIso: String(row['updated_at'] ?? ''),
     startedAtIso: iso(row['started_at']),

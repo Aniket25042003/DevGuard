@@ -278,7 +278,8 @@ export function registerWorkflowRoutes(
           'repository:read',
         );
       } catch (error) {
-        if (error instanceof DevGuardError && error.code === 'REPOSITORY_FORBIDDEN') return workflowUnknown(c);
+        if (error instanceof DevGuardError && error.code === 'REPOSITORY_FORBIDDEN')
+          return workflowUnknown(c);
         throw error;
       }
       return c.json({ data: toRunDto(run) });
@@ -317,7 +318,8 @@ export function registerWorkflowRoutes(
           'workflow:cancel',
         );
       } catch (error) {
-        if (error instanceof DevGuardError && error.code === 'REPOSITORY_FORBIDDEN') return workflowUnknown(c);
+        if (error instanceof DevGuardError && error.code === 'REPOSITORY_FORBIDDEN')
+          return workflowUnknown(c);
         throw error;
       }
       const outcome = await container.workflowQueries.cancel(runId, Number(ifMatch));
