@@ -9,9 +9,10 @@
  * HTTP (CP006). Credentials live in ~/.config/devguard/credentials.json (0600);
  * `DEVGUARD_TOKEN`/`DEVGUARD_API_BASE` are preferred over the file.
  */
-import { readFile, writeFile, rm, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, rm, mkdir, chmod } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 
 const CREDENTIALS_PATH = () => join(homedir(), '.config', 'devguard', 'credentials.json');
@@ -72,6 +73,7 @@ export async function saveCredentials(value: Credentials): Promise<void> {
   const path = CREDENTIALS_PATH();
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, JSON.stringify(value, null, 2), { mode: 0o600 });
+  await chmod(path, 0o600);
 }
 
 export async function removeCredentials(): Promise<void> {
@@ -140,15 +142,17 @@ export class DevguardClient {
     },
   ): Promise<ApiResult> {
     return this.request('POST', `/repositories/${repositoryId}/commands`, {
-      command: input.command,
+      commandId: input.command,
+        definitionVersion: 1,
       originSurface: 'cli',
-      idempotencyKey: input.idempotencyKey,
+      input: {
       ...(input.prNumber !== undefined ? { pullRequestNumber: input.prNumber } : {}),
       ...(input.checkRunId !== undefined ? { checkRunId: input.checkRunId } : {}),
       ...(input.issueNumber !== undefined ? { issueNumber: input.issueNumber } : {}),
       ...(input.findingIds !== undefined ? { findingIds: input.findingIds } : {}),
       ...(input.message !== undefined ? { message: input.message } : {}),
       ...(input.ref !== undefined ? { ref: input.ref } : {}),
+        },
     });
   }
 
@@ -215,14 +219,18 @@ export async function runCli(args: string[], deps: CliDeps): Promise<CliResult> 
   }
 
   if (verb0 === 'login') {
-    const token = flag('--token') ?? deps.env['DEVGUARD_TOKEN'];
+    const token = deps.env['DEVGUARD_TOKEN'];
     if (token === undefined) {
       out.push(
         'login: paste token via --token (or set DEVGUARD_TOKEN). Open https://<api>/api/v1/auth/login first.',
       );
       return { exitCode: 2, lines: out };
     }
-    await saveCredentials({
+    if (deps.env['DEVGUARD_TOKEN'] !== undefined) {
+        out.push('login: using environment token (not stored).');
+        return { exitCode: 0, lines: out };
+      }
+      await saveCredentials({
       apiBase: deps.env['DEVGUARD_API_BASE'] ?? 'http://127.0.0.1:8080',
       token,
     });
@@ -344,7 +352,7 @@ export async function runCli(args: string[], deps: CliDeps): Promise<CliResult> 
     const runId = rest[1] ?? '';
     for (let i = 0; i < 60; i += 1) {
       const r = await client.runShow(runId);
-      const d = r.data as { status?: string };
+      const d = (r.data as { data?: { status?: string } })?.data ?? {};
       out.push(`run ${runId} status: ${d.status ?? 'unknown'}`);
       if (
         r.status >= 300 ||
@@ -391,9 +399,9 @@ async function resolveRepository(
   const r = await client.repositories();
   if (r.status >= 300) return undefined;
   const data = (r.data ?? {}) as {
-    data?: { repositories?: Array<{ id?: string; fullName?: string }> };
+    repositories?: Array<{ id?: string; fullName?: string }>;
   };
-  const list = data.data?.repositories ?? [];
+  const list = (data as { repositories?: Array<{ id?: string; fullName?: string }> }).repositories ?? [];
   const found = list.find((item) => item.fullName === repo || item.id === repo);
   return found?.id !== undefined ? { id: found.id } : undefined;
 }
@@ -401,7 +409,7 @@ async function resolveRepository(
 async function guessRowVersion(client: DevguardClient, runId: string): Promise<string> {
   const r = await client.runShow(runId);
   const d = r.data as { data?: { rowVersion?: number | string } };
-  return String(d.data?.rowVersion ?? 1);
+  return String(d.data?.version);
 }
 
 function humanRuns(data: unknown): string {
@@ -454,7 +462,7 @@ async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<void> {
 }
 
 // Run only when invoked as the bin (never when imported by tests).
-const isEntry = process.argv[1] !== undefined && import.meta.url === urlToPath(process.argv[1]);
+const isEntry = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
 function urlToPath(entry: string): string {
   return entry.startsWith('file:') ? entry : `${urlPathToFileUrl(entry)}`;
 }
