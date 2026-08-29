@@ -21,11 +21,7 @@ export interface SessionPort {
     sessionId: string,
     userId: string,
   ): Promise<{ sessionId: string; state: string; turnCount: number } | undefined>;
-  events(
-    sessionId: string,
-    userId: string,
-    limit: number,
-  ): Promise<SessionEvent[]>;
+  events(sessionId: string, userId: string, limit: number): Promise<SessionEvent[]>;
   /** Replay cursor read (CP014): events strictly after the sequence, ordered. */
   eventsAfter(
     sessionId: string,
@@ -106,7 +102,9 @@ export function registerSessionRoutes(
           },
           404,
         );
-      const wantsSse = c.req.query('format') === 'sse' || (c.req.header('accept') ?? '').includes('text/event-stream');
+      const wantsSse =
+        c.req.query('format') === 'sse' ||
+        (c.req.header('accept') ?? '').includes('text/event-stream');
       if (!wantsSse) {
         const events = await sessions.events(sessionId, principal.userId, 200);
         return c.json({ events });

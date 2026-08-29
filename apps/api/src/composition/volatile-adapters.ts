@@ -200,7 +200,12 @@ export const VolatileSessionEvents: SessionPort & VolatileBindingMarker = {
   async events(_sessionId: string, _userId: string, _limit: number) {
     return [];
   },
-  async eventsAfter(_sessionId: string, _userId: string, _afterSequence: number, _limit: number): Promise<SessionEvent[]> {
+  async eventsAfter(
+    _sessionId: string,
+    _userId: string,
+    _afterSequence: number,
+    _limit: number,
+  ): Promise<SessionEvent[]> {
     return [];
   },
 };

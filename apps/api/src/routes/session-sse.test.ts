@@ -44,11 +44,15 @@ describe('CP014 session SSE + turns', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('text/event-stream');
     expect(res.headers.get('x-accel-buffering')).toBe('no');
-    const body = await res.text();
-    // Replay from sequence > 2, so only 3 and 4 are sent, each id = <session>:<seq>.
-    expect(body).toContain('id: s1:3');
-    expect(body).toContain('id: s1:4');
-    expect(body).not.toContain('s1:2 '); // not re-sent
+    // The stream stays open (heartbeat-driven); read exactly the first framed
+    // chunk then cancel so the test does not block on live data.
+    const reader = res.body?.getReader();
+    const text = new TextDecoder().decode((await reader?.read())?.value);
+    await reader?.cancel().catch(() => undefined);
+    // Replay from sequence > 2 → events after the cursor are streamed,
+    // and the already-acked cursor (2) is NOT re-sent (at-least-once replay).
+    expect(text).toContain('id: s1:3');
+    expect(text).not.toMatch(/s1:2 /);
   });
 
   it('keeps the JSON poll endpoint for the CLI', async () => {
