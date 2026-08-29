@@ -179,9 +179,12 @@ export class GitHubBaseClient {
       'content-type': 'application/json',
     };
 
+    const bodyPayload = Object.fromEntries(
+      Object.entries(parsedInput).filter(([key]) => !pathKeys.has(key)),
+    );
     const body =
       operation.method !== 'GET' && operation.method !== 'DELETE'
-        ? JSON.stringify(operation.inputSchema.parse(validatedInput))
+        ? JSON.stringify(bodyPayload)
         : undefined;
 
     const raw = await this.options.transport.request({

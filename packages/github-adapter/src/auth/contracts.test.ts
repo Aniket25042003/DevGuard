@@ -26,6 +26,7 @@ describe('capability-permission registry (C017 §23-2)', () => {
       'contents: read',
       'issues: read',
     ]);
+    expect(requiredPermissionsFor(['issue.comment.write'])).toEqual(['issues: write']);
   });
 
   it('unknown capabilities fail closed', () => {

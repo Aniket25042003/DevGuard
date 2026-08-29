@@ -15,7 +15,6 @@ import { Redis } from 'ioredis';
 import {
   RepositoryAuthorizationService,
   type AuthorizationEvidencePort,
-  type GitHubPermissionPort,
   type LocalRepositoryAccessPort,
 } from '@devguard/authorization';
 import type { WorkerConfigSnapshot } from '@devguard/config';
@@ -30,17 +29,21 @@ import {
   WorkerRuntime,
   type QueueTransport,
 } from '@devguard/queue';
-import { createPool, PostgresWebhookDeliveryStore, type DevGuardPool } from '@devguard/db';
+import { createPool, PostgresArtifactRetentionCleaner, PostgresLocalRepositoryAccessPort, OutboxRepository, PostgresWebhookDeliveryStore, type DevGuardPool } from '@devguard/db';
 import {
   durableRunTransitions,
   registerApprovalResume,
   registerFailClosedHandlers,
+  registerUnavailablePersistenceHandlers,
   registerWebhookProcess,
   registerWorkflowExecute,
   volatileRunTransitions,
 } from './handlers.js';
 import { buildCommentCommandService, buildWorkerAuthorizer } from './comment-commands.js';
-import { EmptyLocalRepositoryAccessPort, UnavailableGitHubPermissionPort } from './stubs.js';
+import { buildGitHubPermissionPort } from './github-permission-port.js';
+import { registerOutboxPublish } from './outbox-publish.js';
+import { registerRetentionCleanup } from './retention-cleanup.js';
+import { EmptyLocalRepositoryAccessPort } from './stubs.js';
 
 export interface WorkerContainer {
   readonly config: WorkerConfigSnapshot;
@@ -57,9 +60,25 @@ function real(value: string | undefined): boolean {
   return value !== undefined && value.length > 0 && !value.startsWith('<');
 }
 
+function isPostgresDsn(value: string | undefined): value is string {
+  if (value === undefined || value === '' || value.startsWith('<')) return false;
+  return value.startsWith('postgres://') || value.startsWith('postgresql://');
+}
+
 export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContainer {
-  const localAccess: LocalRepositoryAccessPort = new EmptyLocalRepositoryAccessPort();
-  const githubPermissions: GitHubPermissionPort = new UnavailableGitHubPermissionPort();
+  const pool: DevGuardPool | undefined = isPostgresDsn(config.databaseUrlRef.name)
+    ? createPool({ connectionString: config.databaseUrlRef.name })
+    : undefined;
+
+  const privateKeyPem =
+    config.github !== undefined && real(config.github.privateKeyRef)
+      ? config.github.privateKeyRef
+      : undefined;
+  const githubPermissions = buildGitHubPermissionPort(pool, config.github, privateKeyPem);
+  const localAccess: LocalRepositoryAccessPort =
+    pool !== undefined
+      ? new PostgresLocalRepositoryAccessPort(pool)
+      : new EmptyLocalRepositoryAccessPort();
   const evidence: AuthorizationEvidencePort = new (class implements AuthorizationEvidencePort {
     private readonly rows: Parameters<AuthorizationEvidencePort['append']>[0][] = [];
     async append(record: Parameters<AuthorizationEvidencePort['append']>[0]): Promise<void> {
@@ -88,24 +107,32 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
         })
       : new InMemoryTransport();
 
-  const pool: DevGuardPool | undefined = real(config.databaseUrlRef.name)
-    ? createPool({ connectionString: config.databaseUrlRef.name })
-    : undefined;
-
   const registry = new JobRegistry();
   registerWorkflowExecute(
     registry,
     pool !== undefined ? durableRunTransitions(pool) : volatileRunTransitions(),
   );
-  const commentAuthorizer = buildWorkerAuthorizer(pool);
+  const commentAuthorizer = buildWorkerAuthorizer(pool, githubPermissions);
   const commentCommands =
-    pool !== undefined ? buildCommentCommandService(pool, commentAuthorizer) : undefined;
+    pool !== undefined ? buildCommentCommandService(pool, commentAuthorizer, config) : undefined;
   registerWebhookProcess(
     registry,
     pool !== undefined ? new PostgresWebhookDeliveryStore(pool) : new InMemoryDeliveryStore(),
     { commentCommands },
   );
   registerApprovalResume(registry);
+  if (pool !== undefined) {
+    registerOutboxPublish(registry, {
+      outbox: new OutboxRepository(pool),
+      queue,
+      workerId: `worker-${process.pid}`,
+    });
+    registerRetentionCleanup(registry, {
+      cleaner: new PostgresArtifactRetentionCleaner(pool),
+    });
+  } else {
+    registerUnavailablePersistenceHandlers(registry);
+  }
   registerFailClosedHandlers(registry);
 
   const runtime = new WorkerRuntime(

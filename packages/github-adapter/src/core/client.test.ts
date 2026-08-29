@@ -115,20 +115,41 @@ describe('GitHubBaseClient (C018 §22)', () => {
   });
 
   it('write operations WITH an authorized context proceed', async () => {
+    const captured: Array<{ path: string; body?: string }> = [];
     const client = new GitHubBaseClient({
-      transport: transportReturning({ status: 201, bodyText: JSON.stringify({ id: 42 }) }),
+      transport: {
+        request: async (input) => {
+          captured.push({ path: input.path, body: input.body });
+          return {
+            status: 201,
+            headers: { 'x-github-request-id': 'gh-req-1' },
+            bodyText: JSON.stringify({ id: 42 }),
+          } as RawTransportResponse;
+        },
+      },
       apiVersion: 'x',
       nowMs: () => NOW,
     });
     const result = await client.execute(
-      makeOperation({ safety: 'write', method: 'POST', successStatuses: [201] }),
-      { owner: 'o', repo: 'r', issue_number: 1 },
+      makeOperation({
+        safety: 'write',
+        method: 'POST',
+        successStatuses: [201],
+        inputSchema: z.object({
+          owner: z.string(),
+          repo: z.string(),
+          issue_number: z.number(),
+          body: z.string(),
+        }),
+      }),
+      { owner: 'o', repo: 'r', issue_number: 1, body: 'hello' },
       writeCtx(),
       TOKEN,
       AUTH,
     );
     if (!result.ok) console.log('WRITE_DEBUG:', JSON.stringify(result.error));
     expect(result.ok).toBe(true);
+    expect(JSON.parse(captured[0]?.body ?? '{}')).toEqual({ body: 'hello' });
   });
 
   it('304 returns notModified without body parsing', async () => {

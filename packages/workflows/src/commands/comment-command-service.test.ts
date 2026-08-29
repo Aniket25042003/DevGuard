@@ -1,5 +1,5 @@
 /** CP019 — CommentCommandService integration with mocked ports. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   CommandBus,
   type CommandBusPersistencePort,
@@ -61,6 +61,25 @@ describe('CommentCommandService (CP019)', () => {
       commandId: 'review_remediation',
     });
     expect(persistence.runs).toEqual(['run-gh-1']);
+  });
+
+  it('posts an ack when help is requested', async () => {
+    const acks = { postAck: vi.fn(async () => {}) };
+    const service = new CommentCommandService({
+      commandBus: new CommandBus({ persistence: new MemoryPersistence() }),
+      identities: { resolveOrCreateUser: async () => 'u' },
+      repositories: { findByGitHubRepositoryId: async () => ({ id: 'r', status: 'active' }) },
+      authorizer: { authorizeWorkflowStart: async () => ({ allowed: true }) },
+      acks,
+      acksEnabled: true,
+    });
+    const outcome = await service.handle({
+      ...EVENT,
+      comment: { ...EVENT.comment, body: '@devguard help' },
+    });
+    expect(outcome).toEqual({ kind: 'meta', verb: 'help' });
+    expect(acks.postAck).toHaveBeenCalledOnce();
+    expect(acks.postAck.mock.calls[0]?.[0]?.message).toContain('DevGuard commands');
   });
 
   it('returns ignored when the comment has no mention', async () => {

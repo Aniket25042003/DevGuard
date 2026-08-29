@@ -86,12 +86,25 @@ export type {
 
 // ---- CP012 durable artifact metadata ----
 export { PostgresArtifactStore, type StoredArtifact } from './repositories/artifacts.js';
+export { PostgresArtifactRetentionCleaner } from './repositories/artifact-retention.js';
+
+// ---- C017 GitHub permission lookup ----
+export {
+  PostgresGitHubPermissionLookup,
+  type GitHubPermissionLookupContext,
+} from './repositories/github-permission-lookup.js';
 
 // ---- CP011 durable webhook delivery ledger ----
 export {
   PostgresWebhookDeliveryStore,
   type DeliveryStateV1,
 } from './repositories/webhook-delivery.js';
+
+// ---- CP021 GitHub comment ack dedup ----
+export {
+  InMemoryCommentAckDedupStore,
+  PostgresCommentAckDedupStore,
+} from './repositories/comment-ack-dedup.js';
 
 // ---- CP009 durable policy decisions ----
 export {
