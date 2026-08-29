@@ -23,10 +23,10 @@ export type RunsSummaryPort = (input: {
   limit: number;
   cursor?: { createdAtIso: string; id: string } | undefined;
 }) => Promise<{
-    runs: readonly RunRow[];
-    hasMore: boolean;
-    nextCursor?: { createdAtIso: string; id: string } | undefined;
-  }>;
+  runs: readonly RunRow[];
+  hasMore: boolean;
+  nextCursor?: { createdAtIso: string; id: string } | undefined;
+}>;
 
 export function registerDiagnosticsRoutes(
   kernel: { registerV1Route: RegisterV1Route },
@@ -71,9 +71,9 @@ export function registerDiagnosticsRoutes(
       const rawCursor = c.req.query('cursor');
       const cursor = rawCursor !== undefined ? safeParseCursor(rawCursor) : undefined;
       if (rawCursor !== undefined && cursor === undefined) {
-          throw validationFailed([{ path: 'cursor', constraint: 'valid cursor required' }]);
-        }
-        const page = await input.runs({ repositoryId, limit, cursor });
+        throw validationFailed([{ path: 'cursor', constraint: 'valid cursor required' }]);
+      }
+      const page = await input.runs({ repositoryId, limit, cursor });
       return c.json({
         runs: page.runs.map((r) => ({
           id: r.id,
@@ -83,7 +83,7 @@ export function registerDiagnosticsRoutes(
           repositoryId: r.repositoryId,
         })),
         hasMore: page.hasMore,
-          ...(page.nextCursor === undefined ? {} : { nextCursor: encodeCursor(page.nextCursor) }),
+        ...(page.nextCursor === undefined ? {} : { nextCursor: encodeCursor(page.nextCursor) }),
       });
     },
   );

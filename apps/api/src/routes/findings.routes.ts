@@ -100,10 +100,12 @@ export function registerFindingsRemediationRoutes(
         );
       }
       const parsedKey = idempotencyKeySchema.safeParse(idempotencyKey);
-        if (!parsedKey.success) {
-          throw validationFailed([{ path: IDEMPOTENCY_KEY_HEADER, constraint: 'valid idempotency key required' }]);
-        }
-        const outcome = await submit({
+      if (!parsedKey.success) {
+        throw validationFailed([
+          { path: IDEMPOTENCY_KEY_HEADER, constraint: 'valid idempotency key required' },
+        ]);
+      }
+      const outcome = await submit({
         findingId: c.req.param('id') ?? '',
         idempotencyKey,
         surface: (c.req.header('origin') ?? '').includes('cli.') ? 'cli' : 'web',
