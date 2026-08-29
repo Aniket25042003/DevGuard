@@ -4,6 +4,7 @@
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src/**/*"],
-  "references": [{ "path": "../errors" }, { "path": "../logging" }]
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.test.ts"],
+  "references": [{ "path": "../errors" }]
 }

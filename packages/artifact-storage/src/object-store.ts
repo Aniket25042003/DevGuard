@@ -45,7 +45,10 @@ const SECRET_PATTERNS = [
   /(?:password|passwd|api[_-]?key|secret|token|authorization)\s*[:=]\s*["']?[A-Za-z0-9_-]{12,}/i,
 ];
 const containsSecret = (text: string): boolean =>
-  SECRET_PATTERNS.some((detector) => detector.test(text));
+  SECRET_PATTERNS.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(text);
+  });
 
 export class LocalObjectStore implements ObjectStore {
   private readonly root: string;
