@@ -264,3 +264,7 @@ export {
   type TrueForgeCommandPort,
 } from './commands/command-provider-port.js';
 export { OutputNormalizer, type OutputStreamState } from './commands/output-normalizer.js';
+export {
+  TrueForgeHttpCommandPort,
+  type TrueForgeCommandPortOptions,
+} from './trueforge/trueforge-command-port.js';

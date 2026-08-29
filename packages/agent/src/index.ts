@@ -253,6 +253,12 @@ export {
   type AgentRuntimeResult,
 } from './sessions/agent-runtime-port.js';
 export {
+  TrueForgeHttpAgentRuntime,
+  trueforgeDisabled,
+  type TrueForgeHttpAgentRuntimeOptions,
+  type TrueForgeHttpTransport,
+} from './trueforge/trueforge-http-runtime.js';
+export {
   InMemorySessionStore,
   InMemoryTurnStore,
   sessionIdForCommand,
