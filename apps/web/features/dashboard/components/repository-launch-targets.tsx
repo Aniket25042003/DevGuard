@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { type ReactNode } from 'react';
 import { getApiClient } from '@/lib/api/client';
 import { queryKeys } from '@/lib/server-state/query-keys';
-import { Button } from '@/components/ui/primitives';
+import { Button, Card } from '@/components/ui/primitives';
 import { buildAppHref } from '@/features/navigation/routes';
 import { ProblemAlert, classifyUiProblem } from '@/features/errors/index';
 import { formatRelativeTime } from '@/features/workflow-launcher/components/target-picker';
@@ -50,7 +50,7 @@ export function RepositoryLaunchTargets({
                 repositoryId,
                 search: `?command=review_remediation&pr=${pr.number}`,
               })}
-              className="block rounded-lg border border-[var(--line)] px-4 py-3 transition hover:border-[var(--accent)]"
+              className="picker-row block rounded-[var(--radius)] px-4 py-3"
             >
               <span className="font-medium">
                 #{pr.number} {pr.title}
@@ -83,7 +83,7 @@ export function RepositoryLaunchTargets({
                 repositoryId,
                 search: `?command=implement_issue&issue=${issue.number}`,
               })}
-              className="block rounded-lg border border-[var(--line)] px-4 py-3 transition hover:border-[var(--accent)]"
+              className="picker-row block rounded-[var(--radius)] px-4 py-3"
             >
               <span className="font-medium">
                 #{issue.number} {issue.title}
@@ -121,7 +121,7 @@ function LaunchTargetCard({
   readonly items: readonly ReactNode[];
 }): ReactNode {
   return (
-    <div className="rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] p-4">
+    <Card className="p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-base font-medium">{title}</h2>
         <Button href={actionHref}>{actionLabel}</Button>
@@ -137,6 +137,6 @@ function LaunchTargetCard({
           )}
         </ul>
       ) : null}
-    </div>
+    </Card>
   );
 }

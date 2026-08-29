@@ -88,29 +88,36 @@ export function ProblemAlert({
   return (
     <div
       role="alert"
-      className="rounded-lg border border-[var(--line)] bg-[var(--bg-elevated)] p-4"
+      className="rounded-[var(--radius-lg)] border border-[var(--danger)]/30 bg-[var(--danger-soft)] p-4"
     >
-      <p className="font-medium">
-        <span aria-hidden="true">! </span>
-        {problem.title}
-      </p>
-      <p className="mt-1 text-[var(--muted)]">{problem.body}</p>
-      {problem.requestId !== undefined ? (
-        <p className="mt-2 font-mono text-xs break-all">Request ID: {problem.requestId}</p>
-      ) : null}
-      {onRecover !== undefined &&
-      (problem.recovery === 'retry' || problem.recovery === 'reconcile') ? (
-        <div className="mt-3">
-          <Button tone="neutral" onClick={onRecover}>
-            {problem.recovery === 'reconcile' ? 'Refresh status' : 'Retry'}
-          </Button>
+      <div className="flex items-start gap-3">
+        <span
+          className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--danger)]"
+          aria-hidden="true"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-[var(--ink)]">{problem.title}</p>
+          <p className="mt-1 text-[var(--muted)]">{problem.body}</p>
+          {problem.requestId !== undefined ? (
+            <p className="mt-2 font-mono text-xs break-all text-[var(--muted)]">
+              Request ID: {problem.requestId}
+            </p>
+          ) : null}
+          {onRecover !== undefined &&
+          (problem.recovery === 'retry' || problem.recovery === 'reconcile') ? (
+            <div className="mt-3">
+              <Button tone="neutral" onClick={onRecover}>
+                {problem.recovery === 'reconcile' ? 'Refresh status' : 'Retry'}
+              </Button>
+            </div>
+          ) : null}
+          {problem.recovery === 'sign-in' ? (
+            <div className="mt-3">
+              <Button href="/sign-in">Sign in</Button>
+            </div>
+          ) : null}
         </div>
-      ) : null}
-      {problem.recovery === 'sign-in' ? (
-        <div className="mt-3">
-          <Button href="/sign-in">Sign in</Button>
-        </div>
-      ) : null}
+      </div>
     </div>
   );
 }

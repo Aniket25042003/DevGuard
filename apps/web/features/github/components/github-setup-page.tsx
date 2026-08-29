@@ -66,7 +66,7 @@ export function GitHubSetupPage(): ReactNode {
         </label>
         <input
           id="installation-id"
-          className="mt-2 w-full rounded-xl border border-[var(--line)] bg-[var(--bg-elevated)] px-4 py-3"
+          className="mt-2 w-full rounded-[var(--radius)] border border-[var(--line)] bg-[var(--bg-elevated)] px-4 py-3"
           value={manualInput}
           onChange={(event) => setManualInput(event.target.value)}
           placeholder="157569422 or https://github.com/settings/installations/157569422"
