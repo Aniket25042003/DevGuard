@@ -20,6 +20,7 @@ import type { IssueCommentWebhookEvent } from '@devguard/workflows';
 
 export interface CommentAckDedupPort {
   tryClaim(githubCommentId: number, ackDigest: string): Promise<boolean>;
+  markApplied(githubCommentId: number, ackDigest: string): Promise<void>;
 }
 
 function ackDigest(message: string): string {
@@ -57,6 +58,8 @@ export class WorkerGitHubCommentAckAdapter implements CommentAckPort {
     });
     if (!result.ok) {
       throw new Error(`github_comment_ack_failed:${result.code}:${result.detail}`);
+      }
+      await this.dedup.markApplied(event.comment.id, digest);
     }
   }
 }

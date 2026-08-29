@@ -11,15 +11,19 @@ export class PostgresCommentAckDedupStore {
   /** Returns true when this (comment, ack) pair is newly claimed. */
   async tryClaim(githubCommentId: number, ackDigest: string): Promise<boolean> {
     const rows = await this.pool.query<{ github_comment_id: string }>({
-      text: `INSERT INTO github_comment_acks (github_comment_id, ack_digest)
-VALUES ($1, $2)
+      text: `INSERT INTO github_comment_acks (github_comment_id, ack_digest, status)
+VALUES ($1, $2, 'pending')
 ON CONFLICT (github_comment_id, ack_digest) DO NOTHING
 RETURNING github_comment_id`,
       values: [githubCommentId, ackDigest],
     });
     return rows.length > 0;
+    }
+
+    async markApplied(githubCommentId: number, ackDigest: string): Promise<void> {
+      await this.pool.query({ text: `UPDATE github_comment_acks SET status = 'applied' WHERE github_comment_id = $1 AND ack_digest = $2`, values: [githubCommentId, ackDigest] });
+    }
   }
-}
 
 export class InMemoryCommentAckDedupStore {
   readonly #seen = new Set<string>();
@@ -30,4 +34,6 @@ export class InMemoryCommentAckDedupStore {
     this.#seen.add(key);
     return true;
   }
+
+  async markApplied(_githubCommentId: number, _ackDigest: string): Promise<void> {}
 }
