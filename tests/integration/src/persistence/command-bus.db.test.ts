@@ -168,3 +168,28 @@ describeDb('CP006 command-bus durable persistence', () => {
     expect(thrown).toContain('IDEMPOTENCY_KEY_CONFLICT');
   });
 });
+
+describeDb('CP007 durable run list/get/cancel', () => {
+  it('returns a durable projection via getDetail and keyset-paginated list', async () => {
+    const store = new WorkflowRunStore(pool);
+    const detail = await store.getDetail(RUN_ID);
+    expect(detail).not.toBeNull();
+    expect(detail?.id).toBe(RUN_ID);
+    expect(detail?.status).toBe('queued');
+    expect(detail?.repositoryId).toBe(REPO);
+    expect(detail?.workflowType).toBe('review_remediation');
+    const page = await store.list({ repositoryId: REPO, limit: 10 });
+    expect(page.length).toBe(1);
+    expect(page[0]?.id).toBe(RUN_ID);
+  });
+
+  it('cancels a queued run via CAS and rejects stale/terminal cancels', async () => {
+    const store = new WorkflowRunStore(pool);
+    const before = await store.getDetail(RUN_ID);
+    expect(before).not.toBeNull();
+    const cancelled = await store.cancel(RUN_ID, before!.rowVersion);
+    expect(cancelled.status).toBe('cancelled');
+    // Reusing the same version after the transition conflicts (non-idempotent cas).
+    await expect(store.cancel(RUN_ID, before!.rowVersion)).rejects.toThrow(/CANCEL_CONFLICT/);
+  });
+});

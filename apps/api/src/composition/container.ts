@@ -48,8 +48,14 @@ import {
   PostgresAuthTransactionRepository,
   PostgresLocalRepositoryAccessPort,
   PostgresUserIdentityLinker,
+  WorkflowRunStore,
 } from '@devguard/db';
-import { CommandBus, type CommandBusPersistencePort } from '@devguard/workflows';
+import {
+  CommandBus,
+  type CommandBusPersistencePort,
+  WorkflowQueryService,
+  type WorkflowRunStorePort,
+} from '@devguard/workflows';
 import { isVolatileBinding } from './bindings.js';
 import { PostgresCommandBusPersistencePort } from './command-bus-adapter.js';
 import {
@@ -107,6 +113,25 @@ class EmptyLocalRepositoryAccessPort implements LocalRepositoryAccessPort {
   }
 }
 
+/** No durable run store yet (pre-CP007 environment): honest empty reads. */
+export class EmptyRunQueryStore implements WorkflowRunStorePort {
+  async getDetail(_id: string): Promise<null> {
+    return null;
+  }
+
+  async list(_options: {
+    readonly repositoryId: string;
+    readonly limit: number;
+    readonly cursor?: { readonly createdAtIso: string; readonly id: string } | undefined;
+  }): Promise<never[]> {
+    return [];
+  }
+
+  async cancel(_id: string, _expectedVersion: number): Promise<never> {
+    throw new Error('WORKFLOW_UNKNOWN:no durable run store');
+  }
+}
+
 export class InMemoryAuthorizationEvidenceStore implements AuthorizationEvidencePort {
   private readonly rows: AuthorizationEvidenceRecord[] = [];
 
@@ -139,6 +164,7 @@ export interface CompositionBindings {
   readonly apiTokens: ApiTokenRepository;
   readonly identityProvider: IdentityProviderClient;
   readonly commandBus: CommandBusPersistencePort;
+  readonly workflowRuns: WorkflowRunStorePort;
   readonly localAccess: LocalRepositoryAccessPort;
   readonly githubPermissions: GitHubPermissionPort;
   readonly evidence: AuthorizationEvidencePort;
@@ -162,6 +188,7 @@ export interface ApiContainer {
   readonly auth: AuthenticationService;
   readonly apiTokens: ApiTokenService;
   readonly commandBus: CommandBus;
+  readonly workflowQueries: WorkflowQueryService;
   readonly authorizer: RepositoryAuthorizationService;
 }
 
@@ -299,6 +326,8 @@ export function buildContainer(
   const commandBus = durableAuth
     ? new PostgresCommandBusPersistencePort(pool)
     : new VolatileCommandBusPersistencePort();
+  // CP007: durable run store (query + cancel); honest empty reads without one.
+  const workflowRuns = durableAuth ? new WorkflowRunStore(pool) : new EmptyRunQueryStore();
 
   const bindings: CompositionBindings = {
     sessions,
@@ -307,6 +336,7 @@ export function buildContainer(
     apiTokens,
     identityProvider,
     commandBus,
+    workflowRuns,
     localAccess,
     githubPermissions: new UnavailableGitHubPermissionPort(),
     evidence: new InMemoryAuthorizationEvidenceStore(),
@@ -321,6 +351,8 @@ export function buildContainer(
     findings: VolatileFindings,
     ...overrides,
   };
+
+  const workflowQueries = new WorkflowQueryService({ runs: bindings.workflowRuns });
 
   const redirectUri =
     config.auth.mode === 'github_oauth'
@@ -366,6 +398,7 @@ export function buildContainer(
     auth,
     apiTokens: apiTokenService,
     commandBus: commandBusService,
+    workflowQueries,
     authorizer,
     ...(pool !== undefined ? { pool } : {}),
     ...(webhookSecret !== undefined ? { webhookSecret } : {}),

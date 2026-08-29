@@ -80,6 +80,7 @@ export { WorkflowRunStore, EventStore } from './repositories/workflow-evidence.j
 export type {
   NewRunInput,
   StoredEvent,
+  WorkflowRunProjection,
   WorkflowRunRecord,
 } from './repositories/workflow-evidence.js';
 

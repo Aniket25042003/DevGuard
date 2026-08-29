@@ -31,6 +31,78 @@ export interface WorkflowRunRecord {
 
 const RUN_COLS = `id::text AS id, status, row_version::text AS row_version`;
 
+/**
+ * CP007 — durable run projection for GET/list/cancel. Mirrors the C067
+ * `WorkflowRunDto` source fields (status, trigger, origin surface, version).
+ */
+export interface WorkflowRunProjection {
+  readonly id: string;
+  readonly repositoryId: string;
+  readonly workflowType: string;
+  readonly status: string;
+  readonly triggerType: string;
+  readonly originSurface: string;
+  /** CP007/Qodo: definition_version is a semver string, not an integer. */
+  readonly definitionVersion: string;
+  readonly createdAtIso: string;
+  readonly updatedAtIso: string;
+  readonly startedAtIso?: string | undefined;
+  readonly completedAtIso?: string | undefined;
+  readonly rowVersion: number;
+}
+
+const PROJ_COLS = `id::text AS id, repository_id::text AS repository_id,
+  workflow_type::text AS workflow_type, status,
+  trigger_type::text AS trigger_type, trigger_reference_json::text AS trigger_reference_json,
+  definition_version::text AS definition_version,
+  created_at::text AS created_at, updated_at::text AS updated_at,
+  started_at::text AS started_at, completed_at::text AS completed_at,
+  row_version::text AS row_version`;
+
+function iso(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function mapRunProjection(row: Record<string, unknown>): WorkflowRunProjection {
+  let originSurface = 'web';
+  try {
+    const ref = JSON.parse(String(row['trigger_reference_json'] ?? '{}')) as {
+      originSurface?: unknown;
+    };
+    if (typeof ref.originSurface === 'string' && ref.originSurface.length > 0) {
+      originSurface = ref.originSurface;
+    }
+  } catch {
+    // fall through to the default surface; origin_surface becomes a real
+    // column at CP016.
+  }
+  return {
+    id: String(row['id']),
+    repositoryId: String(row['repository_id']),
+    workflowType: String(row['workflow_type']),
+    status: String(row['status']),
+    triggerType: String(row['trigger_type']),
+    originSurface,
+    definitionVersion: (() => {
+      try {
+        const ref = JSON.parse(String(row['trigger_reference_json'] ?? '{}')) as {
+          definitionVersion?: unknown;
+        };
+        if (typeof ref.definitionVersion === 'string' && ref.definitionVersion.length > 0)
+          return ref.definitionVersion;
+      } catch {
+        // Legacy rows may not contain valid trigger metadata.
+      }
+      return row['definition_version'] !== undefined ? String(row['definition_version']) : '1';
+    })(),
+    createdAtIso: String(row['created_at'] ?? ''),
+    updatedAtIso: String(row['updated_at'] ?? ''),
+    startedAtIso: iso(row['started_at']),
+    completedAtIso: iso(row['completed_at']),
+    rowVersion: Number(row['row_version']),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Stores
 // ---------------------------------------------------------------------------
@@ -102,6 +174,62 @@ FROM workflow_runs WHERE idempotency_key_hash = $1`,
           triggerReferenceJson: String(row['trigger_reference_json'] ?? '{}'),
         }
       : null;
+  }
+
+  /** CP007 — durable projection for a single run (GET /workflows/:runId). */
+  async getDetail(id: string): Promise<WorkflowRunProjection | null> {
+    const rows = await this.poolLike.query<Record<string, unknown>>({
+      text: `SELECT ${PROJ_COLS} FROM workflow_runs WHERE id = $1`,
+      values: [id],
+    });
+    return rows[0] ? mapRunProjection(rows[0]) : null;
+  }
+
+  /**
+   * CP007 — durable keyset-paginated list for a repository (descending time).
+   * Returns up to `limit + 1` rows so the caller can detect `hasMore`.
+   */
+  async list(options: {
+    readonly repositoryId: string;
+    readonly limit: number;
+    readonly cursor?: { readonly createdAtIso: string; readonly id: string } | undefined;
+  }): Promise<WorkflowRunProjection[]> {
+    const where: string[] = ['repository_id = $1'];
+    const values: unknown[] = [options.repositoryId];
+    let bind = 2;
+    if (options.cursor !== undefined) {
+      where.push(
+        `(created_at < $${bind}::timestamptz OR (created_at = $${bind}::timestamptz AND id < $${bind + 1}))`,
+      );
+      values.push(options.cursor.createdAtIso, options.cursor.id);
+      bind += 2;
+    }
+    const rows = await this.poolLike.query<Record<string, unknown>>({
+      text: `SELECT ${PROJ_COLS} FROM workflow_runs
+WHERE ${where.join(' AND ')}
+ORDER BY created_at DESC, id DESC
+LIMIT $${bind}`,
+      values: [...values, options.limit + 1],
+    });
+    return rows.map(mapRunProjection);
+  }
+
+  /** CP007 — durable cancel: queued / waiting_for_approval → cancelled (CAS). */
+  async cancel(id: string, expectedVersion: number): Promise<WorkflowRunProjection> {
+    const rows = await this.poolLike.query<Record<string, unknown>>({
+      text: `UPDATE workflow_runs SET
+  status = 'cancelled',
+  cancel_requested_at = COALESCE(cancel_requested_at, now()),
+  completed_at = now(),
+  updated_at = now(),
+  row_version = row_version + 1
+WHERE id = $1 AND row_version = $2 AND status IN ('queued', 'waiting_for_approval')
+RETURNING ${PROJ_COLS}`,
+      values: [id, expectedVersion],
+    });
+    const row = rows[0];
+    if (!row) throw new Error('CANCEL_CONFLICT:not cancellable at this version');
+    return mapRunProjection(row);
   }
 
   private static readonly LEGAL: Readonly<Record<string, readonly string[]>> = Object.freeze({
