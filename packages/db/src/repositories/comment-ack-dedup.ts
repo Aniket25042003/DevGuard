@@ -18,12 +18,25 @@ RETURNING github_comment_id`,
       values: [githubCommentId, ackDigest],
     });
     return rows.length > 0;
-    }
-
-    async markApplied(githubCommentId: number, ackDigest: string): Promise<void> {
-      await this.pool.query({ text: `UPDATE github_comment_acks SET status = 'applied' WHERE github_comment_id = $1 AND ack_digest = $2`, values: [githubCommentId, ackDigest] });
-    }
   }
+
+  async markApplied(githubCommentId: number, ackDigest: string): Promise<void> {
+    await this.pool.query({
+      text: `UPDATE github_comment_acks
+SET status = 'applied'
+WHERE github_comment_id = $1 AND ack_digest = $2 AND status = 'pending'`,
+      values: [githubCommentId, ackDigest],
+    });
+  }
+
+  async releaseClaim(githubCommentId: number, ackDigest: string): Promise<void> {
+    await this.pool.query({
+      text: `DELETE FROM github_comment_acks
+WHERE github_comment_id = $1 AND ack_digest = $2 AND status = 'pending'`,
+      values: [githubCommentId, ackDigest],
+    });
+  }
+}
 
 export class InMemoryCommentAckDedupStore {
   readonly #seen = new Set<string>();
@@ -35,5 +48,11 @@ export class InMemoryCommentAckDedupStore {
     return true;
   }
 
-  async markApplied(_githubCommentId: number, _ackDigest: string): Promise<void> {}
+  async markApplied(githubCommentId: number, ackDigest: string): Promise<void> {
+    this.#seen.add(`${githubCommentId}:${ackDigest}`);
+  }
+
+  async releaseClaim(githubCommentId: number, ackDigest: string): Promise<void> {
+    this.#seen.delete(`${githubCommentId}:${ackDigest}`);
+  }
 }

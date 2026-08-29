@@ -4,6 +4,7 @@ import { buildEnvelope, InMemoryDeliveryStore, JobRegistry } from '@devguard/que
 import {
   registerApprovalResume,
   registerFailClosedHandlers,
+  registerUnavailablePersistenceHandlers,
   registerWebhookProcess,
   registerWorkflowExecute,
   volatileRunTransitions,
@@ -48,10 +49,10 @@ describe('worker handlers (CP008)', () => {
     expect(result.outcome).toBe('PERMANENT_FAILURE');
   });
 
-  it('other job types fail closed until their owners mount', async () => {
+  it('persistence-backed job types fail closed without a database', async () => {
     const registry = new JobRegistry();
-    registerFailClosedHandlers(registry);
-    for (const jobType of ['outbox.publish', 'sandbox.monitor', 'cleanup.retention'] as const) {
+    registerUnavailablePersistenceHandlers(registry);
+    for (const jobType of ['outbox.publish', 'cleanup.retention'] as const) {
       const handler = registry.resolve(jobType, 1);
       const result = await handler(
         buildEnvelope({
@@ -71,6 +72,29 @@ describe('worker handlers (CP008)', () => {
       );
       expect(result.outcome).toBe('PERMANENT_FAILURE');
     }
+  });
+
+  it('sandbox.monitor still fails closed until CP013', async () => {
+    const registry = new JobRegistry();
+    registerFailClosedHandlers(registry);
+    const handler = registry.resolve('sandbox.monitor', 1);
+    const result = await handler(
+      buildEnvelope({
+        jobType: 'sandbox.monitor',
+        schemaVersion: 1,
+        queue: 'sandbox-monitoring',
+        uniqueKey: 'x-sandbox',
+        payload: {},
+        correlationId: 'c',
+      }),
+      {
+        attempt: 1,
+        maxAttempts: 3,
+        leaseToken: 'w',
+        signal: undefined,
+      },
+    );
+    expect(result.outcome).toBe('PERMANENT_FAILURE');
   });
 
   it('approval.resume is wired to the resume state machine and DLQs unknown approvals', async () => {

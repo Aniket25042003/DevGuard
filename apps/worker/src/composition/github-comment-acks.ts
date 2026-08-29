@@ -21,6 +21,7 @@ import type { IssueCommentWebhookEvent } from '@devguard/workflows';
 export interface CommentAckDedupPort {
   tryClaim(githubCommentId: number, ackDigest: string): Promise<boolean>;
   markApplied(githubCommentId: number, ackDigest: string): Promise<void>;
+  releaseClaim(githubCommentId: number, ackDigest: string): Promise<void>;
 }
 
 function ackDigest(message: string): string {
@@ -46,20 +47,24 @@ export class WorkerGitHubCommentAckAdapter implements CommentAckPort {
     const claimed = await this.dedup.tryClaim(event.comment.id, digest);
     if (!claimed) return;
 
-    const result = await this.acks.postAck({
-      correlationId: `comment-ack:${event.comment.id}`,
-      installationId: String(installationId),
-      githubRepositoryId: String(event.repository.id),
-      owner: event.repository.owner.login,
-      repo: event.repository.name,
-      issueNumber: event.issue.number,
-      triggerCommentId: event.comment.id,
-      body: message,
-    });
-    if (!result.ok) {
-      throw new Error(`github_comment_ack_failed:${result.code}:${result.detail}`);
+    try {
+      const result = await this.acks.postAck({
+        correlationId: `comment-ack:${event.comment.id}`,
+        installationId: String(installationId),
+        githubRepositoryId: String(event.repository.id),
+        owner: event.repository.owner.login,
+        repo: event.repository.name,
+        issueNumber: event.issue.number,
+        triggerCommentId: event.comment.id,
+        body: message,
+      });
+      if (!result.ok) {
+        throw new Error(`github_comment_ack_failed:${result.code}:${result.detail}`);
       }
       await this.dedup.markApplied(event.comment.id, digest);
+    } catch (error) {
+      await this.dedup.releaseClaim(event.comment.id, digest);
+      throw error;
     }
   }
 }
@@ -85,7 +90,7 @@ export function buildGitHubCommentAckAdapter(
   const acks = new GitHubIssueCommentAckService({
     client,
     tokenLeases,
-    credentialVersion: github.privateKeyRef,
+    credentialVersion: github.appId,
   });
   const dedup =
     pool !== undefined ? new PostgresCommentAckDedupStore(pool) : new InMemoryCommentAckDedupStore();

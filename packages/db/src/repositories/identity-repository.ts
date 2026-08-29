@@ -266,6 +266,7 @@ RETURNING ${REPO_COLS}`;
     expectedVersion: number,
     next: RepositoryLifecycleStatus,
     patch: RepositoryPatch,
+    tx?: TransactionContext,
   ): Promise<ConnectedRepository> {
     // Fetch current state for lifecycle guard.
     const current = await this.findById(id);
@@ -281,7 +282,8 @@ RETURNING ${REPO_COLS}`;
       'autonomyLevel' in patch && typeof patch.autonomyLevel === 'string'
         ? patch.autonomyLevel
         : null;
-    const rows = await this.poolLike.query<Record<string, unknown>>({
+    const executor = tx ?? { query: this.poolLike.query.bind(this.poolLike) };
+    const rows = await executor.query<Record<string, unknown>>({
       text: `
 UPDATE repositories SET
   status = $2,

@@ -36,6 +36,18 @@ export {
   FetchInstallationTokenMintPort,
   type FetchInstallationTokenMintOptions,
 } from './auth/installation-token-mint.js';
+export {
+  GitHubCollaboratorRoleService,
+  type NormalizedGitHubRole as GitHubCollaboratorRole,
+} from './auth/github-collaborator-role.js';
+export {
+  GitHubPermissionService,
+  asGitHubPermissionPort,
+  type GitHubPermissionContextPort,
+  type GitHubPermissionLookupContext,
+  type GitHubPermissionPortShape,
+  type GitHubPermissionServiceDeps,
+} from './auth/github-permission-service.js';
 
 export type {
   AuthorizedActionContext,
