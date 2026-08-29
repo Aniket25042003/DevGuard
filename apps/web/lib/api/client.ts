@@ -411,6 +411,18 @@ export class DevGuardApiClient {
         body: { returnTo: '/settings/github' },
         schema: z.object({ installUrl: z.string().url() }),
       }),
+    completeInstallation: (
+      githubInstallationId: string,
+      options: RequestOptions,
+    ): Promise<{ readonly installationId: string; readonly accountLogin: string }> =>
+      this.requestJson('POST', '/github/installations/complete', {
+        options,
+        body: { githubInstallationId },
+        schema: z.object({
+          installationId: z.string(),
+          accountLogin: z.string(),
+        }),
+      }),
   };
 
   readonly commands = {

@@ -33,6 +33,11 @@ export {
   type TokenLeaseCache,
 } from './auth/token-lease-cache.js';
 export {
+  fetchAppInstallation,
+  type FetchAppInstallationOptions,
+  type FetchedInstallationSnapshot,
+} from './auth/fetch-installation.js';
+export {
   FetchInstallationTokenMintPort,
   type FetchInstallationTokenMintOptions,
 } from './auth/installation-token-mint.js';

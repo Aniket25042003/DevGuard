@@ -192,6 +192,15 @@ ORDER BY account_login`,
     });
     return rows[0]?.id ?? null;
   }
+
+  async linkUser(userId: string, installationId: string, tx?: TransactionContext): Promise<void> {
+    const sql = `
+INSERT INTO user_installation_links (user_id, installation_id, role, verified_at)
+VALUES ($1, $2, 'admin', now())
+ON CONFLICT (user_id, installation_id) DO UPDATE SET verified_at = now()`;
+    const executor = tx ?? { query: this.poolLike.query.bind(this.poolLike) };
+    await executor.query({ text: sql, values: [userId, installationId] });
+  }
 }
 
 export class ConnectedRepositoryStore {

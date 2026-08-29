@@ -17,6 +17,7 @@ import type { RegisterV1Route, RouteMetadata } from '../transport/kernel.js';
 import type { ApiContainer } from '../composition/container.js';
 import type { ApprovalPort, ApprovalProjection } from './approval.routes.js';
 import type { RepositoryLifecycleService, RepositoryMetadataHealthService } from '@devguard/github-adapter';
+import { completeGitHubInstallationSetup } from '../composition/github-installation-setup.js';
 
 const repoRead: RouteMetadata = {
   rateLimitClass: 'default',
@@ -233,6 +234,76 @@ export function registerWebSurfaceRoutes(
         );
       }
       return c.json({ installUrl: `https://github.com/apps/${slug}/installations/new` }, 201);
+    },
+  );
+
+  kernel.registerV1Route(
+    'post',
+    '/api/v1/github/installations/complete',
+    { rateLimitClass: 'default', authClass: 'required_session' },
+    async (c) => {
+      const principal = c.get('requestContext').principal!;
+      const body = (await c.req.json().catch(() => undefined)) as
+        | { githubInstallationId?: unknown }
+        | undefined;
+      if (
+        typeof body?.githubInstallationId !== 'string' ||
+        !/^\d{1,20}$/.test(body.githubInstallationId)
+      ) {
+        throw validationFailed([
+          { path: 'githubInstallationId', constraint: 'numeric GitHub installation id required' },
+        ]);
+      }
+      const github = container.config.github;
+      const privateKeyPem =
+        github !== undefined &&
+        github.privateKeyRef !== undefined &&
+        github.privateKeyRef.length > 0 &&
+        !github.privateKeyRef.startsWith('<')
+          ? github.privateKeyRef
+          : undefined;
+      if (pool === undefined || github === undefined || privateKeyPem === undefined) {
+        return c.json(
+          {
+            error: {
+              code: 'DEPENDENCY_UNAVAILABLE',
+              message: 'GitHub App credentials are not configured on the API.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          503,
+        );
+      }
+      try {
+        const result = await completeGitHubInstallationSetup({
+          pool,
+          github,
+          privateKeyPem,
+          userId: principal.userId,
+          githubInstallationId: body.githubInstallationId,
+        });
+        return c.json(
+          {
+            installationId: result.installationId,
+            accountLogin: result.accountLogin,
+          },
+          201,
+        );
+      } catch {
+        return c.json(
+          {
+            error: {
+              code: 'GITHUB_INSTALLATION_UNAVAILABLE',
+              message:
+                'Could not verify the GitHub App installation. Confirm the app is installed and API credentials match.',
+              requestId: c.get('requestContext').requestId,
+              retryable: true,
+            },
+          },
+          502,
+        );
+      }
     },
   );
 

@@ -7,6 +7,7 @@ export type AppRoute =
   | { readonly name: 'repositories' }
   | { readonly name: 'connectRepository' }
   | { readonly name: 'githubSettings' }
+  | { readonly name: 'githubSetup' }
   | { readonly name: 'approvals' }
   | { readonly name: 'preflight' }
   | { readonly name: 'repository'; readonly repositoryId: string }
@@ -31,6 +32,8 @@ export function buildAppHref(route: AppRoute): string {
       return '/repositories/connect';
     case 'githubSettings':
       return '/settings/github';
+    case 'githubSetup':
+      return '/settings/github/setup';
     case 'approvals':
       return '/approvals';
     case 'preflight':

@@ -180,14 +180,24 @@ export function GitHubConnectionPage(): ReactNode {
             No GitHub App installation on file
           </h2>
           <p className="mt-2 text-[var(--muted)]">
-            Sign-in proves your identity. Repository access requires the DevGuard GitHub App. Start
-            installation from the server so the callback stays on this origin.
+            Sign-in proves your identity. Repository access requires the DevGuard GitHub App. After
+            installing on GitHub, link the installation to your account below.
           </p>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-wrap gap-3">
             <Button onClick={() => startInstall.mutate()} disabled={startInstall.isPending}>
               {startInstall.isPending ? 'Starting…' : 'Connect GitHub App'}
             </Button>
+            <Button tone="neutral" href={buildAppHref({ name: 'githubSetup' })}>
+              Link existing installation
+            </Button>
           </div>
+          <p className="mt-4 text-sm text-[var(--muted)]">
+            Set your GitHub App setup URL to{' '}
+            <code className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5">
+              https://devguard-olive.vercel.app/settings/github/setup
+            </code>{' '}
+            so GitHub redirects here automatically after install.
+          </p>
           {startInstall.isError ? (
             <div className="mt-4">
               <ProblemAlert problem={classifyUiProblem(startInstall.error)} />
