@@ -166,7 +166,7 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     const body = sanitizePrContent(req.body);
     const digest = mutationInputDigest({ kind: 'pr_create', ...req, body });
     const op = this.#op('pr_create', req.operationKey, digest, req.workflowRunId);
-      authorize(ctx, req.operationKey, digest);
+    authorize(ctx, req.operationKey, digest);
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return fail('conflict', claimed.detail, op.id);
     if (claimed.replayed) return replayStatus(claimed.operation);
@@ -203,7 +203,7 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     };
     const digest = mutationInputDigest({ kind: 'pr_update', ...req, patch });
     const op = this.#op('pr_update', req.operationKey, digest, req.workflowRunId);
-      authorize(ctx, req.operationKey, digest);
+    authorize(ctx, req.operationKey, digest);
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return fail('conflict', claimed.detail, op.id);
     if (claimed.replayed) return replayStatus(claimed.operation);
@@ -238,7 +238,7 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
       body,
     });
     const op = this.#op('pr_comment', req.operationKey, digest, req.workflowRunId);
-      authorize(ctx, req.operationKey, digest);
+    authorize(ctx, req.operationKey, digest);
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return fail('conflict', claimed.detail, op.id);
     if (claimed.replayed) return replayStatus(claimed.operation);
@@ -267,7 +267,7 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     const req = parsed.data;
     const digest = mutationInputDigest({ kind: 'pr_request_review', ...req });
     const op = this.#op('pr_request_review', req.operationKey, digest, req.workflowRunId);
-      authorize(ctx, req.operationKey, digest);
+    authorize(ctx, req.operationKey, digest);
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return fail('conflict', claimed.detail, op.id);
     if (claimed.replayed) return replayStatus(claimed.operation);
@@ -294,7 +294,7 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
     const req = parsed.data;
     const digest = mutationInputDigest({ kind: 'pr_merge', ...req });
     const op = this.#op('pr_merge', req.operationKey, digest, req.workflowRunId);
-      authorize(ctx, req.operationKey, digest);
+    authorize(ctx, req.operationKey, digest);
     const claimed = await this.#store.claim(op);
     if (!claimed.ok) return fail('conflict', claimed.detail, op.id);
     if (claimed.replayed) return replayStatus(claimed.operation);
@@ -454,7 +454,12 @@ export class GitHubPullRequestsReviewsChecksAdapter implements GitHubPullRequest
 
 function authorize(ctx: PrWriteContext, operationKey: string, digest: string): void {
   // Fail closed: the C030 context must carry a non-empty decision digest.
-  if (!ctx.authorized.digest || ctx.authorized.operationKey !== operationKey || ctx.authorized.actionFingerprint !== digest || ctx.authorized.digest !== digest)
+  if (
+    !ctx.authorized.digest ||
+    ctx.authorized.operationKey !== operationKey ||
+    ctx.authorized.actionFingerprint !== digest ||
+    ctx.authorized.digest !== digest
+  )
     throw makeError('REPOSITORY_FORBIDDEN', { details: { reasonCode: 'WRITE_NOT_AUTHORIZED' } });
 }
 
