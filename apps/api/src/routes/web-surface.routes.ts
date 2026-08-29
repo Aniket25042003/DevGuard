@@ -134,7 +134,8 @@ export function registerWebSurfaceRoutes(
           installationId: existing.installationId,
         });
       }
-      const installationPk = await installStore.findInternalId(body.installationId);
+      const installationPk = await installStore.listForUser(principal.userId).then((installations) =>
+          installations.find((installation) => installation.githubInstallationId === body.installationId)?.id ?? null);
       if (installationPk === null) {
         return c.json(
           {
