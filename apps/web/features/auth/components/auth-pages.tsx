@@ -19,7 +19,7 @@ export function SignInPage(): ReactNode {
   const [busy, setBusy] = useState(false);
 
   return (
-    <div className="hero-glow flex min-h-screen flex-col">
+    <div className="marketing-canvas flex min-h-screen flex-col">
       <header className="px-4 py-6 sm:px-8">
         <Link
           href="/"
@@ -28,8 +28,8 @@ export function SignInPage(): ReactNode {
           {PRODUCT_NAME}
         </Link>
       </header>
-      <div className="flex flex-1 items-center justify-center px-4 pb-16">
-        <Card className="w-full max-w-md p-8">
+      <div className="flex flex-1 items-center justify-center px-4 pb-16 pt-4">
+        <Card className="w-full max-w-md p-10 shadow-[var(--shadow-md)]">
           <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
             Welcome back
           </h1>
@@ -38,22 +38,16 @@ export function SignInPage(): ReactNode {
             personal access tokens required.
           </p>
           <ul className="mt-6 space-y-3 text-sm text-[var(--muted)]">
-            <li className="flex gap-2">
-              <span className="text-[var(--accent)]" aria-hidden="true">
-                ✓
-              </span>
+            <li className="flex gap-3">
+              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />
               Identity sign-in is separate from GitHub App repository access
             </li>
-            <li className="flex gap-2">
-              <span className="text-[var(--accent)]" aria-hidden="true">
-                ✓
-              </span>
+            <li className="flex gap-3">
+              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />
               Privileged actions require in-product approval
             </li>
-            <li className="flex gap-2">
-              <span className="text-[var(--accent)]" aria-hidden="true">
-                ✓
-              </span>
+            <li className="flex gap-3">
+              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />
               Agent code runs in sandboxed workspaces, not on the host
             </li>
           </ul>
@@ -90,7 +84,7 @@ export function AuthCallbackPage(): ReactNode {
 
   if (error !== null) {
     return (
-      <div className="hero-glow flex min-h-screen items-center justify-center px-4">
+      <div className="marketing-canvas flex min-h-screen items-center justify-center px-4">
         <Card className="w-full max-w-lg p-8">
           <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold">
             Sign-in did not complete

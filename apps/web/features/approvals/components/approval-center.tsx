@@ -75,7 +75,7 @@ function ApprovalCard({ approval }: { readonly approval: ApprovalSummary }): Rea
   });
 
   return (
-    <article className="rounded-lg border border-[var(--line)] bg-[var(--bg-elevated)] p-4">
+    <article className="surface-soft rounded-[var(--radius-lg)] p-6">
       <header className="flex flex-wrap items-center gap-3">
         <StatusBadge status={approval.state.toLowerCase()} />
         {approval.riskClass !== undefined ? <RiskIndicator risk={approval.riskClass} /> : null}

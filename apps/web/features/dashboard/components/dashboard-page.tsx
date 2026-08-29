@@ -155,7 +155,7 @@ function SummaryCard({
   return (
     <Link
       href={href}
-      className="group rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] p-5 shadow-[var(--shadow-sm)] transition hover:border-[var(--accent)] hover:shadow-[var(--shadow-md)]"
+      className="group surface-soft rounded-[var(--radius-lg)] p-6 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]"
     >
       <p className="text-sm font-medium text-[var(--muted)]">{title}</p>
       <p className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold group-hover:text-[var(--accent)]">
@@ -187,10 +187,10 @@ function OriginFilter({
             key={value}
             href={href}
             aria-current={selected ? 'page' : undefined}
-            className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-medium transition ${
+            className={`min-h-10 rounded-[var(--radius-pill)] border px-4 py-2 text-sm font-medium transition ${
               selected
-                ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
-                : 'border-[var(--line)] hover:border-[var(--accent)]'
+                ? 'border-transparent bg-[var(--accent)] text-[var(--accent-ink)] shadow-[var(--shadow-accent)]'
+                : 'border-[var(--line)] bg-[var(--bg-elevated)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
             }`}
           >
             {value === 'all' ? 'All sources' : originLabel(value)}
@@ -210,10 +210,10 @@ export function RunTable({
 }): ReactNode {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[40rem] border-collapse text-left">
+      <table className="data-table">
         <caption className="sr-only">Workflow runs including CLI and GitHub origins</caption>
         <thead>
-          <tr className="border-b border-[var(--line)] text-sm text-[var(--muted)]">
+          <tr className="text-sm text-[var(--muted)]">
             <th className="py-2 pr-3 font-medium">Workflow</th>
             <th className="py-2 pr-3 font-medium">Status</th>
             <th className="py-2 pr-3 font-medium">Source</th>
@@ -224,7 +224,7 @@ export function RunTable({
         </thead>
         <tbody>
           {runs.map((run) => (
-            <tr key={run.id} className="border-b border-[var(--line)]">
+            <tr key={run.id}>
               <td className="py-3 pr-3">{run.workflowType.replaceAll('_', ' ')}</td>
               <td className="py-3 pr-3">
                 <StatusBadge status={run.status} />
@@ -236,7 +236,7 @@ export function RunTable({
               </td>
               <td className="py-3">
                 <Link
-                  className="inline-flex min-h-11 items-center underline"
+                className="inline-flex min-h-10 items-center text-[var(--accent)] underline-offset-2 hover:underline"
                   href={buildAppHref({ name: 'run', repositoryId, runId: run.id })}
                 >
                   View run

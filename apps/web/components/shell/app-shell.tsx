@@ -110,12 +110,13 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
     <div className="min-h-screen bg-[var(--bg)]">
       <SkipLink />
       <div className="lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
-        <aside className="hidden border-r border-[var(--line)] bg-[var(--bg-elevated)] lg:block">
-          <div className="sticky top-0 flex h-screen flex-col p-5">
+        <aside className="hidden border-r border-[var(--line)] bg-[var(--bg-muted)] lg:block">
+          <div className="sticky top-0 flex h-screen flex-col p-6">
             <Link
               href={buildAppHref({ name: 'home' })}
-              className="mb-8 font-[family-name:var(--font-display)] text-xl font-semibold tracking-tight"
+              className="mb-10 flex items-center gap-2 font-[family-name:var(--font-display)] text-xl font-semibold tracking-tight"
             >
+              <span className="size-2.5 rounded-full bg-[var(--accent)]" aria-hidden="true" />
               {PRODUCT_NAME}
             </Link>
             <div className="flex-1 overflow-y-auto">{nav}</div>
@@ -130,7 +131,7 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
           <header className="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--bg-elevated)] px-4 py-3 lg:hidden">
             <button
               type="button"
-              className="min-h-11 min-w-11 rounded-xl border border-[var(--line)] px-3 text-sm font-medium"
+              className="min-h-11 min-w-11 rounded-[var(--radius)] border border-[var(--line)] px-3 text-sm font-medium"
               aria-expanded={drawerOpen}
               aria-controls="mobile-nav"
               onClick={() => setDrawerOpen((open) => !open)}
@@ -142,7 +143,7 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
             </Link>
             <Link
               href={buildAppHref({ name: 'approvals' })}
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--line)] px-3 text-sm"
+              className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius)] border border-[var(--line)] px-3 text-sm"
             >
               Approvals
               <span
@@ -168,7 +169,7 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
               </Button>
             </div>
           ) : null}
-          <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
+          <main id="main" className="mx-auto max-w-6xl px-4 py-10 sm:px-8 sm:py-12">
             {repos.isError ? (
               <div className="mb-4">
                 <ProblemAlert
@@ -199,10 +200,10 @@ function NavItem({
       <Link
         href={href}
         aria-current={current ? 'page' : undefined}
-        className={`block min-h-11 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+        className={`block min-h-10 rounded-[var(--radius-pill)] px-4 py-2.5 text-sm font-medium transition ${
           current
-            ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
-            : 'text-[var(--muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--ink)]'
+            ? 'bg-[var(--bg-elevated)] text-[var(--accent)] shadow-sm'
+            : 'text-[var(--muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--ink)]'
         }`}
       >
         {children}
@@ -222,7 +223,7 @@ function ConnectionStatus({
 }): ReactNode {
   const status = ready === false ? 'degraded' : ready === true ? 'ready' : 'unknown';
   return (
-    <div className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--bg-muted)] p-4 text-sm">
+    <div className="mt-4 rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--bg-elevated)] p-4 text-sm shadow-sm">
       <StatusBadge status={status} label={level ?? status} />
       {user !== undefined ? (
         <p className="mt-2 truncate text-[var(--muted)]">Signed in as {user}</p>

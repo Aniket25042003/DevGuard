@@ -1,49 +1,73 @@
 @import 'tailwindcss';
 
+/*
+  THESIS: DevGuard feels like a modern startup product — bright, calm, and easy to trust.
+  OWN-WORLD: Off-white canvas, white cards, sky-teal accent, generous radius, soft shadows.
+  STORY: Teams connect GitHub, launch governed agent work, and stay in control without enterprise weight.
+  FIRST VIEWPORT: Airy marketing hero; app shell with a quiet sidebar and roomy content.
+  FORM: Light-first Operate UI with optional dark mode via system preference.
+*/
+
 :root {
   color-scheme: light;
-  --bg: #f8fafc;
+  --bg: #f6f8fc;
   --bg-elevated: #ffffff;
-  --bg-muted: #f1f5f9;
+  --bg-muted: #eef2f8;
+  --bg-inset: #f9fafb;
   --ink: #0f172a;
   --muted: #64748b;
-  --line: #e2e8f0;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-soft: #dbeafe;
+  --line: #e8edf4;
+  --line-strong: #d7dee9;
+  --accent: #0f766e;
+  --accent-hover: #0f766e;
+  --accent-soft: rgb(15 118 110 / 0.1);
   --accent-ink: #ffffff;
-  --danger: #dc2626;
-  --warn: #d97706;
-  --ok: #059669;
-  --focus: #2563eb;
-  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
-  --shadow-md: 0 8px 30px rgb(15 23 42 / 0.08);
-  --shadow-lg: 0 24px 60px rgb(15 23 42 / 0.12);
-  --radius: 0.75rem;
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-space), var(--font-sans);
+  --accent-glow: rgb(13 148 136 / 0.22);
+  --danger: #ef4444;
+  --danger-soft: rgb(239 68 68 / 0.08);
+  --warn: #b45309;
+  --warn-soft: rgb(180 83 9 / 0.1);
+  --ok: #16a34a;
+  --ok-soft: rgb(22 163 74 / 0.1);
+  --focus: #0f766e;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.04), 0 6px 20px rgb(15 23 42 / 0.05);
+  --shadow-md: 0 12px 40px rgb(15 23 42 / 0.08);
+  --shadow-accent: 0 10px 28px var(--accent-glow);
+  --radius-sm: 0.5rem;
+  --radius: 0.875rem;
+  --radius-lg: 1.125rem;
+  --radius-pill: 9999px;
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-sans);
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --bg: #020617;
-    --bg-elevated: #0f172a;
-    --bg-muted: #1e293b;
-    --ink: #f8fafc;
+    --bg: #0b0f17;
+    --bg-elevated: #121826;
+    --bg-muted: #1a2233;
+    --bg-inset: #0f141f;
+    --ink: #f1f5f9;
     --muted: #94a3b8;
-    --line: #334155;
-    --accent: #3b82f6;
-    --accent-hover: #60a5fa;
-    --accent-soft: rgb(59 130 246 / 0.15);
-    --accent-ink: #ffffff;
+    --line: #243044;
+    --line-strong: #334155;
+    --accent: #2dd4bf;
+    --accent-hover: #5eead4;
+    --accent-soft: rgb(45 212 191 / 0.14);
+    --accent-ink: #042f2e;
+    --accent-glow: rgb(45 212 191 / 0.18);
     --danger: #f87171;
+    --danger-soft: rgb(248 113 113 / 0.12);
     --warn: #fbbf24;
-    --ok: #34d399;
-    --focus: #60a5fa;
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35);
-    --shadow-md: 0 8px 30px rgb(0 0 0 / 0.35);
-    --shadow-lg: 0 24px 60px rgb(0 0 0 / 0.45);
+    --warn-soft: rgb(251 191 36 / 0.12);
+    --ok: #4ade80;
+    --ok-soft: rgb(74 222 128 / 0.12);
+    --focus: #2dd4bf;
+    --shadow-sm: 0 1px 0 rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.2);
+    --shadow-md: 0 16px 40px rgb(0 0 0 / 0.35);
+    --shadow-accent: 0 10px 28px var(--accent-glow);
   }
 }
 
@@ -57,9 +81,15 @@ body {
 body {
   margin: 0;
   font-family: var(--font-sans);
+  font-size: 0.9375rem;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--ink);
 }
 
 :focus-visible {
@@ -67,17 +97,84 @@ body {
   outline-offset: 2px;
 }
 
-.glass-panel {
-  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
-  backdrop-filter: blur(12px);
-  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
-  box-shadow: var(--shadow-md);
+a {
+  color: inherit;
 }
 
-.hero-glow {
+.surface {
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+}
+
+.surface-soft {
+  border: 1px solid transparent;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+}
+
+.surface-inset {
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+
+.marketing-canvas {
   background:
-    radial-gradient(ellipse 70% 50% at 50% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent),
+    radial-gradient(ellipse 70% 55% at 8% -5%, rgb(14 165 233 / 0.09), transparent),
+    radial-gradient(ellipse 55% 45% at 92% 0%, rgb(15 118 110 / 0.1), transparent),
+    radial-gradient(ellipse 40% 35% at 50% 100%, rgb(99 102 241 / 0.05), transparent),
     var(--bg);
+}
+
+.terminal-preview {
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.data-table thead th {
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid var(--line);
+  transition: background 120ms ease;
+}
+
+.data-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.picker-row {
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.picker-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  box-shadow: var(--shadow-sm);
+}
+
+.picker-row[data-selected='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

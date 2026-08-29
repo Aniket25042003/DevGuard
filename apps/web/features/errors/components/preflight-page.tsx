@@ -34,7 +34,7 @@ export function PreflightPage(): ReactNode {
         {Object.entries(preflight.data ?? {}).map(([name, ok]) => (
           <li
             key={name}
-            className="flex min-h-14 items-center justify-between rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] px-5 shadow-[var(--shadow-sm)]"
+            className="surface-soft flex min-h-14 items-center justify-between rounded-[var(--radius-lg)] px-5"
           >
             <span className="font-medium capitalize">{name}</span>
             <StatusBadge

@@ -167,7 +167,11 @@ export function WorkflowLauncherPage({
                 type="button"
                 disabled={!enabled && commands.data !== undefined}
                 onClick={() => setSelected(command.commandId)}
-                className={`w-full rounded-lg border px-4 py-3 text-left ${selected === command.commandId ? 'border-[var(--ink)]' : 'border-[var(--line)]'}`}
+                className={`w-full rounded-[var(--radius-lg)] border px-4 py-3.5 text-left transition ${
+                  selected === command.commandId
+                    ? 'border-transparent bg-[var(--accent-soft)] shadow-[0_0_0_2px_var(--accent)]'
+                    : 'border-[var(--line)] bg-[var(--bg-elevated)] hover:border-[var(--accent)] hover:shadow-sm'
+                }`}
               >
                 <span className="font-medium">{command.label}</span>
                 <span className="mt-1 block text-sm text-[var(--muted)]">

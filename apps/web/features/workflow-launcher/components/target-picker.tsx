@@ -66,11 +66,8 @@ export function TargetPicker<T extends { readonly key: string }>({
               <button
                 type="button"
                 onClick={() => onSelect(item)}
-                className={`w-full rounded-lg border px-4 py-3 text-left transition ${
-                  selected
-                    ? 'border-[var(--ink)] bg-[var(--bg-elevated)]'
-                    : 'border-[var(--line)] hover:border-[var(--accent)]'
-                }`}
+                data-selected={selected ? 'true' : 'false'}
+                className="picker-row w-full rounded-[var(--radius)] px-4 py-3 text-left"
               >
                 {renderItem(item)}
               </button>
