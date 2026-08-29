@@ -7,7 +7,7 @@ services:
     region: oregon
     plan: starter
     branch: main
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
     preDeployCommand: node scripts/deploy/migrate.mjs
     startCommand: RUN_SERVER=1 node apps/api/dist/main.js
     healthCheckPath: /api/v1/health/ready
@@ -70,7 +70,7 @@ services:
     region: oregon
     plan: starter
     branch: main
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
     startCommand: node apps/worker/dist/main.js
     envVars:
       - key: DEVGUARD_ENV
