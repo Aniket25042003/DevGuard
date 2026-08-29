@@ -19,13 +19,13 @@ class MemRedis implements RedisLikeClient {
     return 1;
   }
   async zrangebyscore(
-      key: string,
-      min: number,
-      max: number,
-      _clause: 'LIMIT',
-      _offset: number,
-      limit: number,
-    ): Promise<string[]> {
+    key: string,
+    min: number,
+    max: number,
+    _clause: 'LIMIT',
+    _offset: number,
+    limit: number,
+  ): Promise<string[]> {
     const set = this.zsets.get(key);
     if (set === undefined) return [];
     return [...set.entries()]

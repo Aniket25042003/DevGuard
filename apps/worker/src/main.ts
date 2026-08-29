@@ -41,27 +41,27 @@ const bootstrap = async (): Promise<void> => {
     const runtime = container.runtime;
     runtime.start();
     let polling = false;
-      const interval = setInterval(async () => {
-        if (polling) return;
-        polling = true;
+    const interval = setInterval(async () => {
+      if (polling) return;
+      polling = true;
       try {
         await runtime.processOnce(Date.now());
       } catch (error) {
         console.error(
           JSON.stringify({ msg: 'worker.poll_failed', ...toErrorEnvelope(error, 'poll') }),
         );
+      } finally {
+        polling = false;
       }
-    } finally {
-          polling = false;
-        }
-      }, container.runtime.pollIntervalMs);
+    }, container.runtime.pollIntervalMs);
     const shutdown = (): void => {
       clearInterval(interval);
-      void runtime.drain(() => false).finally(() => {
+      void runtime
+        .drain(() => false)
+        .finally(() => {
           runtime.stop();
           process.exit(0);
         });
-      
     };
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
