@@ -81,10 +81,7 @@ export function fail(errorCode: string): {
  * The executor (real approved-action execution) mounts at CP013; until then it
  * fails CLOSED so an approved approval is never silently resumed-as-done.
  */
-export function registerApprovalResume(
-  registry: JobRegistry,
-  store?: ApprovalStorePort,
-): void {
+export function registerApprovalResume(registry: JobRegistry, store?: ApprovalStorePort): void {
   if (store === undefined) {
     registry.register('approval.resume', 1, async () => fail('approval_resume_store_unavailable'));
     return;
@@ -100,14 +97,18 @@ export function registerApprovalResume(
   });
   registry.register('approval.resume', 1, async (envelope: JobEnvelope) => {
     const rawApprovalId = envelope.payload['approvalId'];
-      const approvalId = typeof rawApprovalId === 'string' ? rawApprovalId.trim() : '';
+    const approvalId = typeof rawApprovalId === 'string' ? rawApprovalId.trim() : '';
     const resolutionVersion = Number(
       envelope.payload['resolutionVersion'] ?? envelope.payload['resolution_version'] ?? NaN,
     );
     if (approvalId === '') return fail('approval_job_invalid_payload');
-      if (!Number.isFinite(resolutionVersion) || !Number.isInteger(resolutionVersion) || resolutionVersion <= 0) {
-        return fail('approval_job_invalid_payload');
-      }
+    if (
+      !Number.isFinite(resolutionVersion) ||
+      !Number.isInteger(resolutionVersion) ||
+      resolutionVersion <= 0
+    ) {
+      return fail('approval_job_invalid_payload');
+    }
     const outcome = await service.resume(approvalId, resolutionVersion);
     if (outcome.ok) return { outcome: 'SUCCEEDED' as const, detail: outcome.state };
     return outcome.state === 'RETRY_WAIT'
