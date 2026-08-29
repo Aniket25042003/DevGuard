@@ -61,7 +61,10 @@ RETURNING github_delivery_id`,
   }
 
   async claim(deliveryId: string): Promise<{ ok: true; state: DeliveryStateV1 } | { ok: false }> {
-    const current = await this.state(deliveryId);
+    const rows = await this.pool.query<{ state: string }>({ text: "UPDATE github_webhook_deliveries SET state = 'PROCESSING', updated_at = now() WHERE github_delivery_id = $1 AND state IN ('ACCEPTED', 'FAILED_RETRYABLE') RETURNING state", values: [deliveryId] });
+      if (rows.length > 0) return { ok: true, state: rows[0]!.state as DeliveryStateV1 };
+      return { ok: false };
+      /* const current = await this.state(deliveryId); */
     if (current === undefined) return { ok: true, state: 'ACCEPTED' };
     if (current === 'ACCEPTED' || current === 'FAILED_RETRYABLE')
       return { ok: true, state: current };
