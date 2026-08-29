@@ -131,6 +131,9 @@ const durableOverrides: Partial<CompositionBindings> = {
     async events() {
       return [];
     },
+    async eventsAfter() {
+      return [];
+    },
   } satisfies SessionPort,
   approvals: {
     async listFor() {

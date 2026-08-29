@@ -22,7 +22,7 @@ import type { RepositoryCatalogPort, WebhookAcceptancePort } from '../routes/git
 import type { ArtifactPort } from '../routes/artifact.routes.js';
 import type { AuditPort } from '../routes/audit.routes.js';
 import type { FindingsPort } from '../routes/findings.routes.js';
-import type { SessionPort } from '../routes/session.routes.js';
+import type { SessionEvent, SessionPort } from '../routes/session.routes.js';
 import type { ApprovalPort } from '../routes/approval.routes.js';
 import { VOLATILE_BINDING_KIND, type VolatileBindingMarker } from './bindings.js';
 
@@ -198,6 +198,14 @@ export const VolatileSessionEvents: SessionPort & VolatileBindingMarker = {
     return undefined;
   },
   async events(_sessionId: string, _userId: string, _limit: number) {
+    return [];
+  },
+  async eventsAfter(
+    _sessionId: string,
+    _userId: string,
+    _afterSequence: number,
+    _limit: number,
+  ): Promise<SessionEvent[]> {
     return [];
   },
 };

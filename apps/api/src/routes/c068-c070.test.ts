@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTransportKernel } from '../transport/kernel.js';
 import { InMemoryRateLimiter } from '../transport/rate-limit.js';
-import { registerSessionRoutes, type SessionPort } from './session.routes.js';
+import { registerSessionRoutes, type SessionEvent, type SessionPort } from './session.routes.js';
 import { registerApprovalRoutes, type ApprovalPort } from './approval.routes.js';
 
 function kernel() {
@@ -49,6 +49,14 @@ class InMemorySessions implements SessionPort {
     return sessionId === 'sess-1'
       ? [{ sequenceNumber: 1, eventType: 'turn.completed', summary: 'ok' }]
       : [];
+  }
+  async eventsAfter(
+    _sessionId: string,
+    _userId: string,
+    _afterSequence: number,
+    _limit: number,
+  ): Promise<SessionEvent[]> {
+    return [];
   }
 }
 

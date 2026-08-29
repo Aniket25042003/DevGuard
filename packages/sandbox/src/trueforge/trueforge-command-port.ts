@@ -68,10 +68,7 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
         signal: AbortSignal.timeout(this.timeoutMs),
       });
       if (!res.ok) return { ok: false, code: 'SERVER_ERROR', detail: `${path} (${res.status})` };
-      const value = await res.json();
-      if (value === null || typeof value !== 'object')
-        return { ok: false, code: 'SERVER_ERROR', detail: `${path} invalid response` };
-      return { ok: true, value: value as T };
+      return { ok: true, value: (await res.json()) as T };
     } catch {
       return { ok: false, code: 'TIMEOUT', detail: `${path} timed out` };
     }
@@ -90,8 +87,6 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
   }
 
   async stream(cursor: number): Promise<CommandProviderResult<ProviderStreamSlice>> {
-    if (!this.options.enabled)
-      return { ok: false, code: 'SERVER_ERROR', detail: 'sandbox integration disabled' };
     const id = this.commandId;
     if (id === undefined) return { ok: false, code: 'NOT_FOUND', detail: 'no active command' };
     const out = await this.run<Record<string, unknown>>(
