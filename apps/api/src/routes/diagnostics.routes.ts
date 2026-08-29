@@ -8,6 +8,7 @@
  */
 import type { RegisterV1Route } from '../transport/kernel.js';
 import type { RunRow } from '@devguard/workflows';
+import { validationFailed } from '@devguard/errors';
 
 export interface PreflightStatus {
   readonly database: boolean;
@@ -21,7 +22,11 @@ export type RunsSummaryPort = (input: {
   repositoryId: string;
   limit: number;
   cursor?: { createdAtIso: string; id: string } | undefined;
-}) => Promise<{ runs: readonly RunRow[]; hasMore: boolean }>;
+}) => Promise<{
+    runs: readonly RunRow[];
+    hasMore: boolean;
+    nextCursor?: { createdAtIso: string; id: string } | undefined;
+  }>;
 
 export function registerDiagnosticsRoutes(
   kernel: { registerV1Route: RegisterV1Route },
@@ -65,7 +70,10 @@ export function registerDiagnosticsRoutes(
         : 20;
       const rawCursor = c.req.query('cursor');
       const cursor = rawCursor !== undefined ? safeParseCursor(rawCursor) : undefined;
-      const page = await input.runs({ repositoryId, limit, cursor });
+      if (rawCursor !== undefined && cursor === undefined) {
+          throw validationFailed([{ path: 'cursor', constraint: 'valid cursor required' }]);
+        }
+        const page = await input.runs({ repositoryId, limit, cursor });
       return c.json({
         runs: page.runs.map((r) => ({
           id: r.id,
@@ -75,9 +83,14 @@ export function registerDiagnosticsRoutes(
           repositoryId: r.repositoryId,
         })),
         hasMore: page.hasMore,
+          ...(page.nextCursor === undefined ? {} : { nextCursor: encodeCursor(page.nextCursor) }),
       });
     },
   );
+}
+
+function encodeCursor(cursor: { createdAtIso: string; id: string }): string {
+  return JSON.stringify(cursor);
 }
 
 function safeParseCursor(raw: string): { createdAtIso: string; id: string } | undefined {
