@@ -35,6 +35,9 @@ describe('WorkflowLauncherPage', () => {
     }));
     const keys: string[] = [];
     setApiClientForTests({
+      repositories: {
+        get: async () => ({ id: 'r1', name: 'demo', defaultBranch: 'main' }),
+      },
       commands: {
         list: async () => [{ workflowId: 'review_remediation', inputSchemaId: '1' }],
         submit: async (
@@ -47,11 +50,29 @@ describe('WorkflowLauncherPage', () => {
           return submit();
         },
       },
+      repositoryTargets: {
+        pullRequests: async () => [
+          {
+            number: 42,
+            title: 'Fix auth',
+            state: 'open' as const,
+            authorLogin: 'dev',
+            updatedAt: '2026-01-01T00:00:00Z',
+            htmlUrl: 'https://github.com/o/r/pull/42',
+            headRef: 'fix-auth',
+            baseRef: 'main',
+            draft: false,
+          },
+        ],
+        issues: async () => [],
+        refs: async () => [],
+        findings: async () => [],
+      },
     } as unknown as DevGuardApiClient);
 
     render(wrap(createElement(WorkflowLauncherPage, { repositoryId: 'r1' })));
     await screen.findByRole('button', { name: /Review PR/i });
-    fireEvent.change(screen.getByLabelText(/Pull request number/i), { target: { value: '42' } });
+    fireEvent.click(await screen.findByRole('button', { name: /#42 Fix auth/i }));
     fireEvent.click(screen.getByRole('button', { name: /Review before launch/i }));
     fireEvent.click(screen.getByRole('button', { name: /^Launch$/i }));
     await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));

@@ -165,6 +165,7 @@ export {
   type WorkflowIdResult,
   type WorkflowIdV1,
 } from './invocation/registry.js';
+export { validateManualCommandInput } from './invocation/command-input.js';
 export {
   invocationDedupeKey,
   ManualCommandRegistry,

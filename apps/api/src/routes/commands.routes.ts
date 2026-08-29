@@ -13,6 +13,8 @@
  * inferred. Route stays thin: all rules live in the `CommandBus` use case.
  */
 import type { ApiContainer } from '../composition/container.js';
+import { resolveManualCommandsForRepository } from '../composition/repository-manual-commands.js';
+import { ConnectedRepositoryStore } from '@devguard/db';
 import {
   commandReceiptSchema,
   IDEMPOTENCY_KEY_HEADER,
@@ -21,7 +23,7 @@ import {
 } from '@devguard/api-contracts';
 import { validationFailed } from '@devguard/errors';
 import { CommandDisabledError, CommandOriginForgedError } from '@devguard/workflows';
-import { CommandUnknownError } from '@devguard/policy-engine';
+import { CommandUnknownError, normalizeCommandId } from '@devguard/policy-engine';
 import type { RegisterV1Route, RouteMetadata } from '../transport/kernel.js';
 
 const HTTP_SURFACES = new Set(['web', 'cli']);
@@ -48,7 +50,20 @@ export function registerRepositoryCommandRoutes(
     '/api/v1/repositories/:repositoryId/commands',
     listMeta,
     async (c) => {
-      const commands = container.commandBus.listAvailable();
+      const repositoryId = c.req.param('repositoryId') ?? '';
+      const repoStore =
+        container.pool === undefined ? undefined : new ConnectedRepositoryStore(container.pool);
+      const repo = repoStore === undefined ? null : await repoStore.findById(repositoryId);
+      const allowed = await resolveManualCommandsForRepository({
+        pool: container.pool,
+        repositoryId,
+        ...(repo !== null && repo !== undefined
+          ? { owner: repo.owner, name: repo.name }
+          : {}),
+      });
+      const commands = container.commandBus
+        .listAvailable()
+        .filter((command) => allowed.has(command.workflowId));
       return c.json({ data: { commands } });
     },
   );
@@ -81,6 +96,21 @@ export function registerRepositoryCommandRoutes(
       // Fail closed on fabricated server surfaces (CP006 §11 locked).
       if (!HTTP_SURFACES.has(parsed.data.originSurface)) {
         return renderCommandError(c, new CommandOriginForgedError(parsed.data.originSurface));
+      }
+
+      const repoStore =
+        container.pool === undefined ? undefined : new ConnectedRepositoryStore(container.pool);
+      const repo = repoStore === undefined ? null : await repoStore.findById(repositoryId);
+      const allowed = await resolveManualCommandsForRepository({
+        pool: container.pool,
+        repositoryId,
+        ...(repo !== null && repo !== undefined
+          ? { owner: repo.owner, name: repo.name }
+          : {}),
+      });
+      const workflowId = normalizeCommandId(parsed.data.commandId);
+      if (!allowed.has(workflowId)) {
+        return renderCommandError(c, new CommandDisabledError(workflowId));
       }
 
       let result;

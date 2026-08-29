@@ -134,6 +134,45 @@ export interface PolicyVersionMeta {
   readonly canonicalHash: string;
 }
 
+export interface PullRequestSummary {
+  readonly number: number;
+  readonly title: string;
+  readonly state: 'open' | 'closed';
+  readonly authorLogin: string;
+  readonly updatedAt: string;
+  readonly htmlUrl: string;
+  readonly headRef: string;
+  readonly baseRef: string;
+  readonly draft: boolean;
+}
+
+export interface IssueSummary {
+  readonly number: number;
+  readonly title: string;
+  readonly state: 'open' | 'closed';
+  readonly authorLogin: string;
+  readonly updatedAt: string;
+  readonly htmlUrl: string;
+  readonly labels: readonly string[];
+}
+
+export interface GitRefSummary {
+  readonly name: string;
+  readonly commitSha: string;
+  readonly isDefault: boolean;
+  readonly protected: boolean;
+}
+
+export interface RepositoryFindingSummary {
+  readonly id: string;
+  readonly severity: string;
+  readonly status: string;
+  readonly title: string;
+  readonly rule?: string | undefined;
+  readonly filePath?: string | undefined;
+  readonly autoFixable: boolean;
+}
+
 export interface HealthReady {
   readonly ready: boolean;
   readonly level: string;
@@ -745,6 +784,122 @@ export class DevGuardApiClient {
             ),
           })
           .transform((value) => value.versions),
+      }),
+  };
+
+  readonly repositoryTargets = {
+    pullRequests: (
+      repositoryId: string,
+      options: RequestOptions,
+      filters?: { readonly state?: 'open' | 'closed' | 'all'; readonly q?: string; readonly limit?: number },
+    ): Promise<readonly PullRequestSummary[]> =>
+      this.requestJson(
+        'GET',
+        `/repositories/${encodeURIComponent(repositoryId)}/github/pull-requests`,
+        {
+          options,
+          query: {
+            state: filters?.state,
+            q: filters?.q,
+            limit: filters?.limit !== undefined ? String(filters.limit) : undefined,
+          },
+          schema: z
+            .object({
+              pullRequests: z.array(
+                z.object({
+                  number: z.number(),
+                  title: z.string(),
+                  state: z.enum(['open', 'closed']),
+                  authorLogin: z.string(),
+                  updatedAt: z.string(),
+                  htmlUrl: z.string().url(),
+                  headRef: z.string(),
+                  baseRef: z.string(),
+                  draft: z.boolean(),
+                }),
+              ),
+            })
+            .transform((value) => value.pullRequests),
+        },
+      ),
+    issues: (
+      repositoryId: string,
+      options: RequestOptions,
+      filters?: { readonly state?: 'open' | 'closed' | 'all'; readonly q?: string; readonly limit?: number },
+    ): Promise<readonly IssueSummary[]> =>
+      this.requestJson('GET', `/repositories/${encodeURIComponent(repositoryId)}/github/issues`, {
+        options,
+        query: {
+          state: filters?.state,
+          q: filters?.q,
+          limit: filters?.limit !== undefined ? String(filters.limit) : undefined,
+        },
+        schema: z
+          .object({
+            issues: z.array(
+              z.object({
+                number: z.number(),
+                title: z.string(),
+                state: z.enum(['open', 'closed']),
+                authorLogin: z.string(),
+                updatedAt: z.string(),
+                htmlUrl: z.string().url(),
+                labels: z.array(z.string()),
+              }),
+            ),
+          })
+          .transform((value) => value.issues),
+      }),
+    refs: (
+      repositoryId: string,
+      options: RequestOptions,
+      filters?: { readonly q?: string; readonly limit?: number },
+    ): Promise<readonly GitRefSummary[]> =>
+      this.requestJson('GET', `/repositories/${encodeURIComponent(repositoryId)}/github/refs`, {
+        options,
+        query: {
+          q: filters?.q,
+          limit: filters?.limit !== undefined ? String(filters.limit) : undefined,
+        },
+        schema: z
+          .object({
+            refs: z.array(
+              z.object({
+                name: z.string(),
+                commitSha: z.string(),
+                isDefault: z.boolean(),
+                protected: z.boolean(),
+              }),
+            ),
+          })
+          .transform((value) => value.refs),
+      }),
+    findings: (
+      repositoryId: string,
+      options: RequestOptions,
+      filters?: { readonly status?: 'open' | 'confirmed' | 'all'; readonly limit?: number },
+    ): Promise<readonly RepositoryFindingSummary[]> =>
+      this.requestJson('GET', `/repositories/${encodeURIComponent(repositoryId)}/security-findings`, {
+        options,
+        query: {
+          status: filters?.status,
+          limit: filters?.limit !== undefined ? String(filters.limit) : undefined,
+        },
+        schema: z
+          .object({
+            findings: z.array(
+              z.object({
+                id: z.string().uuid(),
+                severity: z.string(),
+                status: z.string(),
+                title: z.string(),
+                rule: z.string().optional(),
+                filePath: z.string().optional(),
+                autoFixable: z.boolean(),
+              }),
+            ),
+          })
+          .transform((value) => value.findings),
       }),
   };
 

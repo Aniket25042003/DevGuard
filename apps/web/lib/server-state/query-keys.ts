@@ -24,6 +24,15 @@ export const queryKeys = {
   commands: {
     available: (repositoryId: string) => ['commands', repositoryId] as const,
   },
+  repositoryTargets: {
+    pullRequests: (repositoryId: string, query?: string) =>
+      ['repositoryTargets', repositoryId, 'pullRequests', { query: query ?? '' }] as const,
+    issues: (repositoryId: string, query?: string) =>
+      ['repositoryTargets', repositoryId, 'issues', { query: query ?? '' }] as const,
+    refs: (repositoryId: string, query?: string) =>
+      ['repositoryTargets', repositoryId, 'refs', { query: query ?? '' }] as const,
+    findings: (repositoryId: string) => ['repositoryTargets', repositoryId, 'findings'] as const,
+  },
   workflows: {
     list: (
       repositoryId: string,

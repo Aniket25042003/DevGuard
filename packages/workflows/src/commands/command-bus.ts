@@ -13,7 +13,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { createHash } from 'node:crypto';
-import { MANUAL_COMMANDS_V1, normalizeCommandId, type WorkflowIdV1 } from '@devguard/policy-engine';
+import { MANUAL_COMMANDS_V1, normalizeCommandId, validateManualCommandInput, type WorkflowIdV1 } from '@devguard/policy-engine';
 import { validationFailed } from '@devguard/errors';
 
 /**
@@ -194,6 +194,11 @@ export class CommandBus {
     if (input.command.input !== undefined && !isPlainJsonObject(input.command.input)) {
       throw validationFailed([{ path: 'input', constraint: 'must be a JSON object' }]);
     }
+    const normalizedInput =
+      input.command.input !== undefined &&
+      (input.originSurface === 'web' || input.originSurface === 'cli')
+        ? validateManualCommandInput(workflowId, input.command.input)
+        : input.command.input;
     const definitionVersion = normalizeDefinitionVersion(input.command.definitionVersion);
 
     const triggerType: SupportedTriggerTypeV1 =
@@ -206,7 +211,7 @@ export class CommandBus {
       repositoryId: input.repositoryId,
       originSurface: input.originSurface,
       ...(definitionVersion !== undefined ? { definitionVersion } : {}),
-      ...(input.command.input !== undefined ? { input: input.command.input } : {}),
+      ...(normalizedInput !== undefined ? { input: normalizedInput } : {}),
     });
     const runId = this.newRunId();
     const idempotencyKeyHash = idempotencyKeyHashOf(input.idempotencyKey);

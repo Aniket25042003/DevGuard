@@ -11,6 +11,7 @@ import { queryKeys } from '@/lib/server-state/query-keys';
 import { Button, EmptyState, PageHeader, StatusBadge } from '@/components/ui/primitives';
 import { buildAppHref } from '@/features/navigation/routes';
 import { ProblemAlert, classifyUiProblem } from '@/features/errors/index';
+import { RepositoryLaunchTargets } from './repository-launch-targets';
 
 const ORIGIN_FILTERS: ReadonlyArray<OriginSurface | 'all'> = [
   'all',
@@ -115,6 +116,7 @@ export function RepositoryDashboardPage({
           href={buildAppHref({ name: 'policy', repositoryId })}
         />
       </section>
+      <RepositoryLaunchTargets repositoryId={repositoryId} />
       <OriginFilter repositoryId={repositoryId} current={origin} pr={pr} />
       {pullRequestNumber !== undefined ? (
         <p className="mb-3 text-sm">Filtered to pull request #{pullRequestNumber}.</p>

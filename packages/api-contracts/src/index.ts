@@ -172,3 +172,21 @@ export type {
   ApiTokenListResponse,
   ApiTokenSummary,
 } from './tokens.js';
+
+// ---- Repository launch targets (workflow picker) ----
+export {
+  gitRefSummarySchema,
+  issueSummarySchema,
+  pullRequestSummarySchema,
+  repositoryFindingListQuerySchema,
+  repositoryFindingSummarySchema,
+  repositoryTargetListQuerySchema,
+} from './repository-targets.js';
+export type {
+  GitRefSummary,
+  IssueSummary,
+  PullRequestSummary,
+  RepositoryFindingListQuery,
+  RepositoryFindingSummary,
+  RepositoryTargetListQuery,
+} from './repository-targets.js';

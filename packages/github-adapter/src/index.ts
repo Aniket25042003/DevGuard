@@ -45,6 +45,14 @@ export {
   type ListInstallationRepositoriesResult,
 } from './auth/list-installation-repositories.js';
 export {
+  listRepositoryPullRequests,
+  listRepositoryIssues,
+  listRepositoryRefs,
+  type PullRequestSummary,
+  type IssueSummary,
+  type GitRefSummary,
+} from './read/list-repository-targets.js';
+export {
   FetchInstallationTokenMintPort,
   type FetchInstallationTokenMintOptions,
 } from './auth/installation-token-mint.js';

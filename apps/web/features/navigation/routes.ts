@@ -11,7 +11,7 @@ export type AppRoute =
   | { readonly name: 'approvals' }
   | { readonly name: 'preflight' }
   | { readonly name: 'repository'; readonly repositoryId: string }
-  | { readonly name: 'launcher'; readonly repositoryId: string }
+  | { readonly name: 'launcher'; readonly repositoryId: string; readonly search?: string | undefined }
   | { readonly name: 'run'; readonly repositoryId: string; readonly runId: string }
   | { readonly name: 'policy'; readonly repositoryId: string }
   | { readonly name: 'policyHistory'; readonly repositoryId: string };
@@ -41,7 +41,7 @@ export function buildAppHref(route: AppRoute): string {
     case 'repository':
       return `/repositories/${encodeURIComponent(route.repositoryId)}`;
     case 'launcher':
-      return `/repositories/${encodeURIComponent(route.repositoryId)}/workflows/new`;
+      return `/repositories/${encodeURIComponent(route.repositoryId)}/workflows/new${route.search ?? ''}`;
     case 'run':
       return `/repositories/${encodeURIComponent(route.repositoryId)}/workflows/${encodeURIComponent(route.runId)}`;
     case 'policy':
