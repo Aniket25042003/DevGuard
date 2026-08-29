@@ -2,7 +2,7 @@
  * C017/CP021 — mint GitHub App installation access tokens over bounded transport.
  */
 import type { GitHubTransport } from '../core/client.js';
-import { SecretString } from './contracts.js';
+import { requiredPermissionsFor, SecretString } from './contracts.js';
 import type { AppJwtSigner, SecretKeyProvider } from './app-jwt-signer.js';
 import type { InstallationTokenMintPort } from './token-lease-cache.js';
 
@@ -33,8 +33,13 @@ export class FetchInstallationTokenMintPort implements InstallationTokenMintPort
     githubRepositoryIds: readonly string[];
     capabilities: readonly string[];
   }): Promise<{ token: SecretString; expiresAtIso: string }> {
-    void input.githubRepositoryIds;
-    void input.capabilities;
+    const permissions = requiredPermissionsFor(input.capabilities as never).reduce<Record<string, string>>((result, permission) => {
+        const separator = permission.indexOf(':');
+        if (separator < 1) throw new Error(`invalid GitHub permission '${permission}'`);
+        result[permission.slice(0, separator)] = permission.slice(separator + 1).trim();
+        return result;
+      }, {});
+    
     const key = await this.#keyProvider.load();
     const signed = this.#signer.sign(key);
     const response = await this.#transport.request({
@@ -46,7 +51,7 @@ export class FetchInstallationTokenMintPort implements InstallationTokenMintPort
         'x-github-api-version': this.#apiVersion,
         'content-type': 'application/json',
       },
-      body: '{}',
+      body: JSON.stringify({ repository_ids: input.githubRepositoryIds.map(Number), permissions }),
       timeoutMs: 30_000,
       host: 'api.github.com',
     });
