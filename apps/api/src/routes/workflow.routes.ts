@@ -57,7 +57,7 @@ function parseProvenanceFilter<T extends string>(
   value: string | undefined,
   allowed: ReadonlySet<T>,
 ): T | undefined {
-  if (value === undefined || value.length === 0) return undefined;
+  if (value === undefined) return undefined;
   if (!allowed.has(value as T)) {
     throw validationFailed([{ path: 'filters', constraint: 'unknown provenance filter value' }]);
   }
@@ -265,6 +265,13 @@ export function registerWorkflowRoutes(
         }
       }
       // CP016 provenance filters (triggerType + originSurface, alias triggerSource).
+        if (
+          raw.originSurface !== undefined &&
+          raw.triggerSource !== undefined &&
+          raw.originSurface !== raw.triggerSource
+        ) {
+          throw validationFailed([{ path: 'filters', constraint: 'conflicting provenance aliases' }]);
+        }
       const triggerType = parseProvenanceFilter(raw.triggerType, TRIGGER_TYPES);
       const originSurface = parseProvenanceFilter(
         raw.originSurface ?? raw.triggerSource,
