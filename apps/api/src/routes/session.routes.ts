@@ -8,6 +8,13 @@
  * per-principal scoping prevents cross-session access.
  */
 import type { RegisterV1Route } from '../transport/kernel.js';
+import { createSseResponse } from '../transport/sse.js';
+
+export interface SessionEvent {
+  readonly sequenceNumber: number;
+  readonly eventType: string;
+  readonly summary: string;
+}
 
 export interface SessionPort {
   get(
@@ -18,7 +25,14 @@ export interface SessionPort {
     sessionId: string,
     userId: string,
     limit: number,
-  ): Promise<Array<{ sequenceNumber: number; eventType: string; summary: string }>>;
+  ): Promise<SessionEvent[]>;
+  /** Replay cursor read (CP014): events strictly after the sequence, ordered. */
+  eventsAfter(
+    sessionId: string,
+    userId: string,
+    afterSequence: number,
+    limit: number,
+  ): Promise<SessionEvent[]>;
 }
 
 export function registerSessionRoutes(
@@ -78,6 +92,73 @@ export function registerSessionRoutes(
           },
           401,
         );
+      const sessionId = c.req.param('sessionId') ?? '';
+      const session = await sessions.get(sessionId, principal.userId);
+      if (session === undefined)
+        return c.json(
+          {
+            error: {
+              code: 'SESSION_NOT_FOUND',
+              message: 'Session not found.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          404,
+        );
+      const wantsSse = c.req.query('format') === 'sse' || (c.req.header('accept') ?? '').includes('text/event-stream');
+      if (!wantsSse) {
+        const events = await sessions.events(sessionId, principal.userId, 200);
+        return c.json({ events });
+      }
+      // CP014 — SSE timeline with Last-Event-ID replay (cursor = "<session>:<seq>").
+      const lastEventId = c.req.header('last-event-id');
+      let after: number;
+      if (lastEventId !== undefined && lastEventId.includes(':')) {
+        const tail = Number(lastEventId.slice(lastEventId.lastIndexOf(':') + 1));
+        after = Number.isFinite(tail) && tail >= 0 ? tail : 0;
+      } else {
+        after = 0;
+      }
+      const replay = await sessions.eventsAfter(sessionId, principal.userId, after, 200);
+      const base = createSseResponse({
+        lastEventIdHeader: lastEventId,
+        signal: c.req.raw.signal,
+        hooks: {
+          onOpen: (connection) => {
+            for (const ev of replay) {
+              connection.send(`${sessionId}:${ev.sequenceNumber}`, ev.eventType, {
+                sequenceNumber: ev.sequenceNumber,
+                summary: ev.summary,
+              });
+            }
+          },
+        },
+      });
+      return new Response(base.body, {
+        headers: { ...Object.fromEntries(base.headers.entries()), 'x-accel-buffering': 'no' },
+      });
+    },
+  );
+
+  kernel.registerV1Route(
+    'post',
+    '/api/v1/sessions/:sessionId/turns',
+    { rateLimitClass: 'default', authClass: 'required_session' },
+    async (c) => {
+      const principal = c.get('requestContext').principal;
+      if (principal === undefined)
+        return c.json(
+          {
+            error: {
+              code: 'UNAUTHENTICATED',
+              message: 'Authentication required.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          401,
+        );
       const session = await sessions.get(c.req.param('sessionId') ?? '', principal.userId);
       if (session === undefined)
         return c.json(
@@ -91,8 +172,18 @@ export function registerSessionRoutes(
           },
           404,
         );
-      const events = await sessions.events(c.req.param('sessionId') ?? '', principal.userId, 200);
-      return c.json({ events });
+      // CP014 §3: turns mount when the durable agent-session store binds (CP017/CP018).
+      return c.json(
+        {
+          error: {
+            code: 'TURNS_NOT_IMPLEMENTED',
+            message: 'Turn creation not yet available.',
+            requestId: c.get('requestContext').requestId,
+            retryable: false,
+          },
+        },
+        501,
+      );
     },
   );
 }
