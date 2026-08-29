@@ -31,7 +31,7 @@ export function buildCommentCommandService(
   const acksEnabled = process.env['DEVGUARD_GITHUB_COMMENT_ACKS'] !== 'false';
   let acks: CommentAckPort | undefined;
   if (acksEnabled && config.github !== undefined && isReal(config.github.privateKeyRef)) {
-    const privateKeyPem = new EnvironmentSecretProvider().peek({ name: config.github.privateKeyRef });
+    const privateKeyPem = config.github.privateKeyRef;
     acks = buildGitHubCommentAckAdapter(config.github, privateKeyPem, pool);
   }
   return new CommentCommandService({
