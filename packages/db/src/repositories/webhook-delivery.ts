@@ -10,12 +10,7 @@
 
 /** Mirrors the C022 delivery FSM state union (db stays independent). */
 export type DeliveryStateV1 =
-  | 'ACCEPTED'
-  | 'PROCESSING'
-  | 'ROUTED'
-  | 'IGNORED'
-  | 'FAILED_RETRYABLE'
-  | 'DEAD_LETTERED';
+  'ACCEPTED' | 'PROCESSING' | 'ROUTED' | 'IGNORED' | 'FAILED_RETRYABLE' | 'DEAD_LETTERED';
 
 const LEGAL: Readonly<Record<DeliveryStateV1, readonly DeliveryStateV1[]>> = {
   ACCEPTED: ['PROCESSING', 'FAILED_RETRYABLE'],
@@ -45,15 +40,30 @@ export class PostgresWebhookDeliveryStore {
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (github_delivery_id) DO NOTHING
 RETURNING github_delivery_id`,
-      values: [input.githubDeliveryId, input.githubEvent, input.rawPayloadHash, input.payloadRef ?? '', input.repositoryId ?? null],
+      values: [
+        input.githubDeliveryId,
+        input.githubEvent,
+        input.rawPayloadHash,
+        input.payloadRef ?? '',
+        input.repositoryId ?? null,
+      ],
     });
     if (rows.length > 0) return { accepted: true, replay: false };
-    const existing = await this.pool.query<{ raw_payload_hash: string; github_event: string; repository_id: string | null }>({
+    const existing = await this.pool.query<{
+      raw_payload_hash: string;
+      github_event: string;
+      repository_id: string | null;
+    }>({
       text: 'SELECT raw_payload_hash, github_event, repository_id FROM github_webhook_deliveries WHERE github_delivery_id = $1',
       values: [input.githubDeliveryId],
     });
     const row = existing[0];
-    if (row === undefined || row.raw_payload_hash !== input.rawPayloadHash || row.github_event !== input.githubEvent || row.repository_id !== (input.repositoryId ?? null)) {
+    if (
+      row === undefined ||
+      row.raw_payload_hash !== input.rawPayloadHash ||
+      row.github_event !== input.githubEvent ||
+      row.repository_id !== (input.repositoryId ?? null)
+    ) {
       throw new Error('WEBHOOK_DELIVERY_CONFLICT');
     }
     return { accepted: true, replay: true };
@@ -65,9 +75,9 @@ RETURNING github_delivery_id`,
     readonly payloadDigest: string;
     readonly repositoryExternalId?: string;
   }): Promise<
-    | { outcome: 'accepted_new'; status: 'PERSISTED' }
-    | { outcome: 'duplicate'; status: 'RECEIVED' | 'VERIFIED' | 'PERSISTED' | 'ENQUEUED' | 'PROCESSED' | 'REJECTED' }
-    | { outcome: 'conflict'; existingStatus: 'RECEIVED' | 'VERIFIED' | 'PERSISTED' | 'ENQUEUED' | 'PROCESSED' | 'REJECTED' }
+    | { outcome: 'accepted_new'; status: DeliveryStateV1 }
+    | { outcome: 'duplicate'; status: DeliveryStateV1 }
+    | { outcome: 'conflict'; existingStatus: DeliveryStateV1 }
   > {
     try {
       const result = await this.insert({
@@ -76,13 +86,13 @@ RETURNING github_delivery_id`,
         rawPayloadHash: record.payloadDigest,
         repositoryId: record.repositoryExternalId,
       });
-      if (!result.replay) return { outcome: 'accepted_new', status: 'PERSISTED' };
+      if (!result.replay) return { outcome: 'accepted_new', status: 'ACCEPTED' };
       const status = await this.state(record.deliveryId);
-      return { outcome: 'duplicate', status: status ?? 'PERSISTED' };
+      return { outcome: 'duplicate', status: status ?? 'ACCEPTED' };
     } catch (error) {
       if (error instanceof Error && error.message === 'WEBHOOK_DELIVERY_CONFLICT') {
         const status = await this.state(record.deliveryId);
-        return { outcome: 'conflict', existingStatus: status ?? 'PERSISTED' };
+        return { outcome: 'conflict', existingStatus: status ?? 'ACCEPTED' };
       }
       throw error;
     }
@@ -97,9 +107,7 @@ RETURNING github_delivery_id`,
     return row === undefined ? undefined : (row.state as DeliveryStateV1);
   }
 
-  async claim(
-    deliveryId: string,
-  ): Promise<{ ok: true; state: DeliveryStateV1 } | { ok: false }> {
+  async claim(deliveryId: string): Promise<{ ok: true; state: DeliveryStateV1 } | { ok: false }> {
     const rows = await this.pool.query<{ state: string }>({
       text: `UPDATE github_webhook_deliveries
 SET state = 'PROCESSING', updated_at = now()

@@ -85,7 +85,10 @@ export type {
 } from './repositories/workflow-evidence.js';
 
 // ---- CP011 durable webhook delivery ledger ----
-export { PostgresWebhookDeliveryStore, type DeliveryStateV1 } from './repositories/webhook-delivery.js';
+export {
+  PostgresWebhookDeliveryStore,
+  type DeliveryStateV1,
+} from './repositories/webhook-delivery.js';
 
 // ---- CP009 durable policy decisions ----
 export {

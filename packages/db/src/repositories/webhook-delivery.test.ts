@@ -23,7 +23,11 @@ describe('PostgresWebhookDeliveryStore (CP011)', () => {
     const pool = stubPool();
     pool.rows.push([{ github_delivery_id: 'd1' }]);
     const store = new PostgresWebhookDeliveryStore(pool);
-    const first = await store.insert({ githubDeliveryId: 'd1', githubEvent: 'ping', rawPayloadHash: 'a'.repeat(64) });
+    const first = await store.insert({
+      githubDeliveryId: 'd1',
+      githubEvent: 'ping',
+      rawPayloadHash: 'a'.repeat(64),
+    });
     expect(first).toEqual({ accepted: true, replay: false });
     expect(pool.calls[0]?.text).toContain('ON CONFLICT (github_delivery_id) DO NOTHING');
   });
