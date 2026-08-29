@@ -43,6 +43,7 @@ import {
   type LocalRepositoryAccessPort,
   type RepositoryCapability,
 } from '@devguard/authorization';
+import { DurableWebhookAcceptance } from './durable-webhook-acceptance.js';
 import { configurationInvalid } from '@devguard/errors';
 import type { ApiConfigSnapshot } from '@devguard/config';
 import { createPool, type DevGuardPool } from '@devguard/db';
@@ -460,6 +461,14 @@ export function buildContainer(
     ? new DurableRepositoryCatalog(pool)
     : VolatileRepositoryCatalog;
   const approvals = durableAuth ? new DurableApprovals(pool) : VolatileApprovals;
+  const webhooks =
+    durableAuth && pool !== undefined
+      ? new DurableWebhookAcceptance(pool, async (githubRepositoryId) => {
+          const repoStore = new ConnectedRepositoryStore(pool);
+          const row = await repoStore.findByGitHubId(githubRepositoryId);
+          return row?.id;
+        })
+      : new VolatileWebhookAcceptance();
 
   const bindings: CompositionBindings = {
     sessions,
@@ -476,7 +485,7 @@ export function buildContainer(
     approvals,
     workflows: new VolatileWorkflowService(),
     policies: VolatilePolicySummaries,
-    webhooks: new VolatileWebhookAcceptance(),
+    webhooks,
     repositoryCatalog,
     artifacts: durableAuth ? new DurableArtifactsAdapter(pool) : VolatileArtifacts,
     audit: VolatileAudit,

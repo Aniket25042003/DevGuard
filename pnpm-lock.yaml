@@ -435,6 +435,9 @@ importers:
       '@devguard/worker':
         specifier: workspace:*
         version: link:../../apps/worker
+      '@devguard/workflows':
+        specifier: workspace:*
+        version: link:../../packages/workflows
 
   tests/integration:
     dependencies:

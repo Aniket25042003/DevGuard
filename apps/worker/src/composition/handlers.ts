@@ -17,6 +17,8 @@ import {
   type JobRegistry,
   type JobTypeV1,
 } from '@devguard/queue';
+import type { CommentCommandService } from '@devguard/workflows';
+import { parseWorkerIssueCommentPayload } from './webhook-comment.js';
 
 export interface RunStoreExecutor {
   query<T>(config: { text: string; values?: readonly unknown[] }): Promise<T[]>;
@@ -77,10 +79,7 @@ export function fail(errorCode: string): {
 }
 
 /**
- * CP011 — wire `webhook.process` to the C058 delivery service.
- * The delivery ledger is durable (`PostgresWebhookDeliveryStore` when a pool is
- * bound). No manual triggers are configured yet, so non-mention events route to
- * IGNORED; `issue_comment` mention parsing is CP019 (out of scope here).
+ * CP011/CP019 — wire `webhook.process` to delivery routing and GitHub comment commands.
  */
 export function registerWebhookProcess(
   registry: JobRegistry,
@@ -89,6 +88,7 @@ export function registerWebhookProcess(
     claim(deliveryId: string): Promise<{ ok: true; state: string } | { ok: false }>;
     transition(deliveryId: string, from: string, to: string): Promise<string>;
   },
+  options: { readonly commentCommands?: CommentCommandService | undefined } = {},
 ): void {
   const service = new WebhookProcessingService({
     store: store as never,
@@ -101,8 +101,39 @@ export function registerWebhookProcess(
       repositoryId?: string;
       payloadRef?: string;
       event?: string;
+      issueCommentPayload?: string;
     };
     if (p.deliveryId === undefined) return fail('webhook_job_missing_delivery');
+
+    const issueComment = parseWorkerIssueCommentPayload(p.issueCommentPayload);
+    if (issueComment !== undefined && options.commentCommands !== undefined) {
+      const claimed = await store.claim(p.deliveryId);
+      if (!claimed.ok) {
+        return { outcome: 'RETRYABLE_FAILURE', errorCode: 'WEBHOOK_PROCESS_FAILED' };
+      }
+      try {
+        await store.transition(p.deliveryId, claimed.state, 'PROCESSING');
+        const outcome = await options.commentCommands.handle(issueComment);
+        const terminal = outcome.kind === 'ignored' ? 'IGNORED' : 'ROUTED';
+        await store.transition(p.deliveryId, 'PROCESSING', terminal);
+        return { outcome: 'SUCCEEDED', detail: outcome.kind };
+      } catch (error) {
+        try {
+          const state = await store.state(p.deliveryId);
+          if (state === 'ACCEPTED' || state === 'PROCESSING') {
+            await store.transition(p.deliveryId, state, 'FAILED_RETRYABLE');
+          }
+        } catch {
+          /* preserve root failure */
+        }
+        return {
+          outcome: 'RETRYABLE_FAILURE',
+          errorCode: 'WEBHOOK_PROCESS_FAILED',
+          detail: error instanceof Error ? error.message : 'comment_command_failed',
+        };
+      }
+    }
+
     const outcome = await service.process({
       payload: {
         deliveryId: p.deliveryId,

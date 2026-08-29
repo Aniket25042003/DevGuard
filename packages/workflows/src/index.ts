@@ -36,6 +36,30 @@ export {
   type TriggerTypeV1,
 } from './commands/command-bus.js';
 
+// ---- CP019 GitHub `@devguard` comment surface ----
+export {
+  CommentCommandService,
+  GITHUB_ISSUER,
+  newGitHubActorUserId,
+  type CommentAckPort,
+  type CommentAuthorizerPort,
+  type CommentCommandOutcome,
+  type CommentCommandServiceDeps,
+  type CommentIdentityPort,
+  type CommentRepositoryPort,
+} from './commands/comment-command-service.js';
+export {
+  githubCommentIdempotencyKey,
+  parseDevguardComment,
+  type GitHubCommentMetaVerb,
+  type ParsedGitHubComment,
+} from './commands/github-comment-parser.js';
+export {
+  issueCommentIsOnPullRequest,
+  parseIssueCommentWebhook,
+  type IssueCommentWebhookEvent,
+} from './commands/issue-comment-event.js';
+
 // ---- C056 product workflow: manual_refactor (extension) ----
 export {
   MANUAL_REFACTOR_STEPS,

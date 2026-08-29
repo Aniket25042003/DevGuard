@@ -21,6 +21,7 @@
     "@devguard/db": "workspace:*",
     "@devguard/errors": "workspace:*",
     "@devguard/security": "workspace:*",
-    "@devguard/worker": "workspace:*"
+    "@devguard/worker": "workspace:*",
+    "@devguard/workflows": "workspace:*"
   }
 }

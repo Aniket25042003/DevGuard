@@ -135,6 +135,10 @@ export class OutboxPublisher {
       deliveryId,
       repositoryId: String(row.correlation['repositoryId'] ?? row.payload['repositoryId'] ?? ''),
       payloadRef: String(row.correlation['payloadRef'] ?? row.payload['payloadRef'] ?? ''),
+      event: String(row.payload['event'] ?? row.correlation['payloadRef'] ?? ''),
+      ...(typeof row.payload['issueCommentPayload'] === 'string'
+        ? { issueCommentPayload: row.payload['issueCommentPayload'] }
+        : {}),
     };
   }
 }
