@@ -40,7 +40,7 @@ services:
       - key: AUTH_GITHUB_OAUTH_CLIENT_SECRET
         sync: false
       - key: AUTH_GITHUB_OAUTH_CALLBACK_URL
-        sync: false
+        value: https://devguard-olive.vercel.app/api/v1/auth/callback
       - key: DEVGUARD_PUBLIC_ORIGIN
         sync: false
       - key: DEVGUARD_GITHUB_APP_ID
