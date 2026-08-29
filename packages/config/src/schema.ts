@@ -457,7 +457,8 @@ export interface GithubAppConfig {
 
 export interface TrueForgeConfig {
   readonly baseUrl: string;
-  readonly apiKeyRef: string;
+  /** Omitted when the TrueForge instance has no API-key auth (OSS default). */
+  readonly apiKeyRef?: string | undefined;
   readonly timeoutMs: number;
 }
 
@@ -539,18 +540,21 @@ function parseTrueForge(parser: ConfigParser, env: EnvRecord): TrueForgeConfig |
   const baseUrl = parser.url(env, 'DEVGUARD_TRUEFORGE_BASE_URL', ['https:', 'http:']);
   const apiKeyRef = parser.optionalString(env, 'TRUEFORGE_API_KEY');
   const timeoutMs = parser.intInRange(env, 'DEVGUARD_TRUEFORGE_TIMEOUT_MS', 1_000, 120_000, 30_000);
-  const provided = [baseUrl, apiKeyRef].filter((v) => v !== undefined).length;
-  if (provided === 0 && !env['FLAG_TRUEFORGE_INTEGRATION_ENABLED']) return undefined;
-  if (baseUrl === undefined || apiKeyRef === undefined) {
-    if (provided > 0 || env['FLAG_TRUEFORGE_INTEGRATION_ENABLED'] === 'true') {
+  const integrationRequested = env['FLAG_TRUEFORGE_INTEGRATION_ENABLED'] === 'true';
+  if (baseUrl === undefined) {
+    if (integrationRequested || apiKeyRef !== undefined) {
       parser.addIssue(
         'DEVGUARD_TRUEFORGE_BASE_URL',
-        'TrueForge integration requires base URL and API key ref together',
+        'required when TrueForge integration is enabled',
       );
     }
     return undefined;
   }
-  return { baseUrl, apiKeyRef, timeoutMs };
+  return {
+    baseUrl,
+    timeoutMs,
+    ...(apiKeyRef !== undefined ? { apiKeyRef } : {}),
+  };
 }
 
 function parseArtifactStorage(parser: ConfigParser, env: EnvRecord): ArtifactStorageConfig {

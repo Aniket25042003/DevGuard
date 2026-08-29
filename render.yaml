@@ -9,7 +9,7 @@ services:
     branch: main
     buildCommand: pnpm install --frozen-lockfile && pnpm build
     preDeployCommand: node scripts/deploy/migrate.mjs
-    startCommand: RUN_SERVER=1 node apps/api/dist/main.js
+    startCommand: node scripts/deploy/migrate.mjs && RUN_SERVER=1 node apps/api/dist/main.js
     healthCheckPath: /api/v1/health/ready
     envVars:
       - key: DEVGUARD_ENV
