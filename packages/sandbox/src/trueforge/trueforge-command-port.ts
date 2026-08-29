@@ -31,6 +31,8 @@ export interface TrueForgeCommandPortOptions {
   readonly apiKey?: string | undefined;
   readonly fetchImpl?: FetchLike['fetch'] | undefined;
   readonly timeoutMs?: number | undefined;
+  /** OSS TrueForge serves routes under `/api/v1`; legacy stubs used `/v1` only. */
+  readonly apiPrefix?: string | undefined;
 }
 
 export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
@@ -39,12 +41,14 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
   private readonly apiKey: string | undefined;
   private readonly timeoutMs: number;
   private readonly fetchImpl: FetchLike['fetch'];
+  private readonly apiPrefix: string;
   private commandId: string | undefined;
 
   constructor(private readonly options: TrueForgeCommandPortOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
     this.apiKey = options.apiKey;
     this.timeoutMs = options.timeoutMs ?? 15_000;
+    this.apiPrefix = options.apiPrefix ?? '/api';
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
@@ -61,7 +65,7 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
   ): Promise<CommandProviderResult<T> | undefined> {
     if (!this.options.enabled) return undefined;
     try {
-      const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
+      const res = await this.fetchImpl(`${this.baseUrl}${this.apiPrefix}/v1${path}`, {
         method,
         headers: this.headers(),
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -78,7 +82,7 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
     command: SandboxCommand,
   ): Promise<CommandProviderResult<{ providerCommandId: string }>> {
     const disabled: CommandProviderResult<{ providerCommandId: string }> | undefined =
-      await this.run<{ providerCommandId: string }>('POST', '/v1/workspace/commands', command);
+      await this.run<{ providerCommandId: string }>('POST', '/workspace/commands', command);
     if (disabled === undefined)
       return { ok: false, code: 'SERVER_ERROR', detail: 'sandbox integration disabled' };
     if (!disabled.ok) return disabled;
@@ -91,7 +95,7 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
     if (id === undefined) return { ok: false, code: 'NOT_FOUND', detail: 'no active command' };
     const out = await this.run<Record<string, unknown>>(
       'GET',
-      `/v1/workspace/commands/${encodeURIComponent(id)}/stream?cursor=${cursor}`,
+      `/workspace/commands/${encodeURIComponent(id)}/stream?cursor=${cursor}`,
     );
     if (out === undefined)
       return { ok: false, code: 'SERVER_ERROR', detail: 'sandbox integration disabled' };
@@ -123,7 +127,7 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
   > {
     const disabled:
       CommandProviderResult<{ running: boolean; exitCode?: number; signal?: string }> | undefined =
-      await this.run<{ running: boolean }>('GET', '/v1/workspace/status');
+      await this.run<{ running: boolean }>('GET', '/workspace/status');
     if (disabled === undefined)
       return { ok: false, code: 'SERVER_ERROR', detail: 'sandbox integration disabled' };
     return disabled;
@@ -132,7 +136,7 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
   async terminate(): Promise<CommandProviderResult<{ terminated: boolean }>> {
     const disabled: CommandProviderResult<{ terminated: boolean }> | undefined = await this.run<{
       terminated: boolean;
-    }>('POST', '/v1/workspace/commands/terminate', {});
+    }>('POST', '/workspace/commands/terminate', {});
     if (disabled === undefined)
       return { ok: false, code: 'CANCEL_UNSUPPORTED', detail: 'sandbox integration disabled' };
     return disabled;

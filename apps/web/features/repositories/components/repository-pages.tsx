@@ -47,9 +47,9 @@ export function RepositoryIndexPage(): ReactNode {
             <li key={repo.id}>
               <a
                 href={buildAppHref({ name: 'repository', repositoryId: repo.id })}
-                className="block min-h-11 rounded-lg border border-[var(--line)] bg-[var(--bg-elevated)] px-4 py-3"
+                className="group block rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] px-5 py-4 shadow-[var(--shadow-sm)] transition hover:border-[var(--accent)] hover:shadow-[var(--shadow-md)]"
               >
-                <span className="font-medium">{repo.fullName ?? repo.name}</span>
+                <span className="font-medium group-hover:text-[var(--accent)]">{repo.fullName ?? repo.name}</span>
                 {repo.status !== undefined ? (
                   <span className="ml-2 text-sm text-[var(--muted)]">{repo.status}</span>
                 ) : null}

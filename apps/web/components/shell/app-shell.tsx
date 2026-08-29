@@ -41,7 +41,10 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
   const nav = (
     <nav aria-label="Primary">
       <ul className="flex flex-col gap-1">
-        <NavItem href={buildAppHref({ name: 'home' })} current={pathname === '/'}>
+        <NavItem
+          href={buildAppHref({ name: 'home' })}
+          current={pathname === '/repositories' || pathname === '/repositories/'}
+        >
           Home
         </NavItem>
         <NavItem
@@ -56,7 +59,7 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
         >
           <span className="flex items-center justify-between gap-3">
             Approvals
-            <span className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-full border border-[var(--line)] px-2 text-xs">
+            <span className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-full bg-[var(--accent-soft)] px-2 text-xs font-semibold text-[var(--accent)]">
               {approvals.isFetching ? '…' : pendingCount}
               <span className="sr-only"> pending</span>
             </span>
@@ -76,7 +79,9 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
         </NavItem>
         {repositoryId !== undefined ? (
           <>
-            <li className="mt-4 text-xs uppercase tracking-wide text-[var(--muted)]">Repository</li>
+            <li className="mt-6 px-3 text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
+              Repository
+            </li>
             <NavItem
               href={buildAppHref({ name: 'repository', repositoryId })}
               current={pathname === `/repositories/${repositoryId}`}
@@ -102,38 +107,50 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
   );
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[var(--bg)]">
       <SkipLink />
-      <div className="lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside className="hidden border-r border-[var(--line)] bg-[var(--bg-elevated)] p-4 lg:block">
-          <p className="mb-6 text-lg font-semibold">{PRODUCT_NAME}</p>
-          {nav}
-          <ConnectionStatus
-            ready={ready.data?.ready}
-            level={ready.data?.level}
-            user={session.data?.user?.login}
-          />
+      <div className="lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <aside className="hidden border-r border-[var(--line)] bg-[var(--bg-elevated)] lg:block">
+          <div className="sticky top-0 flex h-screen flex-col p-5">
+            <Link
+              href={buildAppHref({ name: 'home' })}
+              className="mb-8 font-[family-name:var(--font-display)] text-xl font-semibold tracking-tight"
+            >
+              {PRODUCT_NAME}
+            </Link>
+            <div className="flex-1 overflow-y-auto">{nav}</div>
+            <ConnectionStatus
+              ready={ready.data?.ready}
+              level={ready.data?.level}
+              user={session.data?.user?.login}
+            />
+          </div>
         </aside>
         <div>
-          <header className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3 lg:hidden">
+          <header className="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--bg-elevated)] px-4 py-3 lg:hidden">
             <button
               type="button"
-              className="min-h-11 min-w-11 rounded-md border border-[var(--line)] px-3"
+              className="min-h-11 min-w-11 rounded-xl border border-[var(--line)] px-3 text-sm font-medium"
               aria-expanded={drawerOpen}
               aria-controls="mobile-nav"
               onClick={() => setDrawerOpen((open) => !open)}
             >
               Menu
             </button>
-            <Link href="/" className="font-semibold">
+            <Link href={buildAppHref({ name: 'home' })} className="font-[family-name:var(--font-display)] font-semibold">
               {PRODUCT_NAME}
             </Link>
             <Link
               href={buildAppHref({ name: 'approvals' })}
-              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--line)] px-3"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--line)] px-3 text-sm"
             >
               Approvals
-              <span aria-hidden="true">{pendingCount}</span>
+              <span
+                className="inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-[var(--accent-soft)] text-xs font-semibold text-[var(--accent)]"
+                aria-hidden="true"
+              >
+                {pendingCount}
+              </span>
               <span className="sr-only">{pendingCount} pending</span>
             </Link>
           </header>
@@ -151,7 +168,7 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
               </Button>
             </div>
           ) : null}
-          <main id="main" className="px-4 py-6 sm:px-8">
+          <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
             {repos.isError ? (
               <div className="mb-4">
                 <ProblemAlert
@@ -182,7 +199,11 @@ function NavItem({
       <Link
         href={href}
         aria-current={current ? 'page' : undefined}
-        className={`block min-h-11 rounded-md px-3 py-2 ${current ? 'bg-[var(--bg)] font-medium' : ''}`}
+        className={`block min-h-11 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+          current
+            ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+            : 'text-[var(--muted)] hover:bg-[var(--bg-muted)] hover:text-[var(--ink)]'
+        }`}
       >
         {children}
       </Link>
@@ -201,9 +222,11 @@ function ConnectionStatus({
 }): ReactNode {
   const status = ready === false ? 'degraded' : ready === true ? 'ready' : 'unknown';
   return (
-    <div className="mt-8 border-t border-[var(--line)] pt-4 text-sm text-[var(--muted)]">
+    <div className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--bg-muted)] p-4 text-sm">
       <StatusBadge status={status} label={level ?? status} />
-      {user !== undefined ? <p className="mt-2">Signed in as {user}</p> : null}
+      {user !== undefined ? (
+        <p className="mt-2 truncate text-[var(--muted)]">Signed in as {user}</p>
+      ) : null}
     </div>
   );
 }
@@ -224,14 +247,16 @@ export function AuthGate({ children }: { readonly children: ReactNode }): ReactN
 
   if (session.isLoading) {
     return (
-      <p role="status" className="p-8">
-        Checking session…
-      </p>
+      <div className="flex min-h-screen items-center justify-center">
+        <p role="status" className="text-[var(--muted)]">
+          Checking session…
+        </p>
+      </div>
     );
   }
   if (session.isError) {
     return (
-      <div className="p-8">
+      <div className="flex min-h-screen items-center justify-center p-8">
         <ProblemAlert
           problem={classifyUiProblem(session.error)}
           onRecover={() => void session.refetch()}
@@ -241,9 +266,11 @@ export function AuthGate({ children }: { readonly children: ReactNode }): ReactN
   }
   if (session.data?.authenticated !== true) {
     return (
-      <p role="status" className="p-8">
-        Redirecting to sign in…
-      </p>
+      <div className="flex min-h-screen items-center justify-center">
+        <p role="status" className="text-[var(--muted)]">
+          Redirecting to sign in…
+        </p>
+      </div>
     );
   }
   return children;

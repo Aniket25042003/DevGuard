@@ -2,33 +2,48 @@
 
 :root {
   color-scheme: light;
-  --bg: #f4f1ea;
-  --bg-elevated: #fffdf8;
-  --ink: #1c1915;
-  --muted: #5c564c;
-  --line: #d9d0c3;
-  --accent: #1f4d3a;
-  --accent-ink: #f4f1ea;
-  --danger: #8a2b2b;
-  --warn: #8a5a12;
-  --ok: #1f4d3a;
-  --focus: #0b57d0;
+  --bg: #f8fafc;
+  --bg-elevated: #ffffff;
+  --bg-muted: #f1f5f9;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --accent-ink: #ffffff;
+  --danger: #dc2626;
+  --warn: #d97706;
+  --ok: #059669;
+  --focus: #2563eb;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-md: 0 8px 30px rgb(15 23 42 / 0.08);
+  --shadow-lg: 0 24px 60px rgb(15 23 42 / 0.12);
+  --radius: 0.75rem;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space), var(--font-sans);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --bg: #161410;
-    --bg-elevated: #201c18;
-    --ink: #f3eee6;
-    --muted: #b7aea2;
-    --line: #3a342c;
-    --accent: #8fbfa4;
-    --accent-ink: #161410;
-    --danger: #e08b8b;
-    --warn: #e0b56a;
-    --ok: #8fbfa4;
-    --focus: #8ab4ff;
+    --bg: #020617;
+    --bg-elevated: #0f172a;
+    --bg-muted: #1e293b;
+    --ink: #f8fafc;
+    --muted: #94a3b8;
+    --line: #334155;
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --accent-soft: rgb(59 130 246 / 0.15);
+    --accent-ink: #ffffff;
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --ok: #34d399;
+    --focus: #60a5fa;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35);
+    --shadow-md: 0 8px 30px rgb(0 0 0 / 0.35);
+    --shadow-lg: 0 24px 60px rgb(0 0 0 / 0.45);
   }
 }
 
@@ -41,13 +56,28 @@ body {
 
 body {
   margin: 0;
-  font-family: 'IBM Plex Sans', 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
-  line-height: 1.45;
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+.glass-panel {
+  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  box-shadow: var(--shadow-md);
+}
+
+.hero-glow {
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent),
+    var(--bg);
 }
 
 @media (prefers-reduced-motion: reduce) {

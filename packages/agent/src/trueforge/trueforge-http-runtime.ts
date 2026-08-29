@@ -27,6 +27,8 @@ export interface TrueForgeHttpAgentRuntimeOptions {
   readonly apiKey?: string | undefined;
   readonly fetchImpl?: TrueForgeHttpTransport['fetch'] | undefined;
   readonly timeoutMs?: number | undefined;
+  /** OSS TrueForge serves routes under `/api/v1`; legacy stubs used `/v1` only. */
+  readonly apiPrefix?: string | undefined;
 }
 
 /** Normalized provider-incompatible result when the integration is off. */
@@ -39,33 +41,51 @@ export class TrueForgeHttpAgentRuntime implements AgentRuntimePort {
   private readonly baseUrl: string;
   private readonly apiKey: string | undefined;
   private readonly timeoutMs: number;
+  private readonly apiPrefix: string;
 
   constructor(private readonly options: TrueForgeHttpAgentRuntimeOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
     this.apiKey = options.apiKey;
     this.timeoutMs = options.timeoutMs ?? 15_000;
+    this.apiPrefix = options.apiPrefix ?? '/api';
     this.transport = { fetch: options.fetchImpl ?? globalThis.fetch.bind(globalThis) };
+  }
+
+  private apiUrl(path: string): string {
+    return `${this.baseUrl}${this.apiPrefix}/v1${path}`;
   }
 
   private async doPreflight(): Promise<AgentRuntimeResult<{ provider: string; version: string }>> {
     if (!this.options.enabled) return trueforgeDisabled();
     try {
-      const res = await this.transport.fetch(`${this.baseUrl}/v1/identify`, {
+      const capabilities = await this.transport.fetch(this.apiUrl('/capabilities'), {
         method: 'GET',
         headers: this.headers(),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
-      const body = (await res.json()) as { provider?: string; version?: string };
-      if (!res.ok || body.provider !== 'trueforge') {
+      if (capabilities.ok) {
+        const body = (await capabilities.json()) as { data?: Record<string, unknown> };
+        if (body.data !== undefined) {
+          return { ok: true, value: { provider: 'trueforge', version: 'oss' } };
+        }
+      }
+
+      const legacy = await this.transport.fetch(`${this.baseUrl}/v1/identify`, {
+        method: 'GET',
+        headers: this.headers(),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      const identify = (await legacy.json()) as { provider?: string; version?: string };
+      if (!legacy.ok || identify.provider !== 'trueforge') {
         return {
           ok: false,
           code: 'PROVIDER_INCOMPATIBLE',
-          detail: `identify failed (${res.status})`,
+          detail: `preflight failed (${capabilities.status}/${legacy.status})`,
         };
       }
-      return { ok: true, value: { provider: body.provider, version: body.version ?? 'unknown' } };
+      return { ok: true, value: { provider: identify.provider, version: identify.version ?? 'unknown' } };
     } catch {
-      return { ok: false, code: 'TIMEOUT', detail: 'trueforge identify timed out' };
+      return { ok: false, code: 'TIMEOUT', detail: 'trueforge preflight timed out' };
     }
   }
 
@@ -90,20 +110,29 @@ export class TrueForgeHttpAgentRuntime implements AgentRuntimePort {
     if (!pre.ok) return pre;
     if (input.provider !== 'trueforge') return trueforgeDisabled();
     try {
-      const res = await this.transport.fetch(`${this.baseUrl}/v1/sessions`, {
+      const res = await this.transport.fetch(this.apiUrl('/sessions'), {
         method: 'POST',
         headers: this.headers(),
-        body: JSON.stringify({ agentVersion: input.agentVersion }),
+        body: JSON.stringify({
+          agent: { name: input.agentVersion },
+          agentVersion: input.agentVersion,
+        }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
       if (!res.ok)
         return { ok: false, code: 'SERVER_ERROR', detail: `session create (${res.status})` };
-      const body = (await res.json()) as { sessionId?: string; threadId?: string };
-      if (body.sessionId === undefined)
+      const body = (await res.json()) as {
+        sessionId?: string;
+        threadId?: string;
+        data?: { sessionId?: string; threadId?: string; id?: string };
+      };
+      const sessionId = body.sessionId ?? body.data?.sessionId ?? body.data?.id;
+      const threadId = body.threadId ?? body.data?.threadId;
+      if (sessionId === undefined)
         return { ok: false, code: 'SERVER_ERROR', detail: 'session id missing' };
       return {
         ok: true,
-        value: { providerSessionId: body.sessionId, providerThreadId: body.threadId },
+        value: { providerSessionId: sessionId, ...(threadId !== undefined ? { providerThreadId: threadId } : {}) },
       };
     } catch {
       return { ok: false, code: 'TIMEOUT', detail: 'trueforge createSession timed out' };
@@ -118,7 +147,7 @@ export class TrueForgeHttpAgentRuntime implements AgentRuntimePort {
     if (!pre.ok) return pre;
     try {
       const res = await this.transport.fetch(
-        `${this.baseUrl}/v1/sessions/${encodeURIComponent(input.providerSessionId)}/turns`,
+        this.apiUrl(`/sessions/${encodeURIComponent(input.providerSessionId)}/turns`),
         {
           method: 'POST',
           headers: this.headers(),
@@ -128,10 +157,11 @@ export class TrueForgeHttpAgentRuntime implements AgentRuntimePort {
       );
       if (!res.ok)
         return { ok: false, code: 'SERVER_ERROR', detail: `turn create (${res.status})` };
-      const body = (await res.json()) as { turnId?: string };
-      if (body.turnId === undefined)
+      const body = (await res.json()) as { turnId?: string; data?: { turnId?: string; id?: string } };
+      const turnId = body.turnId ?? body.data?.turnId ?? body.data?.id;
+      if (turnId === undefined)
         return { ok: false, code: 'SERVER_ERROR', detail: 'turn id missing' };
-      return { ok: true, value: { providerTurnId: body.turnId } };
+      return { ok: true, value: { providerTurnId: turnId } };
     } catch {
       return { ok: false, code: 'TIMEOUT', detail: 'trueforge createTurn timed out' };
     }
@@ -145,13 +175,15 @@ export class TrueForgeHttpAgentRuntime implements AgentRuntimePort {
     if (!pre.ok) return pre;
     try {
       const res = await this.transport.fetch(
-        `${this.baseUrl}/v1/sessions/${encodeURIComponent(input.providerSessionId)}/turns/${encodeURIComponent(input.providerTurnId)}`,
+        this.apiUrl(
+          `/sessions/${encodeURIComponent(input.providerSessionId)}/turns/${encodeURIComponent(input.providerTurnId)}`,
+        ),
         { method: 'GET', headers: this.headers(), signal: AbortSignal.timeout(this.timeoutMs) },
       );
       if (!res.ok)
         return { ok: false, code: 'SERVER_ERROR', detail: `turn status (${res.status})` };
-      const body = (await res.json()) as { status?: string };
-      return { ok: true, value: { status: body.status ?? 'unknown' } };
+      const body = (await res.json()) as { status?: string; data?: { status?: string } };
+      return { ok: true, value: { status: body.status ?? body.data?.status ?? 'unknown' } };
     } catch {
       return { ok: false, code: 'TIMEOUT', detail: 'trueforge getTurnStatus timed out' };
     }

@@ -1,13 +1,15 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { getApiClient } from '@/lib/api/client';
 import { PRODUCT_NAME } from '@/lib/brand';
 import { validateReturnTo } from '@/lib/commands';
 import { queryKeys } from '@/lib/server-state/query-keys';
-import { Button, PageHeader } from '@/components/ui/primitives';
+import { Button, Card } from '@/components/ui/primitives';
+import { buildAppHref } from '@/features/navigation/routes';
 import { ProblemAlert, classifyUiProblem } from '@/features/errors/index';
 
 export function SignInPage(): ReactNode {
@@ -17,26 +19,64 @@ export function SignInPage(): ReactNode {
   const [busy, setBusy] = useState(false);
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-16">
-      <PageHeader
-        title={`Sign in to ${PRODUCT_NAME}`}
-        description="GitHub OAuth creates an HttpOnly session cookie. DevGuard never asks for a personal access token."
-      />
-      <ul className="mb-6 list-disc space-y-2 pl-5 text-[var(--muted)]">
-        <li>Identity sign-in is separate from GitHub App repository access.</li>
-        <li>Privileged actions still require in-product approval.</li>
-        <li>Generated code runs in a sandbox, not on the DevGuard host.</li>
-      </ul>
-      <Button
-        href={busy ? undefined : href}
-        disabled={busy}
-        onClick={() => {
-          setBusy(true);
-          window.location.assign(href);
-        }}
-      >
-        {busy ? 'Redirecting to GitHub…' : 'Sign in with GitHub'}
-      </Button>
+    <div className="hero-glow flex min-h-screen flex-col">
+      <header className="px-4 py-6 sm:px-8">
+        <Link
+          href="/"
+          className="font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight"
+        >
+          {PRODUCT_NAME}
+        </Link>
+      </header>
+      <div className="flex flex-1 items-center justify-center px-4 pb-16">
+        <Card className="w-full max-w-md p-8">
+          <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
+            Welcome back
+          </h1>
+          <p className="mt-2 text-[var(--muted)]">
+            Sign in with GitHub to access your governed workspace. Sessions are HttpOnly cookies — no
+            personal access tokens required.
+          </p>
+          <ul className="mt-6 space-y-3 text-sm text-[var(--muted)]">
+            <li className="flex gap-2">
+              <span className="text-[var(--accent)]" aria-hidden="true">
+                ✓
+              </span>
+              Identity sign-in is separate from GitHub App repository access
+            </li>
+            <li className="flex gap-2">
+              <span className="text-[var(--accent)]" aria-hidden="true">
+                ✓
+              </span>
+              Privileged actions require in-product approval
+            </li>
+            <li className="flex gap-2">
+              <span className="text-[var(--accent)]" aria-hidden="true">
+                ✓
+              </span>
+              Agent code runs in sandboxed workspaces, not on the host
+            </li>
+          </ul>
+          <div className="mt-8">
+            <Button
+              size="lg"
+              href={busy ? undefined : href}
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                window.location.assign(href);
+              }}
+            >
+              {busy ? 'Redirecting to GitHub…' : 'Continue with GitHub'}
+            </Button>
+          </div>
+          <p className="mt-6 text-center text-sm text-[var(--muted)]">
+            <Link href="/" className="underline-offset-2 hover:underline">
+              ← Back to home
+            </Link>
+          </p>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -50,15 +90,24 @@ export function AuthCallbackPage(): ReactNode {
 
   if (error !== null) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16">
-        <PageHeader title="Sign-in did not complete" />
-        <ProblemAlert
-          problem={{
-            title: 'GitHub returned an error',
-            body: description ?? error,
-            recovery: 'sign-in',
-          }}
-        />
+      <div className="hero-glow flex min-h-screen items-center justify-center px-4">
+        <Card className="w-full max-w-lg p-8">
+          <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold">
+            Sign-in did not complete
+          </h1>
+          <div className="mt-4">
+            <ProblemAlert
+              problem={{
+                title: 'GitHub returned an error',
+                body: description ?? error,
+                recovery: 'sign-in',
+              }}
+            />
+          </div>
+          <div className="mt-6">
+            <Button href={buildAppHref({ name: 'signIn' })}>Try again</Button>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -69,9 +118,11 @@ export function AuthCallbackPage(): ReactNode {
   }
 
   return (
-    <p role="status" className="p-8">
-      Waiting for GitHub callback…
-    </p>
+    <div className="flex min-h-screen items-center justify-center">
+      <p role="status" className="text-[var(--muted)]">
+        Waiting for GitHub callback…
+      </p>
+    </div>
   );
 }
 
@@ -102,15 +153,20 @@ export function GitHubConnectionPage(): ReactNode {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader
-        title="GitHub connection"
-        description="Installations and repository grants are recorded by the API. This page does not talk to GitHub directly."
-        actions={
-          <Button tone="neutral" onClick={() => logout.mutate()} disabled={logout.isPending}>
-            Sign out
-          </Button>
-        }
-      />
+      <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
+            GitHub connection
+          </h1>
+          <p className="mt-2 text-[var(--muted)]">
+            Installations and repository grants are recorded by the API. This page does not talk to GitHub
+            directly.
+          </p>
+        </div>
+        <Button tone="neutral" onClick={() => logout.mutate()} disabled={logout.isPending}>
+          Sign out
+        </Button>
+      </header>
       {installations.isError ? (
         <ProblemAlert
           problem={classifyUiProblem(installations.error)}
@@ -119,13 +175,15 @@ export function GitHubConnectionPage(): ReactNode {
       ) : null}
       {installations.isLoading ? <p role="status">Loading installations…</p> : null}
       {installations.data !== undefined && installations.data.length === 0 ? (
-        <div className="rounded-lg border border-[var(--line)] bg-[var(--bg-elevated)] p-6">
-          <h2 className="text-lg font-medium">No GitHub App installation on file</h2>
+        <Card className="p-8">
+          <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold">
+            No GitHub App installation on file
+          </h2>
           <p className="mt-2 text-[var(--muted)]">
             Sign-in proves your identity. Repository access requires the DevGuard GitHub App. Start
             installation from the server so the callback stays on this origin.
           </p>
-          <div className="mt-4">
+          <div className="mt-6">
             <Button onClick={() => startInstall.mutate()} disabled={startInstall.isPending}>
               {startInstall.isPending ? 'Starting…' : 'Connect GitHub App'}
             </Button>
@@ -135,28 +193,34 @@ export function GitHubConnectionPage(): ReactNode {
               <ProblemAlert problem={classifyUiProblem(startInstall.error)} />
             </div>
           ) : null}
-        </div>
+        </Card>
       ) : (
         <ul className="space-y-3">
           {(installations.data ?? []).map((installation) => (
-            <li key={installation.id} className="rounded-lg border border-[var(--line)] p-4">
-              <p className="font-medium">{installation.accountLogin}</p>
-              <p className="text-sm text-[var(--muted)]">
-                {installation.accountType} · {installation.status}
-              </p>
+            <li key={installation.id}>
+              <Card className="p-5">
+                <p className="font-medium">{installation.accountLogin}</p>
+                <p className="text-sm text-[var(--muted)]">
+                  {installation.accountType} · {installation.status}
+                </p>
+              </Card>
             </li>
           ))}
         </ul>
       )}
-      <h2 className="mt-8 text-lg font-medium">Connected repositories</h2>
+      <h2 className="mt-10 font-[family-name:var(--font-display)] text-xl font-semibold">
+        Connected repositories
+      </h2>
       {(repos.data ?? []).length === 0 ? (
         <p className="mt-2 text-[var(--muted)]">
           None yet. Continue to repository onboarding after an installation exists.
         </p>
       ) : (
-        <ul className="mt-2 list-disc pl-5">
+        <ul className="mt-3 space-y-2">
           {(repos.data ?? []).map((repo) => (
-            <li key={repo.id}>{repo.fullName ?? repo.name}</li>
+            <li key={repo.id} className="rounded-lg border border-[var(--line)] bg-[var(--bg-muted)] px-4 py-2">
+              {repo.fullName ?? repo.name}
+            </li>
           ))}
         </ul>
       )}
@@ -169,8 +233,10 @@ function CallbackRedirect({ target }: { readonly target: string }): ReactNode {
     window.location.replace(target);
   }, [target]);
   return (
-    <p role="status" className="p-8">
-      Completing sign-in with the control plane…
-    </p>
+    <div className="flex min-h-screen items-center justify-center">
+      <p role="status" className="text-[var(--muted)]">
+        Completing sign-in with the control plane…
+      </p>
+    </div>
   );
 }

@@ -35,18 +35,16 @@ import { registerWebSurfaceRoutes } from './routes/web-surface.routes.js';
 
 /** CP015 (C074) — dependency preflight from the container config (fail closed). */
 function preflightStatus(container: ApiContainer): PreflightStatus {
-  const cfg = container.config as {
-    databaseUrlRef?: { name?: string };
-    redisUrlRef?: { name?: string };
-    github?: { appId?: number | string } | undefined;
-  };
+  const cfg = container.config;
   const real = (ref?: { name?: string }): boolean =>
     ref !== undefined && ref.name !== undefined && !ref.name.startsWith('<');
+  const trueforgeEnabled = cfg.features.trueforgeIntegrationEnabled.value;
+  const sandboxEnabled = cfg.features.sandboxExecutionEnabled.value;
   return {
     database: real(cfg.databaseUrlRef),
     redis: real(cfg.redisUrlRef),
-    trueforge: false,
-    sandbox: false,
+    trueforge: trueforgeEnabled && cfg.trueforge !== undefined,
+    sandbox: sandboxEnabled && trueforgeEnabled && cfg.trueforge !== undefined,
     github: cfg.github !== undefined,
   };
 }

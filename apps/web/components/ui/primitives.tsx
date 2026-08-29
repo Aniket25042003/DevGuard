@@ -28,8 +28,16 @@ export function StatusBadge({
   readonly label?: string;
 }): ReactNode {
   const meta = STATUS_COPY[status] ?? { label: label ?? status, icon: '•' };
+  const tone =
+    status === 'ready' || status === 'completed' || status === 'approved'
+      ? 'text-[var(--ok)]'
+      : status === 'failed' || status === 'rejected' || status === 'degraded'
+        ? 'text-[var(--danger)]'
+        : status === 'waiting_for_approval' || status === 'pending'
+          ? 'text-[var(--warn)]'
+          : 'text-[var(--muted)]';
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm">
+    <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${tone}`}>
       <span aria-hidden="true">{meta.icon}</span>
       <span>{label ?? meta.label}</span>
     </span>
@@ -59,7 +67,7 @@ export function SkipLink(): ReactNode {
   return (
     <a
       href="#main"
-      className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-[var(--bg-elevated)] focus:px-4 focus:py-3"
+      className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[var(--bg-elevated)] focus:px-4 focus:py-3 focus:shadow-[var(--shadow-md)]"
     >
       Skip to main content
     </a>
@@ -73,6 +81,7 @@ export function Button({
   disabled,
   tone = 'primary',
   href,
+  size = 'md',
 }: {
   readonly children: ReactNode;
   readonly type?: 'button' | 'submit' | undefined;
@@ -80,14 +89,16 @@ export function Button({
   readonly disabled?: boolean | undefined;
   readonly tone?: 'primary' | 'neutral' | 'danger' | undefined;
   readonly href?: string | undefined;
+  readonly size?: 'md' | 'lg' | undefined;
 }): ReactNode {
   const palette =
     tone === 'danger'
-      ? 'bg-[var(--danger)] text-white'
+      ? 'bg-[var(--danger)] text-white hover:opacity-90'
       : tone === 'neutral'
-        ? 'border border-[var(--line)] bg-[var(--bg-elevated)] text-[var(--ink)]'
-        : 'bg-[var(--accent)] text-[var(--accent-ink)]';
-  const className = `inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-4 text-sm font-medium ${palette} disabled:opacity-50`;
+        ? 'border border-[var(--line)] bg-[var(--bg-elevated)] text-[var(--ink)] hover:border-[var(--accent)]'
+        : 'bg-[var(--accent)] text-[var(--accent-ink)] hover:bg-[var(--accent-hover)] shadow-[var(--shadow-sm)]';
+  const sizing = size === 'lg' ? 'min-h-12 px-6 text-base' : 'min-h-11 px-4 text-sm';
+  const className = `inline-flex min-w-11 items-center justify-center rounded-xl font-medium transition ${sizing} ${palette} disabled:opacity-50 disabled:pointer-events-none`;
   if (href !== undefined) {
     return (
       <a className={className} href={disabled === true ? undefined : href} aria-disabled={disabled}>
@@ -112,15 +123,31 @@ export function PageHeader({
   readonly actions?: ReactNode;
 }): ReactNode {
   return (
-    <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">{title}</h1>
         {description !== undefined ? (
-          <p className="mt-1 text-[var(--muted)]">{description}</p>
+          <p className="mt-2 max-w-2xl text-[var(--muted)]">{description}</p>
         ) : null}
       </div>
-      {actions}
+      {actions !== undefined ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
     </header>
+  );
+}
+
+export function Card({
+  children,
+  className,
+}: {
+  readonly children: ReactNode;
+  readonly className?: string;
+}): ReactNode {
+  return (
+    <div
+      className={`rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] shadow-[var(--shadow-sm)] ${className ?? ''}`}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -134,18 +161,18 @@ export function EmptyState({
   readonly action?: ReactNode;
 }): ReactNode {
   return (
-    <div className="rounded-lg border border-[var(--line)] bg-[var(--bg-elevated)] p-6">
-      <h2 className="text-lg font-medium">{title}</h2>
+    <Card className="p-8">
+      <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold">{title}</h2>
       <p className="mt-2 text-[var(--muted)]">{body}</p>
-      {action !== undefined ? <div className="mt-4">{action}</div> : null}
-    </div>
+      {action !== undefined ? <div className="mt-6">{action}</div> : null}
+    </Card>
   );
 }
 
 export function Skeleton({ className }: { readonly className?: string }): ReactNode {
   return (
     <div
-      className={`animate-pulse rounded bg-[var(--line)] ${className ?? 'h-24'}`}
+      className={`animate-pulse rounded-lg bg-[var(--line)] ${className ?? 'h-24'}`}
       aria-hidden="true"
     />
   );

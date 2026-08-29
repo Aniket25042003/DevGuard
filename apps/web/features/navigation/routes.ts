@@ -16,7 +16,7 @@ export type AppRoute =
 export function buildAppHref(route: AppRoute): string {
   switch (route.name) {
     case 'home':
-      return '/';
+      return '/repositories';
     case 'signIn':
       return route.returnTo !== undefined
         ? `/sign-in?returnTo=${encodeURIComponent(route.returnTo)}`

@@ -1,5 +1,6 @@
-import { redirect } from 'next/navigation';
+import type { ReactNode } from 'react';
+import { LandingPage } from '@/features/marketing/components/landing-page';
 
-export default function HomePage(): never {
-  redirect('/repositories');
+export default function Page(): ReactNode {
+  return <LandingPage />;
 }

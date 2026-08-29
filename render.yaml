@@ -54,15 +54,15 @@ services:
       - key: TRUEFORGE_API_KEY
         sync: false
       - key: FLAG_TRUEFORGE_INTEGRATION_ENABLED
-        value: 'false'
+        value: 'true'
       - key: FLAG_SANDBOX_EXECUTION_ENABLED
-        value: 'false'
+        value: 'true'
       - key: FLAG_GITHUB_WRITES_ENABLED
         value: 'false'
       - key: FLAG_WEBHOOK_INGRESS_ENABLED
-        value: 'false'
+        value: 'true'
       - key: FLAG_APPROVAL_EXECUTION_ENABLED
-        value: 'false'
+        value: 'true'
 
   - type: worker
     name: devguard-worker
@@ -101,15 +101,15 @@ services:
       - key: TRUEFORGE_API_KEY
         sync: false
       - key: FLAG_TRUEFORGE_INTEGRATION_ENABLED
-        value: 'false'
+        value: 'true'
       - key: FLAG_SANDBOX_EXECUTION_ENABLED
-        value: 'false'
+        value: 'true'
       - key: FLAG_GITHUB_WRITES_ENABLED
         value: 'false'
       - key: FLAG_WEBHOOK_INGRESS_ENABLED
-        value: 'false'
+        value: 'true'
       - key: FLAG_APPROVAL_EXECUTION_ENABLED
-        value: 'false'
+        value: 'true'
 
   - type: keyvalue
     name: devguard-redis

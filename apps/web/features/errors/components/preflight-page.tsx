@@ -30,13 +30,13 @@ export function PreflightPage(): ReactNode {
           onRecover={() => void preflight.refetch()}
         />
       ) : null}
-      <ul className="space-y-2">
+      <ul className="grid gap-3 sm:grid-cols-2">
         {Object.entries(preflight.data ?? {}).map(([name, ok]) => (
           <li
             key={name}
-            className="flex min-h-11 items-center justify-between rounded-md border border-[var(--line)] px-3"
+            className="flex min-h-14 items-center justify-between rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] px-5 shadow-[var(--shadow-sm)]"
           >
-            <span>{name}</span>
+            <span className="font-medium capitalize">{name}</span>
             <StatusBadge
               status={ok ? 'ready' : 'failed'}
               label={ok ? 'Available' : 'Unavailable'}

@@ -153,10 +153,12 @@ function SummaryCard({
   return (
     <Link
       href={href}
-      className="rounded-lg border border-[var(--line)] bg-[var(--bg-elevated)] p-4"
+      className="group rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] p-5 shadow-[var(--shadow-sm)] transition hover:border-[var(--accent)] hover:shadow-[var(--shadow-md)]"
     >
-      <p className="text-sm text-[var(--muted)]">{title}</p>
-      <p className="mt-1 text-xl font-semibold">{value}</p>
+      <p className="text-sm font-medium text-[var(--muted)]">{title}</p>
+      <p className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold group-hover:text-[var(--accent)]">
+        {value}
+      </p>
     </Link>
   );
 }
@@ -183,7 +185,11 @@ function OriginFilter({
             key={value}
             href={href}
             aria-current={selected ? 'page' : undefined}
-            className={`min-h-11 rounded-md border px-3 py-2 text-sm ${selected ? 'border-[var(--ink)]' : 'border-[var(--line)]'}`}
+            className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-medium transition ${
+              selected
+                ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                : 'border-[var(--line)] hover:border-[var(--accent)]'
+            }`}
           >
             {value === 'all' ? 'All sources' : originLabel(value)}
           </Link>
