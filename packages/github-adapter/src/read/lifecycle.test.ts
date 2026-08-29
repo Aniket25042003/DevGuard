@@ -130,4 +130,31 @@ describe('RepositoryLifecycleService (C013)', () => {
       detail: expect.stringContaining('contents: read'),
     });
   });
+
+  it('allows connect when GitHub granted write permissions on required scopes', async () => {
+    const service = makeService(
+      {
+        onboardRepository: async (input) =>
+          baseRecord({
+            githubRepositoryId: input.githubRepositoryId,
+            installationId: input.installationId,
+            ownerLogin: input.ownerLogin,
+            repoName: input.repoName,
+          }),
+      },
+      true,
+      ['contents: write', 'issues: write', 'metadata: read'],
+    );
+    const result = await service.connect({
+      actorId: 'user-1',
+      installationId: 'inst-1',
+      githubRepositoryId: 42,
+      idempotencyKey: 'k1',
+      ownerLogin: 'octo',
+      repoName: 'demo',
+      defaultBranch: 'main',
+      visibility: 'private',
+    });
+    expect(result.outcome).toBe('CONNECTED');
+  });
 });

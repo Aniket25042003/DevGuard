@@ -102,6 +102,35 @@ export type ConnectionResult =
   | { readonly outcome: 'DISCONNECTED'; readonly record: ConnectedRepositoryRecord }
   | { readonly outcome: 'BLOCKED'; readonly code: string; readonly detail: string };
 
+const CONNECT_REQUIRED_PERMISSIONS = ['contents: read', 'issues: read', 'metadata: read'] as const;
+
+/** GitHub grants write/admin on a scope when only read is required for connect. */
+export function installationGrantsPermission(
+  granted: readonly string[],
+  required: string,
+): boolean {
+  if (granted.includes(required)) return true;
+  const separator = required.indexOf(': ');
+  if (separator < 1) return false;
+  const scope = required.slice(0, separator);
+  const level = required.slice(separator + 2);
+  if (level !== 'read') return false;
+  return granted.some((permission) => {
+    const idx = permission.indexOf(': ');
+    if (idx < 1) return false;
+    if (permission.slice(0, idx) !== scope) return false;
+    const grantedLevel = permission.slice(idx + 2);
+    return grantedLevel === 'write' || grantedLevel === 'admin';
+  });
+}
+
+function missingInstallationPermissions(
+  granted: readonly string[],
+  required: readonly string[],
+): readonly string[] {
+  return required.filter((permission) => !installationGrantsPermission(granted, permission));
+}
+
 export class RepositoryLifecycleService {
   constructor(
     private readonly persistence: RepositoryLifecyclePersistencePort,
@@ -124,8 +153,10 @@ export class RepositoryLifecycleService {
     }
 
     // Validate permissions before every connected or reconnected outcome.
-    const reconnectRequired = ['contents: read', 'issues: read', 'metadata: read'];
-    const reconnectMissing = reconnectRequired.filter((r) => !installation.permissions.includes(r));
+    const reconnectMissing = missingInstallationPermissions(
+      installation.permissions,
+      CONNECT_REQUIRED_PERMISSIONS,
+    );
     if (reconnectMissing.length > 0) {
       return {
         outcome: 'BLOCKED',
@@ -149,8 +180,10 @@ export class RepositoryLifecycleService {
     }
 
     // Verify required read permissions from the installation snapshot.
-    const required = ['contents: read', 'issues: read', 'metadata: read'];
-    const missing = required.filter((r) => !installation.permissions.includes(r));
+    const missing = missingInstallationPermissions(
+      installation.permissions,
+      CONNECT_REQUIRED_PERMISSIONS,
+    );
     if (missing.length > 0) {
       return {
         outcome: 'BLOCKED',
