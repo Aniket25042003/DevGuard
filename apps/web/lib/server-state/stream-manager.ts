@@ -76,7 +76,10 @@ export function createTimelineStream(input: {
           ingest,
         );
         if (stopped || input.signal.aborted) return;
-        attempt = 0;
+        emit({ status: 'gap' });
+        const wait = backoffMs[Math.min(attempt, backoffMs.length - 1)] ?? 15_000;
+        attempt += 1;
+        await delay(wait, input.signal);
       } catch (error) {
         if (stopped || input.signal.aborted) return;
         if (error instanceof DevGuardApiError && (error.isUnauthenticated || error.isForbidden)) {
