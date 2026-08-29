@@ -2,7 +2,23 @@
 
 **Autonomous software engineering with a license to act.**
 
-DevGuard is a GitHub-focused control plane for autonomous software engineering. It lets an AI agent inspect repositories, understand issues, modify code, run changes in an isolated sandbox, validate results, open pull requests, and respond to review feedback — all within explicit, enforceable autonomy policies that maintainers define per repository.
+DevGuard is a GitHub-focused control plane for autonomous software engineering. It lets AI agents inspect repositories, understand issues, modify code, run changes in an isolated sandbox, validate results, open pull requests, and respond to review feedback — all within explicit, enforceable autonomy policies that maintainers define per repository.
+
+**Live demo:** [devguard-olive.vercel.app](https://devguard-olive.vercel.app) · **Overview video:** [marketing/demo-video](marketing/demo-video/)
+
+---
+
+## Overview
+
+DevGuard gives engineering teams a single place to **launch**, **govern**, and **audit** agent work across three surfaces:
+
+| Surface | What you can do |
+| --- | --- |
+| **Web** | Connect repositories, configure policy, launch workflows, and review approvals |
+| **CLI** | Run governed commands from the terminal — start reviews, watch runs, approve gated actions |
+| **GitHub** | Trigger workflows from pull request comments and receive inline policy and status updates |
+
+Every run — regardless of where it started — flows through the same policy engine, approval gates, sandboxed execution, and audit trail.
 
 ---
 
@@ -131,15 +147,10 @@ See [Local development](docs/local-development.md) for the full command referenc
 - [Deployment topology](docs/deployment/deployment-topology.md)
 - [Demo guide](docs/deployment/demo-guide.md)
 - [Troubleshooting](docs/deployment/troubleshooting.md)
-
----
-
-## Status
-
-The backend control plane is implemented across a 100-component engineering plan. Deterministic portions of the E2E/adversarial matrix and the deployment topology/demo framework are in the repository. The web app is scaffolded; a live-provider demo requires provisioned GitHub App and TrueForge credentials (see the demo guide for `LIVE` vs `HISTORICAL` vs `REHEARSAL` labeling).
+- [Launch demo video](marketing/demo-video/) — product overview (~2:36)
 
 ---
 
 ## License
 
-Proprietary / TBD.
+Proprietary. All rights reserved.
