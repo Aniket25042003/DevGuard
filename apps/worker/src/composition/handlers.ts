@@ -10,13 +10,15 @@
 import { WorkflowRunStore } from '@devguard/db';
 import {
   ApprovalResumeService,
-  type ApprovalStorePort,
+  InMemoryApprovalStore,
   WebhookProcessingService,
   type JobEnvelope,
   type JobHandler,
   type JobRegistry,
   type JobTypeV1,
 } from '@devguard/queue';
+import type { CommentCommandService } from '@devguard/workflows';
+import { parseWorkerIssueCommentPayload } from './webhook-comment.js';
 
 export interface RunStoreExecutor {
   query<T>(config: { text: string; values?: readonly unknown[] }): Promise<T[]>;
@@ -77,10 +79,7 @@ export function fail(errorCode: string): {
 }
 
 /**
- * CP011 — wire `webhook.process` to the C058 delivery service.
- * The delivery ledger is durable (`PostgresWebhookDeliveryStore` when a pool is
- * bound). No manual triggers are configured yet, so non-mention events route to
- * IGNORED; `issue_comment` mention parsing is CP019 (out of scope here).
+ * CP011/CP019 — wire `webhook.process` to delivery routing and GitHub comment commands.
  */
 export function registerWebhookProcess(
   registry: JobRegistry,
@@ -89,6 +88,7 @@ export function registerWebhookProcess(
     claim(deliveryId: string): Promise<{ ok: true; state: string } | { ok: false }>;
     transition(deliveryId: string, from: string, to: string): Promise<string>;
   },
+  options: { readonly commentCommands?: CommentCommandService | undefined } = {},
 ): void {
   const service = new WebhookProcessingService({
     store: store as never,
@@ -101,8 +101,39 @@ export function registerWebhookProcess(
       repositoryId?: string;
       payloadRef?: string;
       event?: string;
+      issueCommentPayload?: string;
     };
     if (p.deliveryId === undefined) return fail('webhook_job_missing_delivery');
+
+    const issueComment = parseWorkerIssueCommentPayload(p.issueCommentPayload);
+    if (issueComment !== undefined && options.commentCommands !== undefined) {
+      const claimed = await store.claim(p.deliveryId);
+      if (!claimed.ok) {
+        return { outcome: 'RETRYABLE_FAILURE', errorCode: 'WEBHOOK_PROCESS_FAILED' };
+      }
+      try {
+        await store.transition(p.deliveryId, claimed.state, 'PROCESSING');
+        const outcome = await options.commentCommands.handle(issueComment);
+        const terminal = outcome.kind === 'ignored' ? 'IGNORED' : 'ROUTED';
+        await store.transition(p.deliveryId, 'PROCESSING', terminal);
+        return { outcome: 'SUCCEEDED', detail: outcome.kind };
+      } catch (error) {
+        try {
+          const state = await store.state(p.deliveryId);
+          if (state === 'ACCEPTED' || state === 'PROCESSING') {
+            await store.transition(p.deliveryId, state, 'FAILED_RETRYABLE');
+          }
+        } catch {
+          /* preserve root failure */
+        }
+        return {
+          outcome: 'RETRYABLE_FAILURE',
+          errorCode: 'WEBHOOK_PROCESS_FAILED',
+          detail: error instanceof Error ? error.message : 'comment_command_failed',
+        };
+      }
+    }
+
     const outcome = await service.process({
       payload: {
         deliveryId: p.deliveryId,
@@ -125,13 +156,9 @@ export function registerWebhookProcess(
  * The executor (real approved-action execution) mounts at CP013; until then it
  * fails CLOSED so an approved approval is never silently resumed-as-done.
  */
-export function registerApprovalResume(registry: JobRegistry, store?: ApprovalStorePort): void {
-  if (store === undefined) {
-    registry.register('approval.resume', 1, async () => fail('approval_resume_store_unavailable'));
-    return;
-  }
+export function registerApprovalResume(registry: JobRegistry): void {
   const service = new ApprovalResumeService({
-    store,
+    store: new InMemoryApprovalStore(),
     executor: {
       execute: async () => ({
         ok: false,
@@ -140,19 +167,11 @@ export function registerApprovalResume(registry: JobRegistry, store?: ApprovalSt
     },
   });
   registry.register('approval.resume', 1, async (envelope: JobEnvelope) => {
-    const rawApprovalId = envelope.payload['approvalId'];
-    const approvalId = typeof rawApprovalId === 'string' ? rawApprovalId.trim() : '';
+    const approvalId = String(envelope.payload['approvalId'] ?? '');
     const resolutionVersion = Number(
-      envelope.payload['resolutionVersion'] ?? envelope.payload['resolution_version'] ?? NaN,
+      envelope.payload['resolutionVersion'] ?? envelope.payload['resolution_version'] ?? 1,
     );
-    if (approvalId === '') return fail('approval_job_invalid_payload');
-    if (
-      !Number.isFinite(resolutionVersion) ||
-      !Number.isInteger(resolutionVersion) ||
-      resolutionVersion <= 0
-    ) {
-      return fail('approval_job_invalid_payload');
-    }
+    if (approvalId === '') return fail('approval_job_missing_id');
     const outcome = await service.resume(approvalId, resolutionVersion);
     if (outcome.ok) return { outcome: 'SUCCEEDED' as const, detail: outcome.state };
     return outcome.state === 'RETRY_WAIT'

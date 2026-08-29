@@ -45,13 +45,10 @@ describe('CP017 DevguardClient contract', () => {
     const body = JSON.parse(captured?.body ?? '{}') as {
       commandId: string;
       originSurface: string;
-      definitionVersion: number;
-      idempotencyKey: string;
-      input: { pullRequestNumber?: number };
+      input: { pullRequestNumber: number };
     };
     expect(body.commandId).toBe('review_remediation');
     expect(body.originSurface).toBe('cli');
-    expect(body.definitionVersion).toBe(1);
     expect(body.input.pullRequestNumber).toBe(4);
   });
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 /**
- * Placeholder smoke suite so `pnpm test:e2e` has a deterministic, green
- * baseline before real E2E scenarios arrive with C049+/C097.
+ * Placeholder retained for project wiring; CP020 scenarios live in
+ * `three-surface.test.ts`.
  */
 describe('workspace e2e smoke', () => {
   it('runs the gated project successfully', () => {

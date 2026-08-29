@@ -81,7 +81,9 @@ export class OutboxPublisher {
       const runId = String(
         row.correlation['runId'] ?? row.payload['runId'] ?? row.correlation['workflowRunId'] ?? '',
       );
-      const deliveryId = String(row.correlation['deliveryId'] ?? row.payload['deliveryId'] ?? '');
+      const deliveryId = String(
+        row.correlation['deliveryId'] ?? row.correlation['deliveryId'] ?? '',
+      );
       const repositoryId = String(
         row.correlation['repositoryId'] ?? row.payload['repositoryId'] ?? '',
       );
@@ -133,6 +135,10 @@ export class OutboxPublisher {
       deliveryId,
       repositoryId: String(row.correlation['repositoryId'] ?? row.payload['repositoryId'] ?? ''),
       payloadRef: String(row.correlation['payloadRef'] ?? row.payload['payloadRef'] ?? ''),
+      event: String(row.payload['event'] ?? row.correlation['payloadRef'] ?? ''),
+      ...(typeof row.payload['issueCommentPayload'] === 'string'
+        ? { issueCommentPayload: row.payload['issueCommentPayload'] }
+        : {}),
     };
   }
 }

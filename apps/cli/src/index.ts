@@ -27,7 +27,7 @@ interface ApiResult {
   data: unknown;
 }
 
-export type FetchLike = (
+type FetchLike = (
   input: string,
   init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{
@@ -410,7 +410,7 @@ async function resolveRepository(
 async function guessRowVersion(client: DevguardClient, runId: string): Promise<string> {
   const r = await client.runShow(runId);
   const d = r.data as { data?: { rowVersion?: number | string } };
-  return String(d.data?.rowVersion ?? 1);
+  return String(d.data?.rowVersion ?? '');
 }
 
 function humanRuns(data: unknown): string {

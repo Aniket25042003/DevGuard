@@ -57,7 +57,7 @@ function parseProvenanceFilter<T extends string>(
   value: string | undefined,
   allowed: ReadonlySet<T>,
 ): T | undefined {
-  if (value === undefined) return undefined;
+  if (value === undefined || value.length === 0) return undefined;
   if (!allowed.has(value as T)) {
     throw validationFailed([{ path: 'filters', constraint: 'unknown provenance filter value' }]);
   }
@@ -116,6 +116,8 @@ function toRunDto(run: RunRow): WorkflowRunDtoV1 {
     updatedAt: run.updatedAtIso,
     version: run.rowVersion,
     links: { self: `/api/v1/workflows/${run.id}` },
+    ...(run.sessionId !== undefined ? { sessionId: run.sessionId } : {}),
+    ...(run.pullRequestNumber !== undefined ? { pullRequestNumber: run.pullRequestNumber } : {}),
   });
 }
 
@@ -277,12 +279,21 @@ export function registerWorkflowRoutes(
         raw.originSurface ?? raw.triggerSource,
         ORIGIN_SURFACES,
       );
+      let pullRequestNumber: number | undefined;
+      if (raw.pullRequestNumber !== undefined && raw.pullRequestNumber !== '') {
+        const parsedPr = Number(raw.pullRequestNumber);
+        if (!Number.isSafeInteger(parsedPr) || parsedPr < 1) {
+          throw validationFailed([{ path: 'pullRequestNumber', constraint: 'positive integer' }]);
+        }
+        pullRequestNumber = parsedPr;
+      }
       const page = await container.workflowQueries.listRuns({
         repositoryId,
         ...(limit !== undefined ? { limit } : {}),
         ...(raw.cursor !== undefined ? parseCursor(raw.cursor) : {}),
         ...(triggerType !== undefined ? { triggerType } : {}),
         ...(originSurface !== undefined ? { originSurface } : {}),
+        ...(pullRequestNumber !== undefined ? { pullRequestNumber } : {}),
       });
       return c.json({
         data: {

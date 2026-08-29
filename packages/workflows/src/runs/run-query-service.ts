@@ -19,6 +19,8 @@ export interface RunRow {
   readonly startedAtIso?: string | undefined;
   readonly completedAtIso?: string | undefined;
   readonly rowVersion: number;
+  readonly pullRequestNumber?: number | undefined;
+  readonly sessionId?: string | undefined;
 }
 
 export type OriginSurfaceV1 = 'web' | 'cli' | 'github_comment' | 'github_event' | 'schedule';
@@ -32,6 +34,7 @@ export interface WorkflowRunStorePort {
     readonly cursor?: { readonly createdAtIso: string; readonly id: string } | undefined;
     readonly triggerType?: TriggerTypeV1 | undefined;
     readonly originSurface?: OriginSurfaceV1 | undefined;
+    readonly pullRequestNumber?: number | undefined;
   }): Promise<RunRow[]>;
   cancel(id: string, expectedVersion: number): Promise<RunRow>;
 }
@@ -66,14 +69,18 @@ export class WorkflowQueryService {
     readonly cursor?: Cursor | undefined;
     readonly triggerType?: TriggerTypeV1 | undefined;
     readonly originSurface?: OriginSurfaceV1 | undefined;
+    readonly pullRequestNumber?: number | undefined;
   }): Promise<RunListPage> {
     const requested = Math.min(Math.max(input.limit ?? DEFAULT_RUN_LIMIT, 1), MAX_RUN_LIMIT);
     const rows = await this.deps.runs.list({
       repositoryId: input.repositoryId,
       limit: requested + 1,
       cursor: input.cursor,
-      triggerType: input.triggerType,
-      originSurface: input.originSurface,
+      ...(input.triggerType !== undefined ? { triggerType: input.triggerType } : {}),
+      ...(input.originSurface !== undefined ? { originSurface: input.originSurface } : {}),
+      ...(input.pullRequestNumber !== undefined
+        ? { pullRequestNumber: input.pullRequestNumber }
+        : {}),
     });
     const hasMore = rows.length > requested;
     const page = hasMore ? rows.slice(0, requested) : rows;

@@ -39,23 +39,8 @@ import {
   registerWorkflowExecute,
   volatileRunTransitions,
 } from './handlers.js';
-
-/** Shared fail-closed stubs until their owning components land. */
-export class UnavailableGitHubPermissionPort implements GitHubPermissionPort {
-  async fetchUserRole(): Promise<{ role: 'none'; snapshotHash: string }> {
-    throw new Error('github_permission_port_unavailable');
-  }
-}
-
-export class EmptyLocalRepositoryAccessPort implements LocalRepositoryAccessPort {
-  async findLinkage(): Promise<undefined> {
-    return undefined;
-  }
-
-  async isConnectingOwner(): Promise<boolean> {
-    return false;
-  }
-}
+import { buildCommentCommandService, buildWorkerAuthorizer } from './comment-commands.js';
+import { EmptyLocalRepositoryAccessPort, UnavailableGitHubPermissionPort } from './stubs.js';
 
 export interface WorkerContainer {
   readonly config: WorkerConfigSnapshot;
@@ -112,9 +97,13 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
     registry,
     pool !== undefined ? durableRunTransitions(pool) : volatileRunTransitions(),
   );
+  const commentAuthorizer = buildWorkerAuthorizer(pool);
+  const commentCommands =
+    pool !== undefined ? buildCommentCommandService(pool, commentAuthorizer) : undefined;
   registerWebhookProcess(
     registry,
     pool !== undefined ? new PostgresWebhookDeliveryStore(pool) : new InMemoryDeliveryStore(),
+    { commentCommands },
   );
   registerApprovalResume(registry);
   registerFailClosedHandlers(registry);

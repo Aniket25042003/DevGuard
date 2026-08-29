@@ -3,16 +3,31 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "DevGuard web application shell (UI feature work is out of scope until C076+).",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./package.json": "./package.json"
-  },
+  "description": "DevGuard Next.js control-plane UI over /api/v1 (CP018). Cookie+CSRF client only.",
   "scripts": {
-    "build": "tsc -b",
-    "clean": "rm -rf dist *.tsbuildinfo"
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "rm -rf .next dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@devguard/api-contracts": "workspace:*",
+    "@devguard/contracts": "workspace:*",
+    "@devguard/errors": "workspace:*",
+    "@tanstack/react-query": "^5.90.2",
+    "next": "^16.0.7",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.12",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "jsdom": "^26.1.0",
+    "tailwindcss": "^4.1.12"
   }
 }

@@ -19,6 +19,7 @@ export default tseslint.config(
       '**/*.tsbuildinfo',
       '**/*.d.ts',
       'docs/implementation-plan/**',
+      '**/.next/**',
       // Negative fixtures intentionally contain type errors and banned patterns.
       'tooling/fixtures/negative/**',
     ],
@@ -26,7 +27,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['**/*.ts', '**/*.mts'],
+    files: ['**/*.ts', '**/*.tsx', '**/*.mts'],
     languageOptions: {
       globals: {
         process: 'readonly',
@@ -43,6 +44,15 @@ export default tseslint.config(
         Request: 'readonly',
         Response: 'readonly',
         fetch: 'readonly',
+        window: 'readonly',
+        document: 'readonly',
+        navigator: 'readonly',
+        HTMLElement: 'readonly',
+        FormData: 'readonly',
+        Headers: 'readonly',
+        EventSource: 'readonly',
+        TextDecoder: 'readonly',
+        ReadableStream: 'readonly',
       },
     },
     rules: {
@@ -86,7 +96,7 @@ export default tseslint.config(
   },
   {
     // Test sources may use console sparingly but still no `any`.
-    files: ['**/*.test.ts', 'tests/**/*.ts', 'tooling/fixtures/**/*.ts'],
+    files: ['**/*.test.ts', '**/*.test.tsx', 'tests/**/*.ts', 'tooling/fixtures/**/*.ts'],
     rules: {
       'no-console': 'off',
     },

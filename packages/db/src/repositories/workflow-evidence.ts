@@ -51,6 +51,8 @@ export interface WorkflowRunProjection {
   readonly startedAtIso?: string | undefined;
   readonly completedAtIso?: string | undefined;
   readonly rowVersion: number;
+  readonly pullRequestNumber?: number | undefined;
+  readonly sessionId?: string | undefined;
 }
 
 const PROJ_COLS = `id::text AS id, repository_id::text AS repository_id,
@@ -60,7 +62,10 @@ const PROJ_COLS = `id::text AS id, repository_id::text AS repository_id,
   definition_version::text AS definition_version,
   created_at::text AS created_at, updated_at::text AS updated_at,
   started_at::text AS started_at, completed_at::text AS completed_at,
-  row_version::text AS row_version`;
+  row_version::text AS row_version,
+  pr_number,
+  (SELECT s.id::text FROM agent_sessions s WHERE s.run_id = workflow_runs.id
+    ORDER BY s.created_at ASC LIMIT 1) AS session_id`;
 
 function iso(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
@@ -98,6 +103,12 @@ function mapRunProjection(row: Record<string, unknown>): WorkflowRunProjection {
     startedAtIso: iso(row['started_at']),
     completedAtIso: iso(row['completed_at']),
     rowVersion: Number(row['row_version']),
+    ...(Number.isFinite(Number(row['pr_number'])) && Number(row['pr_number']) > 0
+      ? { pullRequestNumber: Number(row['pr_number']) }
+      : {}),
+    ...(typeof row['session_id'] === 'string' && row['session_id'].length > 0
+      ? { sessionId: String(row['session_id']) }
+      : {}),
   };
 }
 
@@ -196,6 +207,7 @@ FROM workflow_runs WHERE idempotency_key_hash = $1`,
     readonly triggerType?: 'manual' | 'webhook' | 'api' | 'schedule' | undefined;
     readonly originSurface?:
       'web' | 'cli' | 'github_comment' | 'github_event' | 'schedule' | undefined;
+    readonly pullRequestNumber?: number | undefined;
   }): Promise<WorkflowRunProjection[]> {
     const where: string[] = ['repository_id = $1'];
     const values: unknown[] = [options.repositoryId];
@@ -215,6 +227,11 @@ FROM workflow_runs WHERE idempotency_key_hash = $1`,
     if (options.originSurface !== undefined) {
       where.push(`origin_surface = $${bind}`);
       values.push(options.originSurface);
+      bind += 1;
+    }
+    if (options.pullRequestNumber !== undefined) {
+      where.push(`pr_number = $${bind}`);
+      values.push(options.pullRequestNumber);
       bind += 1;
     }
     const rows = await this.poolLike.query<Record<string, unknown>>({

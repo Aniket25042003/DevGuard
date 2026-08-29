@@ -31,6 +31,7 @@ import { registerArtifactRoutes } from './routes/artifact.routes.js';
 import { registerAuditRoutes } from './routes/audit.routes.js';
 import { registerFindingsRoutes, registerFindingsRemediationRoutes } from './routes/findings.routes.js';
 import { registerDiagnosticsRoutes, type PreflightStatus } from './routes/diagnostics.routes.js';
+import { registerWebSurfaceRoutes } from './routes/web-surface.routes.js';
 
 /** CP015 (C074) — dependency preflight from the container config (fail closed). */
 function preflightStatus(container: ApiContainer): PreflightStatus {
@@ -146,6 +147,7 @@ export function assembleApi(container: ApiContainer): AssembledApi {
     verifyGithubHmac,
   );
   registerRepositoryRoutes(kernel, container.bindings.repositoryCatalog);
+  registerWebSurfaceRoutes(kernel, container, container.bindings.approvals);
 
   return { app: kernel.app, routeMetadata: kernel.routeMetadata };
 }

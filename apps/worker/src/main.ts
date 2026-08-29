@@ -40,28 +40,19 @@ const bootstrap = async (): Promise<void> => {
     // CP008: start the typed queue consumers from the durable WorkerRuntime.
     const runtime = container.runtime;
     runtime.start();
-    let polling = false;
     const interval = setInterval(async () => {
-      if (polling) return;
-      polling = true;
       try {
         await runtime.processOnce(Date.now());
       } catch (error) {
         console.error(
           JSON.stringify({ msg: 'worker.poll_failed', ...toErrorEnvelope(error, 'poll') }),
         );
-      } finally {
-        polling = false;
       }
     }, container.runtime.pollIntervalMs);
     const shutdown = (): void => {
       clearInterval(interval);
-      void runtime
-        .drain(() => false)
-        .finally(() => {
-          runtime.stop();
-          process.exit(0);
-        });
+      runtime.stop();
+      void runtime.drain(() => false).finally(() => process.exit(0));
     };
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);

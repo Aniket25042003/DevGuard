@@ -14,6 +14,11 @@ export interface ApprovalProjection {
   readonly approvalId: string;
   readonly state: string;
   readonly reason?: string | undefined;
+  readonly repositoryId?: string | undefined;
+  readonly workflowRunId?: string | undefined;
+  readonly actionType?: string | undefined;
+  readonly riskClass?: string | undefined;
+  readonly expiresAt?: string | undefined;
 }
 
 export interface ApprovalFields {

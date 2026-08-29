@@ -126,6 +126,55 @@ RETURNING row_version::text AS row_version`,
       throw new Error(`HEAD_VERSION_CONFLICT:expected=${expectedHeadRowVersion}`);
     }
   }
+
+  async getActive(repositoryId: string): Promise<{
+    readonly version: number;
+    readonly etag: string;
+    readonly policyJson: string;
+    readonly canonicalHash: string;
+    readonly createdBy: string;
+    readonly createdAt: string;
+  } | null> {
+    const rows = await this.poolLike.query<Record<string, unknown>>({
+      text: `SELECT v.version, v.policy_json::text AS policy_json, v.canonical_hash, v.created_by,
+        v.created_at::text AS created_at, h.row_version::text AS etag
+FROM repository_policy_heads h
+JOIN repository_policy_versions v ON v.id = h.active_policy_version_id
+WHERE h.repository_id = $1`,
+      values: [repositoryId],
+    });
+    const row = rows[0];
+    if (row === undefined) return null;
+    return {
+      version: Number(row['version']),
+      etag: String(row['etag'] ?? '0'),
+      policyJson: String(row['policy_json'] ?? '{}'),
+      canonicalHash: String(row['canonical_hash'] ?? ''),
+      createdBy: String(row['created_by'] ?? ''),
+      createdAt: String(row['created_at'] ?? ''),
+    };
+  }
+
+  async listVersions(repositoryId: string): Promise<
+    readonly {
+      readonly version: number;
+      readonly createdBy: string;
+      readonly createdAt: string;
+      readonly canonicalHash: string;
+    }[]
+  > {
+    const rows = await this.poolLike.query<Record<string, unknown>>({
+      text: `SELECT version, created_by, created_at::text AS created_at, canonical_hash
+FROM repository_policy_versions WHERE repository_id = $1 ORDER BY version DESC LIMIT 50`,
+      values: [repositoryId],
+    });
+    return rows.map((row) => ({
+      version: Number(row['version']),
+      createdBy: String(row['created_by']),
+      createdAt: String(row['created_at']),
+      canonicalHash: String(row['canonical_hash']),
+    }));
+  }
 }
 
 export class ApprovalStore {
@@ -242,5 +291,38 @@ RETURNING ${APPROVAL_COLS}`,
     const row = rows[0];
     if (!row) throw new Error(`VERSION_CONFLICT:expected=${expectedVersion}`);
     return mapApproval(row);
+  }
+
+  async list(filters: {
+    readonly repositoryId?: string | undefined;
+    readonly status?: string | undefined;
+    readonly runId?: string | undefined;
+  }): Promise<readonly Record<string, unknown>[]> {
+    const where: string[] = [];
+    const values: unknown[] = [];
+    if (filters.repositoryId !== undefined) {
+      values.push(filters.repositoryId);
+      where.push(`repository_id = $${values.length}`);
+    }
+    if (filters.status !== undefined) {
+      values.push(filters.status);
+      where.push(`status = $${values.length}`);
+    }
+    if (filters.runId !== undefined) {
+      values.push(filters.runId);
+      where.push(`workflow_run_id = $${values.length}`);
+    }
+    const sql = `SELECT ${APPROVAL_COLS} FROM approvals ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY requested_at DESC LIMIT 50`;
+    const rows = await this.poolLike.query<Record<string, unknown>>({ text: sql, values });
+    return rows.map(mapApproval);
+  }
+
+  async getById(id: string): Promise<Record<string, unknown> | null> {
+    const rows = await this.poolLike.query<Record<string, unknown>>({
+      text: `SELECT ${APPROVAL_COLS} FROM approvals WHERE id = $1`,
+      values: [id],
+    });
+    const row = rows[0];
+    return row ? mapApproval(row) : null;
   }
 }

@@ -7,6 +7,7 @@ import {
   assertMutationBranch,
   assertWritableTarget,
   buildWorkflowBranchName,
+  mutationInputDigest,
   sanitizeCommitMessage,
 } from './mutation-identity.js';
 import { advanceBranchInputSchema, createCommitInputSchema } from './contracts.js';
@@ -23,11 +24,12 @@ const BRANCH = buildWorkflowBranchName(RUN_ID, OP1);
 const BRANCH2 = buildWorkflowBranchName(RUN_ID, OP2);
 const BRANCH3 = buildWorkflowBranchName(RUN_ID, OP3);
 
-function ctx(): WriteContext {
+function writeCtx(operationKey: string, digestPayload: Record<string, unknown>): WriteContext {
+  const digest = mutationInputDigest(digestPayload);
   return {
     correlationId: 'corr-1',
     actionId: 'action-1',
-    authorized: { decisionId: 'd1', operationKey: 'op-1', actionFingerprint: 'fp', digest: 'abc' },
+    authorized: { decisionId: 'd1', operationKey, actionFingerprint: digest, digest },
   };
 }
 
@@ -38,6 +40,37 @@ function setup() {
     provider,
     store,
     clock: { nowIso: () => '2026-08-28T00:00:00.000Z' },
+  });
+  const createBranch = service.createBranch.bind(service);
+  const createCommit = service.createCommit.bind(service);
+  const advanceBranch = service.advanceBranch.bind(service);
+  Object.assign(service, {
+    createBranch: (
+      input: Parameters<GithubBranchesCommitsAdapter['createBranch']>[0],
+      ctx?: WriteContext,
+    ) =>
+      createBranch(
+        input,
+        ctx ?? writeCtx(input.operationKey, { kind: 'create_branch', ...input }),
+      ),
+    createCommit: (
+      input: Parameters<GithubBranchesCommitsAdapter['createCommit']>[0],
+      ctx?: WriteContext,
+    ) => {
+      const message = sanitizeCommitMessage(input.message);
+      return createCommit(
+        input,
+        ctx ?? writeCtx(input.operationKey, { kind: 'create_commit', ...input, message }),
+      );
+    },
+    advanceBranch: (
+      input: Parameters<GithubBranchesCommitsAdapter['advanceBranch']>[0],
+      ctx?: WriteContext,
+    ) =>
+      advanceBranch(
+        input,
+        ctx ?? writeCtx(input.operationKey, { kind: 'advance_branch', ...input }),
+      ),
   });
   return { provider, store, service };
 }
@@ -99,11 +132,11 @@ describe('C020 createBranch', () => {
       workflowRunId: RUN_ID,
       operationKey: OP1,
     };
-    const first = await service.createBranch(input, ctx());
+    const first = await service.createBranch(input);
     expect(first.status).toBe('applied');
     if (first.status !== 'applied') return;
     expect(first.value.headSha).toBe(SHA_A);
-    const second = await service.createBranch(input, ctx());
+    const second = await service.createBranch(input);
     expect(second.status).toBe('replayed');
     expect(provider.calls.filter((c) => c === 'createRef').length).toBe(1);
   });
@@ -119,7 +152,6 @@ describe('C020 createBranch', () => {
         workflowRunId: RUN_ID,
         operationKey: OP1,
       },
-      ctx(),
     );
     expect(result.status).toBe('conflict');
   });
@@ -135,7 +167,6 @@ describe('C020 createBranch', () => {
         workflowRunId: RUN_ID,
         operationKey: OP1,
       },
-      ctx(),
     );
     expect(result.status).toBe('outcome_unknown');
   });
@@ -151,7 +182,6 @@ describe('C020 createBranch', () => {
           workflowRunId: RUN_ID,
           operationKey: OP1,
         },
-        ctx(),
       ),
     ).rejects.toThrow();
     await expect(
@@ -163,7 +193,6 @@ describe('C020 createBranch', () => {
           workflowRunId: RUN_ID,
           operationKey: OP1,
         },
-        ctx(),
       ),
     ).rejects.toThrow();
   });
@@ -180,11 +209,12 @@ describe('C020 createBranch', () => {
           operationKey: OP1,
         },
         {
-          ...ctx(),
+          correlationId: 'corr-1',
+          actionId: 'action-1',
           authorized: {
             decisionId: 'd1',
-            operationKey: 'op-1',
-            actionFingerprint: 'fp',
+            operationKey: OP1,
+            actionFingerprint: '',
             digest: '',
           },
         },
@@ -202,7 +232,6 @@ describe('C020 createBranch', () => {
         workflowRunId: RUN_ID,
         operationKey: OP1,
       },
-      ctx(),
     );
     const result = await service.createBranch(
       {
@@ -212,7 +241,6 @@ describe('C020 createBranch', () => {
         workflowRunId: RUN_ID,
         operationKey: OP1,
       },
-      ctx(),
     );
     expect(result.status).toBe('conflict');
   });
@@ -230,7 +258,6 @@ describe('C020 createBranch', () => {
           workflowRunId: RUN_ID,
           operationKey: OP1,
         },
-        ctx(),
       ),
     ).rejects.toThrow('GITHUB_MUTATION_BRANCH_UNBOUND');
   });
@@ -246,7 +273,6 @@ describe('C020 createBranch', () => {
         workflowRunId: RUN_ID,
         operationKey: OP2,
       },
-      ctx(),
     );
     expect(first.status).toBe('outcome_unknown');
     // Same key/digest retried while the prior attempt is still uncertain must NOT
@@ -259,7 +285,6 @@ describe('C020 createBranch', () => {
         workflowRunId: RUN_ID,
         operationKey: OP2,
       },
-      ctx(),
     );
     expect(retry.status).toBe('outcome_unknown');
   });
@@ -286,7 +311,6 @@ describe('C020 createCommit + advanceBranch', () => {
         workflowRunId: RUN_ID,
         operationKey: OP1,
       },
-      ctx(),
     );
     expect(result.status).toBe('applied');
     if (result.status !== 'applied') return;
@@ -311,7 +335,6 @@ describe('C020 createCommit + advanceBranch', () => {
         workflowRunId: RUN_ID,
         operationKey: OP1,
       },
-      ctx(),
     );
     expect(result.status).toBe('conflict');
   });
@@ -331,7 +354,6 @@ describe('C020 createCommit + advanceBranch', () => {
         workflowRunId: RUN_ID,
         operationKey: OP1,
       },
-      ctx(),
     );
     expect(result.status).toBe('outcome_unknown');
     expect(result.detail).toContain('orphan');
@@ -350,7 +372,6 @@ describe('C020 createCommit + advanceBranch', () => {
         workflowRunId: RUN_ID,
         operationKey: OP1,
       },
-      ctx(),
     );
     expect(ok.status).toBe('applied');
     // A distinct owned branch exercises the timeout path without an ownership clash.
@@ -366,7 +387,6 @@ describe('C020 createCommit + advanceBranch', () => {
         workflowRunId: RUN_ID,
         operationKey: OP2,
       },
-      ctx(),
     );
     expect(unknown.status).toBe('outcome_unknown');
   });
@@ -413,7 +433,6 @@ describe('C020 reconcile', () => {
         workflowRunId: RUN_ID,
         operationKey: OP1,
       },
-      ctx(),
     );
     expect(result.status).toBe('outcome_unknown');
     if (result.status !== 'outcome_unknown') return;
@@ -436,7 +455,6 @@ describe('C020 reconcile', () => {
         workflowRunId: RUN_ID,
         operationKey: OP2,
       },
-      ctx(),
     );
     const op = await service.operationStore().findByIdempotency(OP2);
     if (op === undefined) throw new Error('op missing');
@@ -461,7 +479,6 @@ describe('C020 reconcile', () => {
         workflowRunId: RUN_ID,
         operationKey: OP3,
       },
-      ctx(),
     );
     const op = await service.operationStore().findByIdempotency(OP3);
     if (op === undefined) throw new Error('op missing');

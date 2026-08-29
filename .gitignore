@@ -15,6 +15,7 @@ node_modules/
 # Build outputs
 dist/
 build/
+.next/
 *.tsbuildinfo
 *.d.mts
 *.d.mts.map

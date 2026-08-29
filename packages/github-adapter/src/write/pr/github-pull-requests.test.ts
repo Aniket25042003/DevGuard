@@ -6,7 +6,7 @@ import {
 import { InMemoryPrOperationStore } from './operation-store.js';
 import { InMemoryPrProvider } from './provider-port.js';
 import { resolvePrMergeEdge, resolvePrMutationEdge } from './fsm.js';
-import { sanitizePrContent } from './pr-safe.js';
+import { sanitizePrContent, mutationInputDigest } from './pr-safe.js';
 import type { MergePullRequest, PullRequest } from './contracts.js';
 
 const OP1 = 'e1f2a3b4-0000-4000-8000-123456789abc';
@@ -17,19 +17,84 @@ const RUN = '9b5d2b1c-1122-4433-a5de-0f0f0f0f0f0f';
 const REPO = { owner: 'octo', repo: 'demo' };
 const REF = { owner: 'octo', repo: 'demo', number: 1 };
 
-function ctx(): PrWriteContext {
+function writeCtx(
+  operationKey: string,
+  digestPayload: Record<string, unknown>,
+  correlationId = 'corr',
+): PrWriteContext {
+  const digest = mutationInputDigest(digestPayload);
   return {
-    correlationId: 'corr',
+    correlationId,
     actionId: 'action-1',
-    authorized: { decisionId: 'd1', operationKey: 'op-1', actionFingerprint: 'fp', digest: 'abc' },
+    authorized: { decisionId: 'd1', operationKey, actionFingerprint: digest, digest },
   };
 }
-function ctx2(): PrWriteContext {
-  return {
-    correlationId: 'corr2',
-    actionId: 'action-2',
-    authorized: { decisionId: 'd2', operationKey: 'op-2', actionFingerprint: 'fp', digest: 'abc' },
-  };
+
+function setup() {
+  const provider = new InMemoryPrProvider();
+  const store = new InMemoryPrOperationStore();
+  const service = new GitHubPullRequestsReviewsChecksAdapter({
+    provider,
+    store,
+    clock: { nowIso: () => '2026-08-28T00:00:00.000Z' },
+  });
+  const createPullRequest = service.createPullRequest.bind(service);
+  const updatePullRequest = service.updatePullRequest.bind(service);
+  const postPullRequestComment = service.postPullRequestComment.bind(service);
+  const mergePullRequest = service.mergePullRequest.bind(service);
+  Object.assign(service, {
+    createPullRequest: (
+      input: Parameters<GitHubPullRequestsReviewsChecksAdapter['createPullRequest']>[0],
+      ctx?: PrWriteContext,
+    ) => {
+      const body = sanitizePrContent(input.body);
+      return createPullRequest(
+        input,
+        ctx ?? writeCtx(input.operationKey, { kind: 'pr_create', ...input, body }),
+      );
+    },
+    updatePullRequest: (
+      input: Parameters<GitHubPullRequestsReviewsChecksAdapter['updatePullRequest']>[0],
+      ctx?: PrWriteContext,
+    ) => {
+      const patch = {
+        ...input.patch,
+        ...(input.patch.title !== undefined
+          ? { title: sanitizePrContent(input.patch.title, 200) }
+          : {}),
+        ...(input.patch.body !== undefined ? { body: sanitizePrContent(input.patch.body) } : {}),
+      };
+      return updatePullRequest(
+        input,
+        ctx ?? writeCtx(input.operationKey, { kind: 'pr_update', ...input, patch }),
+      );
+    },
+    postPullRequestComment: (
+      input: Parameters<GitHubPullRequestsReviewsChecksAdapter['postPullRequestComment']>[0],
+      ctx?: PrWriteContext,
+    ) => {
+      const body = sanitizePrContent(input.body);
+      return postPullRequestComment(
+        input,
+        ctx ??
+          writeCtx(input.operationKey, {
+            kind: 'pr_comment',
+            repo: input.repository,
+            prNumber: input.prNumber,
+            body,
+          }),
+      );
+    },
+    mergePullRequest: (
+      input: Parameters<GitHubPullRequestsReviewsChecksAdapter['mergePullRequest']>[0],
+      ctx?: PrWriteContext,
+    ) =>
+      mergePullRequest(
+        input,
+        ctx ?? writeCtx(input.operationKey, { kind: 'pr_merge', ...input }, 'corr2'),
+      ),
+  });
+  return { provider, store, service };
 }
 
 function seedPr(provider: InMemoryPrProvider, overrides?: Partial<PullRequest>): PullRequest {
@@ -52,17 +117,6 @@ function seedPr(provider: InMemoryPrProvider, overrides?: Partial<PullRequest>):
   };
   provider.seedPr(pr);
   return pr;
-}
-
-function setup() {
-  const provider = new InMemoryPrProvider();
-  const store = new InMemoryPrOperationStore();
-  const service = new GitHubPullRequestsReviewsChecksAdapter({
-    provider,
-    store,
-    clock: { nowIso: () => '2026-08-28T00:00:00.000Z' },
-  });
-  return { provider, store, service };
 }
 
 function mergeInput(existing: PullRequest): MergePullRequest {
@@ -139,11 +193,11 @@ describe('C021 PR adapter', () => {
       workflowRunId: RUN,
       operationKey: OP1,
     };
-    const first = await service.createPullRequest(input, ctx());
+    const first = await service.createPullRequest(input);
     expect(first.status).toBe('applied');
     if (first.status !== 'applied') return;
     expect(first.value.headRef).toBe('agent/x/1');
-    const second = await service.createPullRequest(input, ctx());
+    const second = await service.createPullRequest(input);
     expect(second.status).toBe('replayed');
   });
 
@@ -164,16 +218,16 @@ describe('C021 PR adapter', () => {
       workflowRunId: RUN,
       operationKey: OP1,
     };
-    const first = await service.postPullRequestComment(input, ctx());
+    const first = await service.postPullRequestComment(input);
     expect(first.status).toBe('applied');
-    const dup = await service.postPullRequestComment({ ...input, body: 'different text' }, ctx());
+    const dup = await service.postPullRequestComment({ ...input, body: 'different text' });
     expect(dup.status).toBe('conflict');
   });
 
   it('merges an approved PR when current state matches the approved fingerprint', async () => {
     const { provider, service } = setup();
     const pr = seedPr(provider);
-    const result = await service.mergePullRequest(mergeInput(pr), ctx2());
+    const result = await service.mergePullRequest(mergeInput(pr));
     expect(result.status).toBe('applied');
     if (result.status !== 'applied') return;
     expect(result.value.mergeSha).toBeDefined();
@@ -204,7 +258,6 @@ describe('C021 PR adapter', () => {
         }),
         expectedHeadSha: 'c'.repeat(40),
       },
-      ctx2(),
     );
     expect(result.status).toBe('stale');
   });
@@ -213,7 +266,7 @@ describe('C021 PR adapter', () => {
     const { provider, service } = setup();
     // Approved fingerprint was mergeable; now the PR is conflicting.
     const pr = seedPr(provider, { mergeable: 'conflicting' });
-    const result = await service.mergePullRequest(mergeInput(pr), ctx2());
+    const result = await service.mergePullRequest(mergeInput(pr));
     expect(result.status).toBe('stale');
   });
 
@@ -223,11 +276,12 @@ describe('C021 PR adapter', () => {
       service.postPullRequestComment(
         { repository: REPO, prNumber: 1, body: 'x', workflowRunId: RUN, operationKey: OP1 },
         {
-          ...ctx(),
+          correlationId: 'corr',
+          actionId: 'action-1',
           authorized: {
             decisionId: 'd1',
-            operationKey: 'op-1',
-            actionFingerprint: 'fp',
+            operationKey: OP1,
+            actionFingerprint: '',
             digest: '',
           },
         },
@@ -247,13 +301,13 @@ describe('C021 PR adapter', () => {
       workflowRunId: RUN,
       operationKey: OP1,
     };
-    await service.updatePullRequest(input, ctx());
+    await service.updatePullRequest(input);
     // A conflicting update (head moved) is rejected and persisted as conflicted.
     const conflicting = { ...input, expectedHeadSha: 'c'.repeat(40), operationKey: OP2 };
-    const rejected = await service.updatePullRequest(conflicting, ctx());
+    const rejected = await service.updatePullRequest(conflicting);
     expect(rejected.status).toBe('conflict');
     // Retrying the SAME rejected operation must not claim an applied replay.
-    const retry = await service.updatePullRequest(conflicting, ctx());
+    const retry = await service.updatePullRequest(conflicting);
     expect(retry.status).toBe('conflict');
   });
 
@@ -267,7 +321,7 @@ describe('C021 PR adapter', () => {
       workflowRunId: RUN,
       operationKey: OP1,
     };
-    const r = await service.postPullRequestComment(input, ctx());
+    const r = await service.postPullRequestComment(input);
     expect(r.status).toBe('outcome_unknown');
     const op = await service.operationStore().findByIdempotency(OP1);
     expect(op?.state).toBe('outcome_unknown');
@@ -301,7 +355,11 @@ describe('C021 PR adapter', () => {
       workflowRunId: RUN,
       operationKey: OP1,
     };
-    const r = await service.createPullRequest(input, ctx());
+    const body = sanitizePrContent(input.body);
+    const r = await service.createPullRequest(
+      input,
+      writeCtx(input.operationKey, { kind: 'pr_create', ...input, body }),
+    );
     expect(r.status).toBe('applied');
   });
 
@@ -309,7 +367,7 @@ describe('C021 PR adapter', () => {
     const { provider, service } = setup();
     const pr = seedPr(provider);
     provider.mergeNoApply = true;
-    const result = await service.mergePullRequest(mergeInput(pr), ctx2());
+    const result = await service.mergePullRequest(mergeInput(pr));
     expect(result.status).toBe('outcome_unknown');
   });
 });

@@ -441,6 +441,7 @@ export interface ObservabilityConfig {
 
 export interface GithubAppConfig {
   readonly appId: string;
+  readonly appSlug?: string | undefined;
   readonly privateKeyRef: string;
   readonly webhookSecretRef: string;
   readonly apiBaseUrl: string;
@@ -500,6 +501,7 @@ export type AuthConfig =
 
 function parseGithubApp(parser: ConfigParser, env: EnvRecord): GithubAppConfig | undefined {
   const appId = parser.optionalString(env, 'DEVGUARD_GITHUB_APP_ID');
+  const appSlug = parser.optionalString(env, 'DEVGUARD_GITHUB_APP_SLUG');
   const privateKeyRef = parser.optionalString(env, 'GITHUB_APP_PRIVATE_KEY');
   const webhookSecretRef = parser.optionalString(env, 'GITHUB_WEBHOOK_SECRET');
   const apiBaseUrl =
@@ -522,7 +524,7 @@ function parseGithubApp(parser: ConfigParser, env: EnvRecord): GithubAppConfig |
   if (!/^\d+$/.test(appId)) {
     parser.addIssue('DEVGUARD_GITHUB_APP_ID', 'must be a numeric GitHub App id');
   }
-  return { appId, privateKeyRef, webhookSecretRef, apiBaseUrl };
+  return { appId, appSlug, privateKeyRef, webhookSecretRef, apiBaseUrl };
 }
 
 function parseTrueForge(parser: ConfigParser, env: EnvRecord): TrueForgeConfig | undefined {
