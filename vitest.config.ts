@@ -25,6 +25,7 @@ export default defineConfig({
           include: [
             'packages/**/src/**/*.test.ts',
             'apps/api/src/**/*.test.ts',
+            'apps/worker/src/**/*.test.ts',
             'tests/integration/src/**/*.test.ts',
           ],
         },

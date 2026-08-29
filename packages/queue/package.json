@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@devguard/errors": "workspace:*",
-    "@devguard/logging": "workspace:*"
+    "@devguard/logging": "workspace:*",
+    "ioredis": "^5.4.1"
   }
 }

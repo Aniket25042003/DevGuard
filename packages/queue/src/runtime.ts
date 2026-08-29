@@ -240,6 +240,11 @@ export class WorkerRuntime {
     return [...this.options.queues];
   }
 
+  /** Poll cadence the driver loop should use. */
+  get pollIntervalMs(): number {
+    return this.options.pollIntervalMs;
+  }
+
   private attemptsOf(uniqueKey: string): number {
     return (
       (this.transport as unknown as { attemptsOf?(k: string): number }).attemptsOf?.(uniqueKey) ?? 0
