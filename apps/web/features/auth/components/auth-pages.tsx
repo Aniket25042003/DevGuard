@@ -192,11 +192,12 @@ export function GitHubConnectionPage(): ReactNode {
             </Button>
           </div>
           <p className="mt-4 text-sm text-[var(--muted)]">
-            Set your GitHub App setup URL to{' '}
+            After installing on GitHub, use Link existing installation and paste either the
+            installation ID or the full GitHub settings URL. For automatic redirect after install, set your GitHub App setup URL to{' '}
             <code className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5">
               https://devguard-olive.vercel.app/settings/github/setup
-            </code>{' '}
-            so GitHub redirects here automatically after install.
+            </code>
+            .
           </p>
           {startInstall.isError ? (
             <div className="mt-4">

@@ -21,6 +21,7 @@ export {
 export {
   AppJwtSigner,
   InMemoryKeyProvider,
+  normalizePrivateKeyPem,
   type AppKeyMaterial,
   type AppJwtSignerOptions,
   type SecretKeyProvider,

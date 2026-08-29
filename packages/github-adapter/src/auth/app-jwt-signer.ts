@@ -13,6 +13,15 @@
 import { createSign } from 'node:crypto';
 import { SecretString } from './contracts.js';
 
+/** Normalize PEM keys pasted into env vars with literal `\\n` sequences. */
+export function normalizePrivateKeyPem(pem: string): string {
+  const trimmed = pem.trim();
+  if (trimmed.includes('-----BEGIN') && trimmed.includes('\\n')) {
+    return trimmed.replace(/\\n/g, '\n');
+  }
+  return trimmed;
+}
+
 export interface AppKeyMaterial {
   /** PEM private key (PKCS#1 or PKCS#8). */
   readonly privateKeyPem: string;
@@ -79,6 +88,9 @@ export class InMemoryKeyProvider implements SecretKeyProvider {
   constructor(private readonly material: AppKeyMaterial) {}
 
   async load(): Promise<AppKeyMaterial> {
-    return this.material;
+    return {
+      ...this.material,
+      privateKeyPem: normalizePrivateKeyPem(this.material.privateKeyPem),
+    };
   }
 }

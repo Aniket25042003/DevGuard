@@ -45,6 +45,8 @@ services:
         sync: false
       - key: DEVGUARD_GITHUB_APP_ID
         sync: false
+      - key: DEVGUARD_GITHUB_APP_SLUG
+        sync: false
       - key: GITHUB_APP_PRIVATE_KEY
         sync: false
       - key: GITHUB_WEBHOOK_SECRET
@@ -91,6 +93,8 @@ services:
           type: keyvalue
           property: connectionString
       - key: DEVGUARD_GITHUB_APP_ID
+        sync: false
+      - key: DEVGUARD_GITHUB_APP_SLUG
         sync: false
       - key: GITHUB_APP_PRIVATE_KEY
         sync: false
