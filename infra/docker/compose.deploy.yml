@@ -28,7 +28,7 @@ services:
   migration:
     build: { context: ../.., dockerfile: infra/docker/Dockerfile, args: { ROLE: api } }
     restart: 'no'
-    command: ['sh', '-c', 'node scripts/deploy/migrate.mjs']
+    command: ['node', 'scripts/deploy/migrate.mjs']
     environment:
       DATABASE_URL: '$${DATABASE_URL:?set}'
     depends_on:
@@ -39,6 +39,7 @@ services:
     restart: unless-stopped
     read_only: true
     security_opt: ['no-new-privileges:true']
+    tmpfs: ['/tmp']
     environment:
       ROLE: api
       DEVGUARD_ENV: production
@@ -46,24 +47,68 @@ services:
       REDIS_URL: '$${REDIS_URL:?set}'
       RUN_SERVER: '1'
       PORT: '4000'
+      DEVGUARD_TRUSTED_PROXY_ENABLED: 'true'
+      DEVGUARD_PUBLIC_ORIGIN: '$${DEVGUARD_PUBLIC_ORIGIN:?set}'
       AUTH_SESSION_SECRET: '$${AUTH_SESSION_SECRET:?set}'
       AUTH_GITHUB_OAUTH_CLIENT_ID: '$${AUTH_GITHUB_OAUTH_CLIENT_ID:?set}'
       AUTH_GITHUB_OAUTH_CLIENT_SECRET: '$${AUTH_GITHUB_OAUTH_CLIENT_SECRET:?set}'
       AUTH_GITHUB_OAUTH_CALLBACK_URL: '$${AUTH_GITHUB_OAUTH_CALLBACK_URL:?set}'
-      DEVGUARD_SECRET_REF_GITHUB_APP_KEY: '$${DEVGUARD_SECRET_REF_GITHUB_APP_KEY:?set}'
-      DEVGUARD_SECRET_REF_TRUEFORGE_KEY: '$${DEVGUARD_SECRET_REF_TRUEFORGE_KEY:?set}'
+      DEVGUARD_GITHUB_APP_ID: '$${DEVGUARD_GITHUB_APP_ID:-}'
+      GITHUB_APP_PRIVATE_KEY: '$${GITHUB_APP_PRIVATE_KEY:-}'
+      GITHUB_WEBHOOK_SECRET: '$${GITHUB_WEBHOOK_SECRET:-}'
+      DEVGUARD_TRUEFORGE_BASE_URL: '$${DEVGUARD_TRUEFORGE_BASE_URL:-}'
+      TRUEFORGE_API_KEY: '$${TRUEFORGE_API_KEY:-}'
+      DEVGUARD_ARTIFACT_DRIVER: '${DEVGUARD_ARTIFACT_DRIVER:-local}'
+      DEVGUARD_ARTIFACT_LOCAL_DIR: '/tmp/devguard-artifacts'
     ports: ['127.0.0.1:4000:4000']
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
       migration: { condition: service_completed_successfully }
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:4000/api/v1/health/ready || exit 1']
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:4000/api/v1/health/ready || exit 1']
       interval: 10s
       timeout: 5s
       retries: 12
     networks: [public, private]
-  # Worker and web are intentionally omitted until their entrypoints are long-lived.
+  worker:
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, args: { ROLE: worker } }
+    restart: unless-stopped
+    read_only: true
+    security_opt: ['no-new-privileges:true']
+    tmpfs: ['/tmp']
+    environment:
+      ROLE: worker
+      DEVGUARD_ENV: production
+      PORT: '4100'
+      DATABASE_URL: '$${DATABASE_URL:?set}'
+      REDIS_URL: '$${REDIS_URL:?set}'
+      DEVGUARD_GITHUB_APP_ID: '$${DEVGUARD_GITHUB_APP_ID:-}'
+      GITHUB_APP_PRIVATE_KEY: '$${GITHUB_APP_PRIVATE_KEY:-}'
+      GITHUB_WEBHOOK_SECRET: '$${GITHUB_WEBHOOK_SECRET:-}'
+      DEVGUARD_TRUEFORGE_BASE_URL: '$${DEVGUARD_TRUEFORGE_BASE_URL:-}'
+      TRUEFORGE_API_KEY: '$${TRUEFORGE_API_KEY:-}'
+      DEVGUARD_ARTIFACT_DRIVER: '${DEVGUARD_ARTIFACT_DRIVER:-local}'
+      DEVGUARD_ARTIFACT_LOCAL_DIR: '/tmp/devguard-artifacts'
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migration: { condition: service_completed_successfully }
+    networks: [private]
+  web:
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile, args: { ROLE: web } }
+    restart: unless-stopped
+    environment:
+      ROLE: web
+      DEVGUARD_ENV: production
+      PORT: '3000'
+      PUBLIC_API_BASE_URL: 'http://api:4000'
+      DEVGUARD_API_ORIGIN: 'http://api:4000'
+      DEVGUARD_PUBLIC_ORIGIN: '$${DEVGUARD_PUBLIC_ORIGIN:?set}'
+    ports: ['127.0.0.1:3000:3000']
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [public, private]
 networks:
   public:
   private:

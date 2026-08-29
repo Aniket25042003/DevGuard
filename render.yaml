@@ -1,0 +1,125 @@
+# Render blueprint — DevGuard hackathon / MVP deploy.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: devguard-api
+    runtime: node
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    preDeployCommand: node scripts/deploy/migrate.mjs
+    startCommand: RUN_SERVER=1 node apps/api/dist/main.js
+    healthCheckPath: /api/v1/health/ready
+    envVars:
+      - key: DEVGUARD_ENV
+        value: production
+      - key: NODE_VERSION
+        value: '26'
+      - key: DEVGUARD_TRUSTED_PROXY_ENABLED
+        value: 'true'
+      - key: AUTH_MODE
+        value: github_oauth
+      - key: DEVGUARD_ARTIFACT_DRIVER
+        value: local
+      - key: DEVGUARD_ARTIFACT_LOCAL_DIR
+        value: /tmp/devguard-artifacts
+      - key: DATABASE_URL
+        fromDatabase:
+          name: devguard-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: devguard-redis
+          type: keyvalue
+          property: connectionString
+      - key: AUTH_SESSION_SECRET
+        generateValue: true
+      - key: AUTH_GITHUB_OAUTH_CLIENT_ID
+        sync: false
+      - key: AUTH_GITHUB_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: AUTH_GITHUB_OAUTH_CALLBACK_URL
+        sync: false
+      - key: DEVGUARD_PUBLIC_ORIGIN
+        sync: false
+      - key: DEVGUARD_GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY
+        sync: false
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      - key: DEVGUARD_TRUEFORGE_BASE_URL
+        sync: false
+      - key: TRUEFORGE_API_KEY
+        sync: false
+      - key: FLAG_TRUEFORGE_INTEGRATION_ENABLED
+        value: 'false'
+      - key: FLAG_SANDBOX_EXECUTION_ENABLED
+        value: 'false'
+      - key: FLAG_GITHUB_WRITES_ENABLED
+        value: 'false'
+      - key: FLAG_WEBHOOK_INGRESS_ENABLED
+        value: 'false'
+      - key: FLAG_APPROVAL_EXECUTION_ENABLED
+        value: 'false'
+
+  - type: worker
+    name: devguard-worker
+    runtime: node
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: node apps/worker/dist/main.js
+    envVars:
+      - key: DEVGUARD_ENV
+        value: production
+      - key: NODE_VERSION
+        value: '26'
+      - key: DEVGUARD_ARTIFACT_DRIVER
+        value: local
+      - key: DEVGUARD_ARTIFACT_LOCAL_DIR
+        value: /tmp/devguard-artifacts
+      - key: DATABASE_URL
+        fromDatabase:
+          name: devguard-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: devguard-redis
+          type: keyvalue
+          property: connectionString
+      - key: DEVGUARD_GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY
+        sync: false
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      - key: DEVGUARD_TRUEFORGE_BASE_URL
+        sync: false
+      - key: TRUEFORGE_API_KEY
+        sync: false
+      - key: FLAG_TRUEFORGE_INTEGRATION_ENABLED
+        value: 'false'
+      - key: FLAG_SANDBOX_EXECUTION_ENABLED
+        value: 'false'
+      - key: FLAG_GITHUB_WRITES_ENABLED
+        value: 'false'
+      - key: FLAG_WEBHOOK_INGRESS_ENABLED
+        value: 'false'
+      - key: FLAG_APPROVAL_EXECUTION_ENABLED
+        value: 'false'
+
+  - type: keyvalue
+    name: devguard-redis
+    region: oregon
+    plan: starter
+    ipAllowList: []
+
+databases:
+  - name: devguard-postgres
+    region: oregon
+    plan: basic-256mb
+    databaseName: devguard
+    user: devguard

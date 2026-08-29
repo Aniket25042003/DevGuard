@@ -16,12 +16,20 @@ import {
   validateWorkerReadiness,
   workerStartupStatus,
 } from './composition/container.js';
+import { startWorkerHealthServer } from './health-server.js';
 
 const bootstrap = async (): Promise<void> => {
   const config = await Promise.resolve(loadConfig('worker'));
   const container = buildWorkerContainer(config);
   validateWorkerReadiness(config, container);
   const startup = workerStartupStatus(container);
+
+  const portRaw = globalThis.process?.env?.['PORT'];
+  const stopHealth =
+    portRaw !== undefined && portRaw.length > 0
+      ? startWorkerHealthServer(Number.parseInt(portRaw, 10))
+      : undefined;
+
   console.info(
     JSON.stringify({
       msg: 'configuration.validated',
@@ -36,6 +44,12 @@ const bootstrap = async (): Promise<void> => {
         detail: 'durable QueueTransport wired in CP008; worker idles until then',
       }),
     );
+    const shutdownIdle = (): void => {
+      stopHealth?.();
+      process.exit(0);
+    };
+    process.on('SIGTERM', shutdownIdle);
+    process.on('SIGINT', shutdownIdle);
   } else {
     // CP008: start the typed queue consumers from the durable WorkerRuntime.
     const runtime = container.runtime;
@@ -52,6 +66,7 @@ const bootstrap = async (): Promise<void> => {
     const shutdown = (): void => {
       clearInterval(interval);
       runtime.stop();
+      stopHealth?.();
       void runtime.drain(() => false).finally(() => process.exit(0));
     };
     process.on('SIGTERM', shutdown);

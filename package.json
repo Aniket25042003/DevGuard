@@ -34,6 +34,7 @@
     "start:web": "pnpm --filter @devguard/web start",
     "deploy:preflight": "node scripts/deploy/preflight.mjs",
     "deploy:manifest": "node scripts/deploy/release-manifest.mjs",
+    "deploy:migrate": "node scripts/deploy/migrate.mjs",
     "demo:preflight": "node scripts/demo/evidence-manifest.mjs",
     "demo:verify": "node scripts/demo/evidence-manifest.mjs",
     "clean": "node scripts/clean.mjs"

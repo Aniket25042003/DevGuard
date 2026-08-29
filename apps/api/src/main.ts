@@ -30,7 +30,7 @@ const bootstrap = async (): Promise<void> => {
   if (globalThis.process?.env?.['RUN_SERVER'] === '1') {
     const { serve } = await import('@hono/node-server');
     const port = Number.parseInt(globalThis.process?.env?.['PORT'] ?? '4000', 10);
-    const server = serve({ fetch: api.app.fetch, port });
+    const server = serve({ fetch: api.app.fetch, port, hostname: '0.0.0.0' });
     console.info(JSON.stringify({ msg: 'http.listening', port }));
     const shutdown = async (): Promise<void> => {
       server.close(() => {

@@ -68,6 +68,14 @@ import {
   type WorkflowRunStorePort,
 } from '@devguard/workflows';
 import { isVolatileBinding } from './bindings.js';
+import {
+  DurableAuditAdapter,
+  DurableCommandCatalogAdapter,
+  DurableFindingsAdapter,
+  DurablePolicySummariesAdapter,
+  DurableSessionEventsAdapter,
+  PostgresAuthorizationEvidenceStore,
+} from './durable-adapters.js';
 import { PostgresCommandBusPersistencePort } from './command-bus-adapter.js';
 import {
   VolatileApiTokenRepository,
@@ -483,16 +491,18 @@ export function buildContainer(
     workflowRuns,
     localAccess,
     githubPermissions,
-    evidence: new InMemoryAuthorizationEvidenceStore(),
-    sessionEvents: VolatileSessionEvents,
+    evidence: durableAuth
+      ? new PostgresAuthorizationEvidenceStore(pool)
+      : new InMemoryAuthorizationEvidenceStore(),
+    sessionEvents: durableAuth ? new DurableSessionEventsAdapter(pool) : VolatileSessionEvents,
     approvals,
-    workflows: new VolatileWorkflowService(),
-    policies: VolatilePolicySummaries,
+    workflows: durableAuth ? new DurableCommandCatalogAdapter(pool) : new VolatileWorkflowService(),
+    policies: durableAuth ? new DurablePolicySummariesAdapter(pool) : VolatilePolicySummaries,
     webhooks,
     repositoryCatalog,
     artifacts: durableAuth ? new DurableArtifactsAdapter(pool) : VolatileArtifacts,
-    audit: VolatileAudit,
-    findings: VolatileFindings,
+    audit: durableAuth ? new DurableAuditAdapter(pool) : VolatileAudit,
+    findings: durableAuth ? new DurableFindingsAdapter(pool) : VolatileFindings,
     ...overrides,
   };
 

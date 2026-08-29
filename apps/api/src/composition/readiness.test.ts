@@ -48,8 +48,15 @@ const ENV = {
   DEVGUARD_PUBLIC_ORIGIN: 'https://devguard.example',
 } as const;
 
-function snapshot(environment: 'production' | 'development' | 'test'): ApiConfigSnapshot {
-  return loadConfig('api', { env: { ...ENV, DEVGUARD_ENV: environment } });
+/** Production/development without a real DSN — volatile adapters remain bound. */
+const ENV_NO_DB = { ...ENV, DATABASE_URL: '<not-configured>' } as const;
+
+function snapshot(
+  environment: 'production' | 'development' | 'test',
+  options: { readonly withDatabase?: boolean } = {},
+): ApiConfigSnapshot {
+  const base = options.withDatabase === false ? ENV_NO_DB : ENV;
+  return loadConfig('api', { env: { ...base, DEVGUARD_ENV: environment } });
 }
 
 /** A binding set that is FULLY durable — nothing is in-memory, nothing pretends. */
@@ -147,7 +154,7 @@ const durableOverrides: Partial<CompositionBindings> = {
 
 describe('validateReadiness matrix (CP002 §22)', () => {
   it('refuses volatile default bindings in production', () => {
-    const container = buildContainer(snapshot('production'), { ...ENV });
+    const container = buildContainer(snapshot('production', { withDatabase: false }), { ...ENV_NO_DB });
     expect(() => validateReadiness(container.config, container.bindings)).toThrow();
   });
 
@@ -166,7 +173,7 @@ describe('validateReadiness matrix (CP002 §22)', () => {
   });
 
   it('refuses volatile bindings in development by default (fail closed)', () => {
-    const container = buildContainer(snapshot('development'), { ...ENV });
+    const container = buildContainer(snapshot('development', { withDatabase: false }), { ...ENV_NO_DB });
     expect(() => validateReadiness(container.config, container.bindings)).toThrow();
   });
 
@@ -178,10 +185,15 @@ describe('validateReadiness matrix (CP002 §22)', () => {
   });
 
   it('ignores the development escape in production (flag cannot weaken prod)', () => {
-    const container = buildContainer(snapshot('production'), { ...ENV });
+    const container = buildContainer(snapshot('production', { withDatabase: false }), { ...ENV_NO_DB });
     expect(() =>
       validateReadiness(container.config, container.bindings, { allowVolatileDevelopment: true }),
     ).toThrow();
+  });
+
+  it('boots durable Postgres bindings in production when DATABASE_URL is configured', () => {
+    const container = buildContainer(snapshot('production'), { ...ENV });
+    expect(() => validateReadiness(container.config, container.bindings)).not.toThrow();
   });
 
   it('boots a fully-durable binding set in production', () => {

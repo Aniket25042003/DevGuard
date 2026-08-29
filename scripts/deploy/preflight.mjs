@@ -9,8 +9,7 @@ const REQUIRED_CONFIG = [
   'AUTH_GITHUB_OAUTH_CLIENT_ID',
   'AUTH_GITHUB_OAUTH_CLIENT_SECRET',
   'AUTH_GITHUB_OAUTH_CALLBACK_URL',
-  'DEVGUARD_SECRET_REF_GITHUB_APP_KEY',
-  'DEVGUARD_SECRET_REF_TRUEFORGE_KEY',
+  'DEVGUARD_PUBLIC_ORIGIN',
 ];
 function runProbe(command) {
   const result = spawnSync(command[0], command.slice(1), { encoding: 'utf8', timeout: 15_000 });

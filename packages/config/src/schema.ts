@@ -268,6 +268,14 @@ export const FIELD_INVENTORY: readonly FieldDefinition[] = Object.freeze([
     'Browser-facing API base URL.',
     'http://localhost:4000',
   ),
+  field(
+    'DEVGUARD_API_ORIGIN',
+    'C076',
+    ['web'],
+    'internal',
+    'Upstream API origin for Next.js /api/v1 rewrites.',
+    'http://127.0.0.1:4000',
+  ),
 ]);
 
 const INVENTORY_BY_NAME = new Map(FIELD_INVENTORY.map((f) => [f.name, f]));
