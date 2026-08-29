@@ -16,11 +16,14 @@ export interface NewRunInput {
   readonly repositoryId: string;
   readonly workflowType: string;
   readonly definitionVersion?: number | undefined;
-  readonly triggerType: 'manual' | 'webhook' | 'api';
+  readonly triggerType: 'manual' | 'webhook' | 'api' | 'schedule';
   readonly triggerReferenceJson: string;
   readonly idempotencyKeyHash?: string | undefined;
   readonly policySnapshotId?: string | undefined;
   readonly createdBy?: string | undefined;
+  /** CP016 — which surface started this run (server-authoritative). */
+  readonly originSurface?:
+    'web' | 'cli' | 'github_comment' | 'github_event' | 'schedule' | undefined;
 }
 
 export interface WorkflowRunRecord {
@@ -53,6 +56,7 @@ export interface WorkflowRunProjection {
 const PROJ_COLS = `id::text AS id, repository_id::text AS repository_id,
   workflow_type::text AS workflow_type, status,
   trigger_type::text AS trigger_type, trigger_reference_json::text AS trigger_reference_json,
+  origin_surface::text AS origin_surface,
   definition_version::text AS definition_version,
   created_at::text AS created_at, updated_at::text AS updated_at,
   started_at::text AS started_at, completed_at::text AS completed_at,
@@ -63,17 +67,21 @@ function iso(value: unknown): string | undefined {
 }
 
 function mapRunProjection(row: Record<string, unknown>): WorkflowRunProjection {
-  let originSurface = 'web';
+  const col = row['origin_surface'];
+  let originSurface = typeof col === 'string' && col.length > 0 ? col : 'web';
   try {
     const ref = JSON.parse(String(row['trigger_reference_json'] ?? '{}')) as {
       originSurface?: unknown;
     };
-    if (typeof ref.originSurface === 'string' && ref.originSurface.length > 0) {
+    if (
+      originSurface === 'web' &&
+      typeof ref.originSurface === 'string' &&
+      ref.originSurface.length > 0
+    ) {
       originSurface = ref.originSurface;
     }
   } catch {
-    // fall through to the default surface; origin_surface becomes a real
-    // column at CP016.
+    // fall through to the column default ('web' before CP016 backfill).
   }
   return {
     id: String(row['id']),
@@ -108,8 +116,8 @@ export class WorkflowRunStore {
     const rows = await this.poolLike.query<Record<string, unknown>>({
       text: `
 INSERT INTO workflow_runs (id, repository_id, workflow_type, definition_version, trigger_type,
-  trigger_reference_json, idempotency_key_hash, policy_snapshot_id, created_by)
-VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9)
+  trigger_reference_json, idempotency_key_hash, policy_snapshot_id, created_by, origin_surface)
+VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10)
 ON CONFLICT (idempotency_key_hash) DO NOTHING
 RETURNING ${RUN_COLS}`,
       values: [
@@ -122,6 +130,7 @@ RETURNING ${RUN_COLS}`,
         input.idempotencyKeyHash ?? null,
         input.policySnapshotId ?? null,
         input.createdBy ?? 'system',
+        input.originSurface ?? 'web',
       ],
     });
     const row = rows[0];
@@ -183,6 +192,10 @@ FROM workflow_runs WHERE idempotency_key_hash = $1`,
     readonly repositoryId: string;
     readonly limit: number;
     readonly cursor?: { readonly createdAtIso: string; readonly id: string } | undefined;
+    /** CP016 — provenance filters (server-authoritative; invalid values rejected). */
+    readonly triggerType?: 'manual' | 'webhook' | 'api' | 'schedule' | undefined;
+    readonly originSurface?:
+      'web' | 'cli' | 'github_comment' | 'github_event' | 'schedule' | undefined;
   }): Promise<WorkflowRunProjection[]> {
     const where: string[] = ['repository_id = $1'];
     const values: unknown[] = [options.repositoryId];
@@ -193,6 +206,16 @@ FROM workflow_runs WHERE idempotency_key_hash = $1`,
       );
       values.push(options.cursor.createdAtIso, options.cursor.id);
       bind += 2;
+    }
+    if (options.triggerType !== undefined) {
+      where.push(`trigger_type = $${bind}`);
+      values.push(options.triggerType);
+      bind += 1;
+    }
+    if (options.originSurface !== undefined) {
+      where.push(`origin_surface = $${bind}`);
+      values.push(options.originSurface);
+      bind += 1;
     }
     const rows = await this.poolLike.query<Record<string, unknown>>({
       text: `SELECT ${PROJ_COLS} FROM workflow_runs
