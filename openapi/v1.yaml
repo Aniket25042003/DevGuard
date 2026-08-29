@@ -14,7 +14,12 @@ paths:
     get: { summary: 'Authorized repository catalog', security: [{ session: [] }] }
   /repositories/{repositoryId}/workflows:
     get: { summary: 'List durable workflow runs (keyset pagination)', security: [{ session: [] }] }
-    post: { summary: 'Start a workflow (command submit alias)', security: [{ bearer: [] }], x-mvp: true }
+    post:
+      {
+        summary: 'Start a workflow (command submit alias)',
+        security: [{ bearer: [] }],
+        x-mvp: true,
+      }
   /repositories/{repositoryId}/commands:
     post: { summary: 'Submit a command (idempotent)', security: [{ bearer: [] }], x-mvp: true }
   /repositories/{repositoryId}/runs:

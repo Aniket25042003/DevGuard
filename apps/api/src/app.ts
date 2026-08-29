@@ -29,7 +29,10 @@ import {
 } from './routes/github.routes.js';
 import { registerArtifactRoutes } from './routes/artifact.routes.js';
 import { registerAuditRoutes } from './routes/audit.routes.js';
-import { registerFindingsRoutes, registerFindingsRemediationRoutes } from './routes/findings.routes.js';
+import {
+  registerFindingsRoutes,
+  registerFindingsRemediationRoutes,
+} from './routes/findings.routes.js';
 import { registerDiagnosticsRoutes, type PreflightStatus } from './routes/diagnostics.routes.js';
 
 /** CP015 (C074) — dependency preflight from the container config (fail closed). */

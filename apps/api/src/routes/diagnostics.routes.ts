@@ -21,7 +21,7 @@ export type RunsSummaryPort = (input: {
   repositoryId: string;
   limit: number;
   cursor?: { createdAtIso: string; id: string } | undefined;
-}) => Promise<{ runs: RunRow[]; hasMore: boolean }>;
+}) => Promise<{ runs: readonly RunRow[]; hasMore: boolean }>;
 
 export function registerDiagnosticsRoutes(
   kernel: { registerV1Route: RegisterV1Route },
@@ -37,7 +37,12 @@ export function registerDiagnosticsRoutes(
   kernel.registerV1Route(
     'get',
     '/api/v1/repositories/:repositoryId/runs',
-    { rateLimitClass: 'default', authClass: 'required_session' },
+    {
+      rateLimitClass: 'default',
+      authClass: 'required_session',
+      capability: 'repository:read',
+      repositoryIdParam: 'repositoryId',
+    },
     async (c) => {
       const principal = c.get('requestContext').principal;
       if (principal === undefined) {
@@ -55,7 +60,9 @@ export function registerDiagnosticsRoutes(
       }
       const repositoryId = c.req.param('repositoryId') ?? '';
       const rawLimit = Number(c.req.query('limit') ?? '20');
-      const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 100) : 20;
+      const limit = Number.isFinite(rawLimit)
+        ? Math.min(Math.max(Math.floor(rawLimit), 1), 100)
+        : 20;
       const rawCursor = c.req.query('cursor');
       const cursor = rawCursor !== undefined ? safeParseCursor(rawCursor) : undefined;
       const page = await input.runs({ repositoryId, limit, cursor });
