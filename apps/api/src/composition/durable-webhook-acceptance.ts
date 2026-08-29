@@ -52,7 +52,7 @@ export class DurableWebhookAcceptance implements WebhookAcceptancePort {
       }
       if (issueComment !== undefined) {
         const excerpt = JSON.stringify(issueComment);
-        if (excerpt.length <= MAX_JOB_PAYLOAD_BYTES) {
+        if (Buffer.byteLength(excerpt, 'utf8') <= MAX_JOB_PAYLOAD_BYTES) {
           issueCommentPayload = excerpt;
         }
       }

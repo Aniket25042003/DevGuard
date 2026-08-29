@@ -135,7 +135,9 @@ function parseTail(
     return {
       ok: true,
       input: {
-        ...(typeof kv['pr'] === 'string' ? { pullRequestNumber: Number(kv['pr']) } : {}),
+        ...(typeof kv['pr'] === 'string' && /^\d+$/.test(kv['pr']) && Number(kv['pr']) > 0
+          ? { pullRequestNumber: Number(kv['pr']) }
+          : {}),
         ...(typeof kv['check'] === 'string' ? { checkRunId: kv['check'] } : {}),
       },
     };
@@ -148,6 +150,9 @@ function parseTail(
       return { ok: false, detail: 'Unexpected tokens after implement.' };
     }
     if (typeof kv['issue'] === 'string') {
+      if (!/^\d+$/.test(kv['issue']) || Number(kv['issue']) <= 0) {
+        return { ok: false, detail: 'Invalid issue number.' };
+      }
       return { ok: true, input: { issueNumber: Number(kv['issue']) } };
     }
     return { ok: true, input: {} };
