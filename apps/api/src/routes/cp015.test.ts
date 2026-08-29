@@ -102,7 +102,7 @@ describe('CP015 diagnostics + remediation', () => {
       headers: {
         cookie: 'devguard_session=s1',
         'content-type': 'application/json',
-        'idempotency-key': '11111111-2222-4333-8444-555555555555',
+        'idempotency-key': 'ik',
       },
       body: '{}',
     });

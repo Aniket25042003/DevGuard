@@ -15,7 +15,7 @@
  */
 import { WorkflowStatus } from '@devguard/contracts';
 import { requireAllow } from '@devguard/authorization';
-import { DevGuardError, repositoryForbidden } from '@devguard/errors';
+import { repositoryForbidden } from '@devguard/errors';
 import {
   canonicalCommandIdSchema,
   commandReceiptSchema,
@@ -32,6 +32,8 @@ import {
   CommandOriginForgedError,
   MAX_RUN_LIMIT,
   type RunRow,
+  type OriginSurfaceV1,
+  type TriggerTypeV1,
 } from '@devguard/workflows';
 import { CommandUnknownError } from '@devguard/policy-engine';
 import { validationFailed } from '@devguard/errors';
@@ -40,6 +42,27 @@ import type { RegisterV1Route, RouteMetadata } from '../transport/kernel.js';
 import type { ApiContainer } from '../composition/container.js';
 
 const HTTP_SURFACES = new Set(['web', 'cli']);
+
+// CP016 provenance list filters (validation gates the SQL WHERE by allow-list).
+const TRIGGER_TYPES: ReadonlySet<TriggerTypeV1> = new Set(['manual', 'webhook', 'api', 'schedule']);
+const ORIGIN_SURFACES: ReadonlySet<OriginSurfaceV1> = new Set([
+  'web',
+  'cli',
+  'github_comment',
+  'github_event',
+  'schedule',
+]);
+
+function parseProvenanceFilter<T extends string>(
+  value: string | undefined,
+  allowed: ReadonlySet<T>,
+): T | undefined {
+  if (value === undefined) return undefined;
+  if (!allowed.has(value as T)) {
+    throw validationFailed([{ path: 'filters', constraint: 'unknown provenance filter value' }]);
+  }
+  return value as T;
+}
 
 /** Port types referenced by the composition root bindings (kept for stability). */
 export interface PolicySummaryPort {
@@ -241,19 +264,32 @@ export function registerWorkflowRoutes(
           throw validationFailed([{ path: 'limit', constraint: `1..${MAX_RUN_LIMIT}` }]);
         }
       }
-      // Full C067 list filters (status/originSurface/triggerType/workflowType)
-      // land with the real columns at CP016; CP007 ships durable keyset pagination.
+      // CP016 provenance filters (triggerType + originSurface, alias triggerSource).
+      if (
+        raw.originSurface !== undefined &&
+        raw.triggerSource !== undefined &&
+        raw.originSurface !== raw.triggerSource
+      ) {
+        throw validationFailed([{ path: 'filters', constraint: 'conflicting provenance aliases' }]);
+      }
+      const triggerType = parseProvenanceFilter(raw.triggerType, TRIGGER_TYPES);
+      const originSurface = parseProvenanceFilter(
+        raw.originSurface ?? raw.triggerSource,
+        ORIGIN_SURFACES,
+      );
       const page = await container.workflowQueries.listRuns({
         repositoryId,
         ...(limit !== undefined ? { limit } : {}),
         ...(raw.cursor !== undefined ? parseCursor(raw.cursor) : {}),
+        ...(triggerType !== undefined ? { triggerType } : {}),
+        ...(originSurface !== undefined ? { originSurface } : {}),
       });
       return c.json({
         data: {
           runs: page.runs.map(toRunDto),
           hasMore: page.hasMore,
           ...(page.nextCursor !== undefined
-            ? { nextCursor: `${page.nextCursor.createdAtIso},${page.nextCursor.id}` }
+            ? { nextCursor: `${page.nextCursor.id}:${page.nextCursor.createdAtIso}` }
             : {}),
         },
       });
@@ -277,10 +313,8 @@ export function registerWorkflowRoutes(
           run.repositoryId,
           'repository:read',
         );
-      } catch (error) {
-        if (error instanceof DevGuardError && error.code === 'REPOSITORY_FORBIDDEN')
-          return workflowUnknown(c);
-        throw error;
+      } catch {
+        return workflowUnknown(c);
       }
       return c.json({ data: toRunDto(run) });
     },
@@ -317,10 +351,8 @@ export function registerWorkflowRoutes(
           run.repositoryId,
           'workflow:cancel',
         );
-      } catch (error) {
-        if (error instanceof DevGuardError && error.code === 'REPOSITORY_FORBIDDEN')
-          return workflowUnknown(c);
-        throw error;
+      } catch {
+        return workflowUnknown(c);
       }
       const outcome = await container.workflowQueries.cancel(runId, Number(ifMatch));
       if (!outcome.ok) {
@@ -363,10 +395,12 @@ function workflowUnknown(c: {
 }
 
 function parseCursor(value: string): { cursor?: { createdAtIso: string; id: string } } {
-  const [createdAt, ...rest] = value.split(',');
+  const [, second] = value.split(':');
+  const [createdAt, ...rest] = (second ?? value).split(',');
   const id = rest.join(',');
-  if (!createdAt || !id || Number.isNaN(Date.parse(createdAt))) return {};
-  return { cursor: { createdAtIso: createdAt, id } };
+  return createdAt !== undefined && id !== undefined
+    ? { cursor: { createdAtIso: createdAt, id } }
+    : {};
 }
 
 /** Map command-domain failures to stable HTTP envelopes (never 500). */
