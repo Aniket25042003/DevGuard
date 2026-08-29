@@ -19,6 +19,27 @@ export async function completeGitHubInstallationSetup(input: {
   readonly userId: string;
   readonly githubInstallationId: string;
 }): Promise<{ readonly installationId: string; readonly accountLogin: string }> {
+  const snapshot = await refreshGitHubInstallationSnapshot({
+    pool: input.pool,
+    github: input.github,
+    privateKeyPem: input.privateKeyPem,
+    githubInstallationId: input.githubInstallationId,
+  });
+  const store = new InstallationStore(input.pool);
+  const internalId = await store.findInternalId(snapshot.githubInstallationId);
+  if (internalId === null) {
+    throw new Error('installation_persist_failed');
+  }
+  await store.linkUser(input.userId, internalId);
+  return { installationId: internalId, accountLogin: snapshot.accountLogin };
+}
+
+export async function refreshGitHubInstallationSnapshot(input: {
+  readonly pool: DevGuardPool;
+  readonly github: GithubAppConfig;
+  readonly privateKeyPem: string;
+  readonly githubInstallationId: string;
+}) {
   const transport = new FetchTransport();
   const signer = new AppJwtSigner({ nowMs: () => Date.now() });
   const keyProvider = new InMemoryKeyProvider({
@@ -34,10 +55,5 @@ export async function completeGitHubInstallationSetup(input: {
   });
   const store = new InstallationStore(input.pool);
   await store.upsertSnapshot(snapshot);
-  const internalId = await store.findInternalId(snapshot.githubInstallationId);
-  if (internalId === null) {
-    throw new Error('installation_persist_failed');
-  }
-  await store.linkUser(input.userId, internalId);
-  return { installationId: internalId, accountLogin: snapshot.accountLogin };
+  return snapshot;
 }

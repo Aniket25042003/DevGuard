@@ -208,6 +208,15 @@ export function RepositoryOnboardingPage(): ReactNode {
                 />
               ) : null}
 
+              {connect.isError ? (
+                <div className="mb-4">
+                  <ProblemAlert
+                    problem={classifyUiProblem(connect.error)}
+                    onRecover={() => connect.reset()}
+                  />
+                </div>
+              ) : null}
+
               <ul className="space-y-3">
                 {(candidates.data?.repositories ?? []).map((repo) => {
                   const busy =
@@ -248,9 +257,6 @@ export function RepositoryOnboardingPage(): ReactNode {
                 })}
               </ul>
 
-              {connect.isError ? (
-                <ProblemAlert problem={classifyUiProblem(connect.error)} />
-              ) : null}
               {disconnect.isError ? (
                 <ProblemAlert problem={classifyUiProblem(disconnect.error)} />
               ) : null}

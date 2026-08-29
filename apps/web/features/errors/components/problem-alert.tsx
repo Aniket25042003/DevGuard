@@ -24,6 +24,19 @@ export function classifyUiProblem(error: unknown): UiProblem {
       };
     }
     if (error.isForbidden) {
+      if (
+        error.code === 'MISSING_PERMISSIONS' ||
+        error.code === 'INSTALLATION_INACTIVE' ||
+        error.code === 'VALIDATION_FAILED'
+      ) {
+        return {
+          title: 'Could not connect repository',
+          body: error.message,
+          requestId: error.requestId,
+          recovery: 'none',
+          code: error.code,
+        };
+      }
       return {
         title: 'Not available',
         body: 'You do not have access to this resource, or it does not exist.',

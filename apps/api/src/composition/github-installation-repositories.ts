@@ -11,6 +11,7 @@ import {
   listInstallationRepositories,
   normalizePrivateKeyPem,
 } from '@devguard/github-adapter';
+import { refreshGitHubInstallationSnapshot } from './github-installation-setup.js';
 
 export interface InstallationRepositoryListItem {
   readonly id: string;
@@ -42,6 +43,16 @@ export async function listGitHubInstallationRepositories(input: {
   );
   if (installation === undefined) {
     throw new Error('installation_not_linked');
+  }
+  try {
+    await refreshGitHubInstallationSnapshot({
+      pool: input.pool,
+      github: input.github,
+      privateKeyPem: input.privateKeyPem,
+      githubInstallationId: installation.githubInstallationId,
+    });
+  } catch {
+    // Continue with the last stored installation snapshot.
   }
   const page = input.cursor !== undefined && /^\d+$/.test(input.cursor) ? Number(input.cursor) : 1;
   const transport = new FetchTransport();

@@ -17,7 +17,7 @@ import type { RegisterV1Route, RouteMetadata } from '../transport/kernel.js';
 import type { ApiContainer } from '../composition/container.js';
 import type { ApprovalPort, ApprovalProjection } from './approval.routes.js';
 import type { RepositoryLifecycleService, RepositoryMetadataHealthService } from '@devguard/github-adapter';
-import { completeGitHubInstallationSetup } from '../composition/github-installation-setup.js';
+import { completeGitHubInstallationSetup, refreshGitHubInstallationSnapshot } from '../composition/github-installation-setup.js';
 import { listGitHubInstallationRepositories } from '../composition/github-installation-repositories.js';
 
 const repoRead: RouteMetadata = {
@@ -142,6 +142,31 @@ export function registerWebSurfaceRoutes(
           404,
         );
       }
+      const github = container.config.github;
+      const privateKeyPem =
+        github !== undefined &&
+        github.privateKeyRef !== undefined &&
+        github.privateKeyRef.length > 0 &&
+        !github.privateKeyRef.startsWith('<')
+          ? github.privateKeyRef
+          : undefined;
+      if (github !== undefined && privateKeyPem !== undefined && pool !== undefined) {
+        const linked = (await installStore.listForUser(principal.userId)).find(
+          (item) => item.id === installationPk,
+        );
+        if (linked !== undefined) {
+          try {
+            await refreshGitHubInstallationSnapshot({
+              pool,
+              github,
+              privateKeyPem,
+              githubInstallationId: linked.githubInstallationId,
+            });
+          } catch {
+            // Fall back to the last stored installation snapshot.
+          }
+        }
+      }
       const outcome = await lifecycle.connect({
         actorId: principal.userId,
         installationId: installationPk,
@@ -156,11 +181,15 @@ export function registerWebSurfaceRoutes(
         visibility: body.visibility === 'public' ? 'public' : 'private',
       });
       if (outcome.outcome === 'BLOCKED') {
+        const message =
+          outcome.code === 'MISSING_PERMISSIONS'
+            ? `${outcome.detail}. In GitHub, open your DevGuard App settings and grant Repository permissions: Contents (read), Issues (read), and Metadata (read). Then accept the updated permissions on the installed app.`
+            : outcome.detail;
         return c.json(
           {
             error: {
               code: outcome.code,
-              message: outcome.detail,
+              message,
               requestId: c.get('requestContext').requestId,
               retryable: false,
             },

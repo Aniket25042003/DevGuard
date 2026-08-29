@@ -29,7 +29,9 @@ function mapDbStatus(status: RepositoryLifecycleStatus): ConnectedRepository['st
 function parseInstallationPermissions(raw: string): readonly string[] {
   try {
     const parsed = JSON.parse(raw) as Record<string, string>;
-    return Object.entries(parsed).map(([key, value]) => `${key}: ${value}`);
+    return Object.entries(parsed)
+      .filter(([, value]) => value === 'read' || value === 'write')
+      .map(([key, value]) => `${key}: ${value}`);
   } catch {
     return [];
   }
