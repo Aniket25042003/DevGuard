@@ -1,0 +1,198 @@
+openapi: 3.0.3
+info:
+  title: DevGuard API
+  version: v1
+  description: >
+    DevGuard control-plane HTTP surface under /api/v1. Versioned resources with
+    stable error envelopes (error.code, error.message, error.requestId,
+    error.retryable). Auth is a dgv1_ bearer token or a devguard_session cookie.
+    Webhook ingress is public and HMAC-signed.
+servers:
+  - url: /api/v1
+paths:
+  /repositories:
+    get:
+      summary: Authorized repository catalog
+      security: [{ session: [] }]
+      responses:
+        '200':
+          description: Repository catalog
+  /repositories/{repositoryId}/workflows:
+    parameters:
+      - name: repositoryId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: List durable workflow runs (keyset pagination)
+      security: [{ session: [] }]
+      responses:
+        '200':
+          description: Workflow run page
+    post:
+      summary: Start a workflow (command submit alias)
+      security: [{ bearer: [] }]
+      x-mvp: true
+      responses:
+        '202':
+          description: Workflow accepted
+  /repositories/{repositoryId}/commands:
+    parameters:
+      - name: repositoryId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      summary: Submit a command (idempotent)
+      security: [{ bearer: [] }]
+      x-mvp: true
+      responses:
+        '202':
+          description: Command accepted
+  /repositories/{repositoryId}/runs:
+    parameters:
+      - name: repositoryId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Runs summary projection (C065)
+      security: [{ session: [] }]
+      x-mvp: true
+      responses:
+        '200':
+          description: Runs summary page
+  /workflows/{workflowRunId}:
+    parameters:
+      - name: workflowRunId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Workflow run status
+      security: [{ bearer: [] }]
+      responses:
+        '200':
+          description: Workflow run detail
+  /workflows/{workflowRunId}/cancel:
+    parameters:
+      - name: workflowRunId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      summary: Cancel a queued run (If-Match CAS)
+      security: [{ bearer: [] }]
+      responses:
+        '200':
+          description: Cancellation accepted
+  /workflows/{runId}/approvals:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Approvals for a run
+      security: [{ session: [] }]
+      responses:
+        '200':
+          description: Approval list
+  /workflows/{runId}/artifacts:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Safe artifacts for a run
+      security: [{ session: [] }]
+      responses:
+        '200':
+          description: Artifact list
+  /workflows/{runId}/security-findings:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Stable security findings
+      security: [{ session: [] }]
+      responses:
+        '200':
+          description: Security findings
+  /findings/{id}/remediation:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Start a remediation command
+      security: [{ session: [] }]
+      x-mvp: true
+      responses:
+        '200':
+          description: Remediation started
+  /sessions/{sessionId}:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Session status
+      security: [{ session: [] }]
+      responses:
+        '200':
+          description: Session status
+  /sessions/{sessionId}/events:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Event timeline (SSE or ?format=json)
+      security: [{ session: [] }]
+      responses:
+        '200':
+          description: Event timeline
+  /sessions/{sessionId}/turns:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Create a turn
+      security: [{ session: [] }]
+      x-mvp: false
+      responses:
+        '501':
+          description: Not implemented
+  /diagnostics/preflight:
+    get:
+      summary: Dependency preflight status (C074)
+      security: [{ session: [] }]
+      x-mvp: true
+      responses:
+        '200':
+          description: Preflight status
+  /webhooks/github:
+    post:
+      summary: GitHub webhook ingress (HMAC sha256=)
+      security: []
+      responses:
+        '202':
+          description: Webhook accepted
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: devguard_session
+    bearer:
+      type: http
+      scheme: bearer
