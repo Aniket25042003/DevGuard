@@ -18,9 +18,13 @@ import {
 } from '@devguard/auth';
 import { EnvironmentSecretProvider } from '@devguard/config';
 import type { SessionPort } from '../routes/session.routes.js';
-import type { ApprovalPort } from '../routes/approval.routes.js';
+import type { ApprovalPort, ApprovalProjection } from '../routes/approval.routes.js';
 import type { PolicySummaryPort } from '../routes/workflow.routes.js';
-import type { RepositoryCatalogPort, WebhookAcceptancePort } from '../routes/github.routes.js';
+import type {
+  Repository,
+  RepositoryCatalogPort,
+  WebhookAcceptancePort,
+} from '../routes/github.routes.js';
 import type { ArtifactPort, SafeArtifact } from '../routes/artifact.routes.js';
 import type { AuditPort } from '../routes/audit.routes.js';
 import type { FindingsPort } from '../routes/findings.routes.js';
@@ -43,6 +47,9 @@ import { configurationInvalid } from '@devguard/errors';
 import type { ApiConfigSnapshot } from '@devguard/config';
 import { createPool, type DevGuardPool } from '@devguard/db';
 import {
+  ApprovalStore,
+  ConnectedRepositoryStore,
+  createUnitOfWork,
   PostgresApiTokenRepository,
   PostgresArtifactStore,
   PostgresAuthSessionRepository,
@@ -131,6 +138,103 @@ export class EmptyRunQueryStore implements WorkflowRunStorePort {
   async cancel(_id: string, _expectedVersion: number): Promise<never> {
     throw new Error('WORKFLOW_UNKNOWN:no durable run store');
   }
+}
+
+/** CP018 — catalog from connected repositories, not an empty pretend-success store. */
+export class DurableRepositoryCatalog implements RepositoryCatalogPort {
+  private readonly store: ConnectedRepositoryStore;
+  constructor(pool: DevGuardPool) {
+    this.store = new ConnectedRepositoryStore(pool);
+  }
+  async listFor(userId: string): Promise<readonly Repository[]> {
+    const rows = await this.store.listForUser(userId);
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      role: 'member',
+      owner: row.owner,
+      fullName: row.fullName,
+      status: row.status,
+      defaultBranch: row.defaultBranch,
+      installationId: row.installationId,
+    }));
+  }
+}
+
+/** CP018 — approvals list/resolve over the durable aggregate (same use case as run-nested). */
+export class DurableApprovals implements ApprovalPort {
+  private readonly store: ApprovalStore;
+  constructor(private readonly pool: DevGuardPool) {
+    this.store = new ApprovalStore(pool);
+  }
+
+  async listFor(runId: string, _userId: string): Promise<readonly ApprovalProjection[]> {
+    void _userId;
+    const rows = await this.store.list(runId === '' ? {} : { runId });
+    return rows.map(mapApprovalProjection);
+  }
+
+  async resolve(
+    runId: string,
+    approvalId: string,
+    resolution: 'approved' | 'rejected',
+    userId: string,
+  ): Promise<{ ok: true } | { ok: false; code: string; detail: string }> {
+    const uow = createUnitOfWork(this.pool);
+    return uow.transaction(async (tx) => {
+      const row = await this.store.getForUpdate(approvalId, tx);
+      if (row === null) {
+        return { ok: false, code: 'APPROVAL_UNKNOWN', detail: 'Approval was not found.' };
+      }
+      const workflowRunId = typeof row['workflowRunId'] === 'string' ? row['workflowRunId'] : '';
+      if (runId !== '' && workflowRunId !== runId) {
+        return { ok: false, code: 'APPROVAL_UNKNOWN', detail: 'Approval was not found.' };
+      }
+      const status = String(row['status'] ?? '');
+      if (status !== 'pending') {
+        return {
+          ok: false,
+          code: 'APPROVAL_ALREADY_RESOLVED',
+          detail: 'This approval is no longer pending.',
+        };
+      }
+      try {
+        await this.store.transition(
+          approvalId,
+          Number(row['rowVersion'] ?? 0),
+          {
+            from: 'pending',
+            to: resolution,
+            actorType: 'user',
+            actorId: userId,
+            reasonCode: resolution === 'approved' ? 'user_approved' : 'user_rejected',
+            commandKey: `web:${approvalId}:${resolution}`,
+          },
+          tx,
+        );
+        return { ok: true };
+      } catch {
+        return {
+          ok: false,
+          code: 'APPROVAL_VERSION_CONFLICT',
+          detail: 'The approval changed. Refresh and retry.',
+        };
+      }
+    });
+  }
+}
+
+function mapApprovalProjection(row: Record<string, unknown>): ApprovalProjection {
+  return {
+    approvalId: String(row['id'] ?? row['approvalId'] ?? ''),
+    state: String(row['status'] ?? row['state'] ?? 'pending'),
+    ...(typeof row['reasonSummary'] === 'string' ? { reason: row['reasonSummary'] } : {}),
+    ...(typeof row['repositoryId'] === 'string' ? { repositoryId: row['repositoryId'] } : {}),
+    ...(typeof row['workflowRunId'] === 'string' ? { workflowRunId: row['workflowRunId'] } : {}),
+    ...(typeof row['actionType'] === 'string' ? { actionType: row['actionType'] } : {}),
+    ...(typeof row['riskClass'] === 'string' ? { riskClass: row['riskClass'] } : {}),
+    ...(typeof row['expiresAt'] === 'string' ? { expiresAt: row['expiresAt'] } : {}),
+  };
 }
 
 /** CP012 — durable ArtifactPort mapping the db store to the SAFE projection. */
@@ -352,6 +456,10 @@ export function buildContainer(
   // CP007: durable run store (query + cancel); honest empty reads without one.
   const workflowRuns = durableAuth ? new WorkflowRunStore(pool) : new EmptyRunQueryStore();
   const workflowQueries = new WorkflowQueryService({ runs: workflowRuns });
+  const repositoryCatalog = durableAuth
+    ? new DurableRepositoryCatalog(pool)
+    : VolatileRepositoryCatalog;
+  const approvals = durableAuth ? new DurableApprovals(pool) : VolatileApprovals;
 
   const bindings: CompositionBindings = {
     sessions,
@@ -365,11 +473,11 @@ export function buildContainer(
     githubPermissions: new UnavailableGitHubPermissionPort(),
     evidence: new InMemoryAuthorizationEvidenceStore(),
     sessionEvents: VolatileSessionEvents,
-    approvals: VolatileApprovals,
+    approvals,
     workflows: new VolatileWorkflowService(),
     policies: VolatilePolicySummaries,
     webhooks: new VolatileWebhookAcceptance(),
-    repositoryCatalog: VolatileRepositoryCatalog,
+    repositoryCatalog,
     artifacts: durableAuth ? new DurableArtifactsAdapter(pool) : VolatileArtifacts,
     audit: VolatileAudit,
     findings: VolatileFindings,

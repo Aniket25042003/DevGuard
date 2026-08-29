@@ -12,7 +12,7 @@
 import { readFile, writeFile, rm, mkdir, chmod } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 
 const CREDENTIALS_PATH = () => join(homedir(), '.config', 'devguard', 'credentials.json');
@@ -143,16 +143,16 @@ export class DevguardClient {
   ): Promise<ApiResult> {
     return this.request('POST', `/repositories/${repositoryId}/commands`, {
       commandId: input.command,
-        definitionVersion: 1,
+      definitionVersion: 1,
       originSurface: 'cli',
       input: {
-      ...(input.prNumber !== undefined ? { pullRequestNumber: input.prNumber } : {}),
-      ...(input.checkRunId !== undefined ? { checkRunId: input.checkRunId } : {}),
-      ...(input.issueNumber !== undefined ? { issueNumber: input.issueNumber } : {}),
-      ...(input.findingIds !== undefined ? { findingIds: input.findingIds } : {}),
-      ...(input.message !== undefined ? { message: input.message } : {}),
-      ...(input.ref !== undefined ? { ref: input.ref } : {}),
-        },
+        ...(input.prNumber !== undefined ? { pullRequestNumber: input.prNumber } : {}),
+        ...(input.checkRunId !== undefined ? { checkRunId: input.checkRunId } : {}),
+        ...(input.issueNumber !== undefined ? { issueNumber: input.issueNumber } : {}),
+        ...(input.findingIds !== undefined ? { findingIds: input.findingIds } : {}),
+        ...(input.message !== undefined ? { message: input.message } : {}),
+        ...(input.ref !== undefined ? { ref: input.ref } : {}),
+      },
     });
   }
 
@@ -227,10 +227,10 @@ export async function runCli(args: string[], deps: CliDeps): Promise<CliResult> 
       return { exitCode: 2, lines: out };
     }
     if (deps.env['DEVGUARD_TOKEN'] !== undefined) {
-        out.push('login: using environment token (not stored).');
-        return { exitCode: 0, lines: out };
-      }
-      await saveCredentials({
+      out.push('login: using environment token (not stored).');
+      return { exitCode: 0, lines: out };
+    }
+    await saveCredentials({
       apiBase: deps.env['DEVGUARD_API_BASE'] ?? 'http://127.0.0.1:8080',
       token,
     });
@@ -401,7 +401,8 @@ async function resolveRepository(
   const data = (r.data ?? {}) as {
     repositories?: Array<{ id?: string; fullName?: string }>;
   };
-  const list = (data as { repositories?: Array<{ id?: string; fullName?: string }> }).repositories ?? [];
+  const list =
+    (data as { repositories?: Array<{ id?: string; fullName?: string }> }).repositories ?? [];
   const found = list.find((item) => item.fullName === repo || item.id === repo);
   return found?.id !== undefined ? { id: found.id } : undefined;
 }
@@ -409,7 +410,7 @@ async function resolveRepository(
 async function guessRowVersion(client: DevguardClient, runId: string): Promise<string> {
   const r = await client.runShow(runId);
   const d = r.data as { data?: { rowVersion?: number | string } };
-  return String(d.data?.version);
+  return String(d.data?.rowVersion ?? '');
 }
 
 function humanRuns(data: unknown): string {
@@ -463,12 +464,6 @@ async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<void> {
 
 // Run only when invoked as the bin (never when imported by tests).
 const isEntry = process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
-function urlToPath(entry: string): string {
-  return entry.startsWith('file:') ? entry : `${urlPathToFileUrl(entry)}`;
-}
-function urlPathToFileUrl(p: string): string {
-  return `file://${p.startsWith('/') ? p : `/${p}`}`;
-}
 if (isEntry) {
   void main(process.argv.slice(2), process.env);
 }

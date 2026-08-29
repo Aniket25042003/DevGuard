@@ -9,12 +9,12 @@
     "node": ">=26.7.0 <27"
   },
   "scripts": {
-    "build": "tsc -b tsconfig.json --force",
-    "typecheck": "tsc -b tsconfig.json",
+    "build": "tsc -b tsconfig.json --force && pnpm --filter @devguard/web build",
+    "typecheck": "tsc -b tsconfig.json && pnpm --filter @devguard/web typecheck",
     "lint": "eslint . && node scripts/check-boundaries.mjs && node scripts/ci/check-workflow-policy.mjs",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
-    "test": "tsc -b tsconfig.json && vitest run --project unit",
+    "test": "tsc -b tsconfig.json && vitest run --project unit --project web",
     "test:watch": "vitest --project unit",
     "test:integration": "node scripts/ci/run-integration.mjs",
     "test:e2e": "tsc -b tsconfig.json && vitest run --project e2e",
@@ -31,7 +31,7 @@
     "test:services:reset": "node scripts/local/local.mjs test-reset",
     "start:api": "node apps/api/dist/main.js",
     "start:worker": "node apps/worker/dist/main.js",
-    "start:web": "node apps/web/dist/index.js",
+    "start:web": "pnpm --filter @devguard/web start",
     "deploy:preflight": "node scripts/deploy/preflight.mjs",
     "deploy:manifest": "node scripts/deploy/release-manifest.mjs",
     "demo:preflight": "node scripts/demo/evidence-manifest.mjs",
@@ -46,7 +46,11 @@
     "prettier": "^3.6.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "jsdom": "^26.1.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/dom": "^10.4.1"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

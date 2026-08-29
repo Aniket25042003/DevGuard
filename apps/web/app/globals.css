@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: light;
+  --bg: #f4f1ea;
+  --bg-elevated: #fffdf8;
+  --ink: #1c1915;
+  --muted: #5c564c;
+  --line: #d9d0c3;
+  --accent: #1f4d3a;
+  --accent-ink: #f4f1ea;
+  --danger: #8a2b2b;
+  --warn: #8a5a12;
+  --ok: #1f4d3a;
+  --focus: #0b57d0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #161410;
+    --bg-elevated: #201c18;
+    --ink: #f3eee6;
+    --muted: #b7aea2;
+    --line: #3a342c;
+    --accent: #8fbfa4;
+    --accent-ink: #161410;
+    --danger: #e08b8b;
+    --warn: #e0b56a;
+    --ok: #8fbfa4;
+    --focus: #8ab4ff;
+  }
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  margin: 0;
+  font-family: 'IBM Plex Sans', 'Source Sans 3', ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.45;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

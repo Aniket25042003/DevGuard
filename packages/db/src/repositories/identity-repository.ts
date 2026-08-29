@@ -159,6 +159,39 @@ ON CONFLICT (github_installation_id) DO UPDATE SET
       ],
     });
   }
+
+  async listForUser(
+    userId: string,
+  ): Promise<readonly (InstallationSnapshot & { readonly id: string })[]> {
+    const rows = await this.poolLike.query<Record<string, unknown>>({
+      text: `SELECT gi.id::text AS id, github_installation_id, account_type, account_id, account_login, status,
+        permissions_json::text AS permissions_json, repository_selection, suspended_at::text AS suspended_at
+FROM github_installations gi
+JOIN user_installation_links uil ON uil.installation_id = gi.id
+WHERE uil.user_id = $1
+ORDER BY account_login`,
+      values: [userId],
+    });
+    return rows.map((row) => ({
+      id: String(row['id']),
+      githubInstallationId: String(row['github_installation_id']),
+      accountType: row['account_type'] === 'Organization' ? 'Organization' : 'User',
+      accountId: Number(row['account_id']),
+      accountLogin: String(row['account_login']),
+      status: (row['status'] as InstallationSnapshot['status']) ?? 'active',
+      permissionsJson: String(row['permissions_json'] ?? '{}'),
+      repositorySelection: String(row['repository_selection'] ?? 'selected'),
+      ...(row['suspended_at'] ? { suspendedAt: String(row['suspended_at']) } : {}),
+    }));
+  }
+
+  async findInternalId(installationRef: string): Promise<string | null> {
+    const rows = await this.poolLike.query<{ id: string }>({
+      text: 'SELECT id::text AS id FROM github_installations WHERE id::text = $1 OR github_installation_id::text = $1',
+      values: [installationRef],
+    });
+    return rows[0]?.id ?? null;
+  }
 }
 
 export class ConnectedRepositoryStore {
@@ -201,6 +234,14 @@ RETURNING ${REPO_COLS}`;
     });
     const row = rows[0];
     return row ? mapRepository(row) : null;
+  }
+
+  async listForUser(userId: string): Promise<readonly ConnectedRepository[]> {
+    const rows = await this.poolLike.query<Record<string, unknown>>({
+      text: `SELECT ${REPO_COLS} FROM repositories WHERE connected_by = $1 AND status != 'disconnected' ORDER BY full_name`,
+      values: [userId],
+    });
+    return rows.map(mapRepository);
   }
 
   async findByGitHubId(githubId: string): Promise<ConnectedRepository | null> {

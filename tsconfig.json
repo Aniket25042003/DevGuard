@@ -38,9 +38,6 @@
       "path": "apps/worker"
     },
     {
-      "path": "apps/web"
-    },
-    {
       "path": "tests/integration"
     },
     {

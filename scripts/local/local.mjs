@@ -358,31 +358,39 @@ async function cmdUp() {
     REDIS_URL: env.REDIS_URL,
   };
   supervisor.start('api', ['node', 'apps/api/dist/main.js'], apiEnv);
-  // Worker is scaffold-only and exits successfully; do not supervise it as persistent.
+  // Worker is started independently via `pnpm start:worker` when Redis is up.
   const workerEnv = { ...env, DATABASE_URL: env.DATABASE_URL, REDIS_URL: env.REDIS_URL };
   void workerEnv;
-  // apps/web is scaffold-only until C076+ starts landing; report truthfully.
+  // Next.js rewrites /api/v1 → API so session cookies stay same-origin (CP018).
+  supervisor.start('web', ['pnpm', '--filter', '@devguard/web', 'dev'], {
+    ...env,
+    DEVGUARD_API_ORIGIN: `http://127.0.0.1:${appPorts.api}`,
+    PORT: String(appPorts.web),
+  });
   record(
     'STARTING_APPS',
-    'degraded',
-    'api+worker launched; web remains scaffold-only (C076 out of scope)',
+    'passed',
+    `api+web launched (web http://127.0.0.1:${appPorts.web} rewrites /api/v1 → :${appPorts.api})`,
   );
-  const readyBy = Date.now() + 30_000;
+  const readyBy = Date.now() + 60_000;
   let apiUp = false;
-  while (Date.now() < readyBy && !(apiUp = await probeTcp('127.0.0.1', appPorts.api))) {
-    await delay(500);
+  let webUp = false;
+  while (Date.now() < readyBy && !(apiUp && webUp)) {
+    if (!apiUp) apiUp = await probeTcp('127.0.0.1', appPorts.api);
+    if (!webUp) webUp = await probeTcp('127.0.0.1', appPorts.web);
+    if (!(apiUp && webUp)) await delay(500);
   }
-  if (apiUp) {
+  if (apiUp && webUp) {
     record(
       'READY',
       'passed',
-      `API listening on http://127.0.0.1:${appPorts.api} (provider-safe mode: GitHub/TrueForge disabled)`,
+      `API http://127.0.0.1:${appPorts.api} · web http://127.0.0.1:${appPorts.web} (cookie session via Next rewrite)`,
     );
   } else {
     record(
       'READY',
       'degraded',
-      'API port did not open within deadline; see [api] logs above',
+      `listen timeout api=${apiUp} web=${webUp}; see [api]/[web] logs above`,
       'Verify configuration and migrations; rerun after fixing.',
     );
   }

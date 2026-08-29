@@ -91,6 +91,11 @@ export interface Repository {
   readonly id: string;
   readonly name: string;
   readonly role: string;
+  readonly owner?: string | undefined;
+  readonly fullName?: string | undefined;
+  readonly status?: string | undefined;
+  readonly defaultBranch?: string | undefined;
+  readonly installationId?: string | undefined;
 }
 
 export interface RepositoryCatalogPort {

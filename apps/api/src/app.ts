@@ -34,6 +34,7 @@ import {
   registerFindingsRemediationRoutes,
 } from './routes/findings.routes.js';
 import { registerDiagnosticsRoutes, type PreflightStatus } from './routes/diagnostics.routes.js';
+import { registerWebSurfaceRoutes } from './routes/web-surface.routes.js';
 
 /** CP015 (C074) — dependency preflight from the container config (fail closed). */
 function preflightStatus(container: ApiContainer): PreflightStatus {
@@ -154,6 +155,9 @@ export function assembleApi(container: ApiContainer): AssembledApi {
     verifyGithubHmac,
   );
   registerRepositoryRoutes(kernel, container.bindings.repositoryCatalog);
+  // CP018 — thin aliases the web surface needs (catalog get/connect, policy,
+  // GitHub install intents, top-level approvals). Domain stays in stores.
+  registerWebSurfaceRoutes(kernel, container, container.bindings.approvals);
 
   return { app: kernel.app, routeMetadata: kernel.routeMetadata };
 }

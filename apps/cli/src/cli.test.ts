@@ -43,14 +43,13 @@ describe('CP017 DevguardClient contract', () => {
     expect(captured?.url).toBe('http://api.test/api/v1/repositories/repo-1/commands');
     expect(captured?.headers['authorization']).toBe('Bearer dgv1_secret');
     const body = JSON.parse(captured?.body ?? '{}') as {
-      command: string;
+      commandId: string;
       originSurface: string;
-      pullRequestNumber: number;
-      idempotencyKey: string;
+      input: { pullRequestNumber: number };
     };
-    expect(body.command).toBe('review_remediation');
+    expect(body.commandId).toBe('review_remediation');
     expect(body.originSurface).toBe('cli');
-    expect(body.pullRequestNumber).toBe(4);
+    expect(body.input.pullRequestNumber).toBe(4);
   });
 
   it('resolves the repo via catalog then lists runs with an origin filter', async () => {
@@ -60,7 +59,7 @@ describe('CP017 DevguardClient contract', () => {
       if (url.endsWith('/repositories')) {
         return {
           status: 200,
-          json: async () => ({ data: { repositories: [{ id: 'repo-1', fullName: 'o/r' }] } }),
+          json: async () => ({ repositories: [{ id: 'repo-1', fullName: 'o/r' }] }),
         };
       }
       return {
@@ -85,7 +84,7 @@ describe('CP017 runCli dispatch', () => {
       if (url.endsWith('/repositories')) {
         return {
           status: 200,
-          json: async () => ({ data: { repositories: [{ id: 'repo-1', fullName: 'o/r' }] } }),
+          json: async () => ({ repositories: [{ id: 'repo-1', fullName: 'o/r' }] }),
         };
       }
       return { status: 200, json: async () => ({ runId: 'run-1', status: 'submitted' }) };

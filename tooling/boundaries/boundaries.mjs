@@ -117,7 +117,7 @@ export function buildCruiseOptions(matrix) {
     ruleSet: { forbidden: buildCruiseRules(matrix) },
     validate: true,
     doNotFollow: { path: 'node_modules' },
-    fileRegEx: String.raw`\.mts$|\.ts$`,
+    fileRegEx: String.raw`\.mts$|\.tsx?$`,
     tsConfig: { fileName: 'tsconfig.base.json' },
     moduleSystems: ['es6', 'cjs'],
     enhancedResolveOptions: {
