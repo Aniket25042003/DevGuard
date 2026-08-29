@@ -143,6 +143,18 @@ export function GitHubConnectionPage(): ReactNode {
       window.location.assign(result.installUrl);
     },
   });
+  const disconnectInstallation = useMutation({
+    mutationFn: (installationId: string) =>
+      client.github.disconnectInstallation(installationId, {
+        signal: new AbortController().signal,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.github.installations }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.repositories.onboarding }),
+      ]);
+    },
+  });
   const logout = useMutation({
     mutationFn: () => client.auth.logout({ signal: new AbortController().signal }),
     onSuccess: async () => {
@@ -206,18 +218,48 @@ export function GitHubConnectionPage(): ReactNode {
           ) : null}
         </Card>
       ) : (
-        <ul className="space-y-3">
-          {(installations.data ?? []).map((installation) => (
-            <li key={installation.id}>
-              <Card className="p-5">
-                <p className="font-medium">{installation.accountLogin}</p>
-                <p className="text-sm text-[var(--muted)]">
-                  {installation.accountType} · {installation.status}
-                </p>
-              </Card>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-6">
+          <ul className="space-y-3">
+            {(installations.data ?? []).map((installation) => {
+              const busy =
+                disconnectInstallation.isPending &&
+                disconnectInstallation.variables === installation.id;
+              return (
+                <li key={installation.id}>
+                  <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-medium">{installation.accountLogin}</p>
+                      <p className="text-sm text-[var(--muted)]">
+                        {installation.accountType} · {installation.status}
+                      </p>
+                    </div>
+                    <Button
+                      tone="neutral"
+                      disabled={busy}
+                      onClick={() => disconnectInstallation.mutate(installation.id)}
+                    >
+                      {busy ? 'Disconnecting…' : 'Disconnect'}
+                    </Button>
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={() => startInstall.mutate()} disabled={startInstall.isPending}>
+              {startInstall.isPending ? 'Starting…' : 'Connect another GitHub account'}
+            </Button>
+            <Button tone="neutral" href={buildAppHref({ name: 'githubSetup' })}>
+              Link existing installation
+            </Button>
+          </div>
+          {disconnectInstallation.isError ? (
+            <ProblemAlert problem={classifyUiProblem(disconnectInstallation.error)} />
+          ) : null}
+          {startInstall.isError ? (
+            <ProblemAlert problem={classifyUiProblem(startInstall.error)} />
+          ) : null}
+        </div>
       )}
       <h2 className="mt-10 font-[family-name:var(--font-display)] text-xl font-semibold">
         Connected repositories

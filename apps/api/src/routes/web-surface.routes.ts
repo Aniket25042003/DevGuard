@@ -222,6 +222,68 @@ export function registerWebSurfaceRoutes(
 
   kernel.registerV1Route(
     'post',
+    '/api/v1/github/installations/:installationId/disconnect',
+    { rateLimitClass: 'default', authClass: 'required_session' },
+    async (c) => {
+      const principal = c.get('requestContext').principal!;
+      const installationRef = c.req.param('installationId') ?? '';
+      if (installStore === undefined) {
+        return c.json(
+          {
+            error: {
+              code: 'DEPENDENCY_UNAVAILABLE',
+              message: 'Installation store is not bound.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          503,
+        );
+      }
+      const linked = await installStore.listForUser(principal.userId);
+      const installation = linked.find(
+        (item) => item.id === installationRef || item.githubInstallationId === installationRef,
+      );
+      if (installation === undefined) {
+        return c.json(
+          {
+            error: {
+              code: 'INSTALLATION_UNKNOWN',
+              message: 'GitHub installation is not linked to this account.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          404,
+        );
+      }
+      if (repoStore !== undefined && lifecycle !== undefined) {
+        const owned = await repoStore.listForUser(principal.userId);
+        for (const repo of owned) {
+          if (repo.installationId !== installation.id) continue;
+          await lifecycle.disconnect({ repositoryDevguardId: repo.id });
+        }
+      }
+      const removed = await installStore.unlinkUser(principal.userId, installation.id);
+      if (!removed) {
+        return c.json(
+          {
+            error: {
+              code: 'INSTALLATION_UNKNOWN',
+              message: 'GitHub installation is not linked to this account.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          404,
+        );
+      }
+      return c.json({ disconnected: true, installationId: installation.id });
+    },
+  );
+
+  kernel.registerV1Route(
+    'post',
     '/api/v1/github/installations/intents',
     { rateLimitClass: 'default', authClass: 'required_session' },
     async (c) => {

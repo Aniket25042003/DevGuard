@@ -446,6 +446,21 @@ export class DevGuardApiClient {
           accountLogin: z.string(),
         }),
       }),
+    disconnectInstallation: (
+      installationId: string,
+      options: RequestOptions,
+    ): Promise<{ readonly disconnected: boolean; readonly installationId: string }> =>
+      this.requestJson(
+        'POST',
+        `/github/installations/${encodeURIComponent(installationId)}/disconnect`,
+        {
+          options,
+          schema: z.object({
+            disconnected: z.boolean(),
+            installationId: z.string(),
+          }),
+        },
+      ),
   };
 
   readonly commands = {

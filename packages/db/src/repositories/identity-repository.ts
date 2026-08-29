@@ -201,6 +201,18 @@ ON CONFLICT (user_id, installation_id) DO UPDATE SET verified_at = now()`;
     const executor = tx ?? { query: this.poolLike.query.bind(this.poolLike) };
     await executor.query({ text: sql, values: [userId, installationId] });
   }
+
+  async unlinkUser(userId: string, installationRef: string): Promise<boolean> {
+    const installationId = await this.findInternalId(installationRef);
+    if (installationId === null) return false;
+    const rows = await this.poolLike.query<{ installation_id: string }>({
+      text: `DELETE FROM user_installation_links
+WHERE user_id = $1 AND installation_id = $2
+RETURNING installation_id::text AS installation_id`,
+      values: [userId, installationId],
+    });
+    return rows.length > 0;
+  }
 }
 
 export class ConnectedRepositoryStore {
