@@ -430,11 +430,21 @@ export function registerWebSurfaceRoutes(
             404,
           );
         }
+        const githubStatus =
+          error instanceof Error ? error.message.match(/:(\d{3})$/)?.[1] : undefined;
+        let message = 'Could not list repositories from GitHub for this installation.';
+        if (githubStatus === '401' || githubStatus === '403') {
+          message =
+            'GitHub rejected the DevGuard App credentials or installation access. Confirm DEVGUARD_GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY match your GitHub App.';
+        } else if (githubStatus === '404') {
+          message =
+            'GitHub could not find this installation for the configured DevGuard App. Re-link the installation from GitHub settings.';
+        }
         return c.json(
           {
             error: {
               code: 'GITHUB_REPOSITORIES_UNAVAILABLE',
-              message: 'Could not list repositories from GitHub for this installation.',
+              message,
               requestId: c.get('requestContext').requestId,
               retryable: true,
             },

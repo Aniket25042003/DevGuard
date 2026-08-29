@@ -9,6 +9,7 @@ import {
   FetchTransport,
   fetchAppInstallation,
   InMemoryKeyProvider,
+  normalizePrivateKeyPem,
 } from '@devguard/github-adapter';
 
 export async function completeGitHubInstallationSetup(input: {
@@ -22,7 +23,7 @@ export async function completeGitHubInstallationSetup(input: {
   const signer = new AppJwtSigner({ nowMs: () => Date.now() });
   const keyProvider = new InMemoryKeyProvider({
     appId: input.github.appId,
-    privateKeyPem: input.privateKeyPem,
+    privateKeyPem: normalizePrivateKeyPem(input.privateKeyPem),
     keyVersion: 'v1',
   });
   const snapshot = await fetchAppInstallation({
