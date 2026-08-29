@@ -24,7 +24,11 @@ const BRANCH2 = buildWorkflowBranchName(RUN_ID, OP2);
 const BRANCH3 = buildWorkflowBranchName(RUN_ID, OP3);
 
 function ctx(): WriteContext {
-  return { correlationId: 'corr-1', actionId: 'action-1', authorized: { decisionId: 'd1', operationKey: 'op-1', actionFingerprint: 'fp', digest: 'abc' } };
+  return {
+    correlationId: 'corr-1',
+    actionId: 'action-1',
+    authorized: { decisionId: 'd1', operationKey: 'op-1', actionFingerprint: 'fp', digest: 'abc' },
+  };
 }
 
 function setup() {
@@ -175,7 +179,15 @@ describe('C020 createBranch', () => {
           workflowRunId: RUN_ID,
           operationKey: OP1,
         },
-        { ...ctx(), authorized: { decisionId: 'd1', operationKey: 'op-1', actionFingerprint: 'fp', digest: '' } },
+        {
+          ...ctx(),
+          authorized: {
+            decisionId: 'd1',
+            operationKey: 'op-1',
+            actionFingerprint: 'fp',
+            digest: '',
+          },
+        },
       ),
     ).rejects.toThrow();
   });
