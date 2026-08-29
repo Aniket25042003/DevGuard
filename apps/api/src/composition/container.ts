@@ -44,6 +44,8 @@ import {
   type RepositoryCapability,
 } from '@devguard/authorization';
 import { DurableWebhookAcceptance } from './durable-webhook-acceptance.js';
+import { buildGitHubPermissionPort } from './github-permission-port.js';
+import { buildRepositoryDomainServices, type RepositoryDomainServices } from './repository-services.js';
 import { configurationInvalid } from '@devguard/errors';
 import type { ApiConfigSnapshot } from '@devguard/config';
 import { createPool, type DevGuardPool } from '@devguard/db';
@@ -100,14 +102,6 @@ class VolatileIdentityLinker implements UserIdentityLinker {
     const userId = `00000000-0000-7000-8000-${String(this.counter).padStart(12, '0')}`;
     this.bySubject.set(key, userId);
     return userId;
-  }
-}
-
-/** C017/C018 will implement this against live installation permissions. */
-class UnavailableGitHubPermissionPort implements GitHubPermissionPort {
-  async fetchUserRole(): Promise<{ role: 'none'; snapshotHash: string }> {
-    // Fail closed: no provider wiring exists yet, so no allow evidence.
-    throw new Error('github_permission_port_unavailable');
   }
 }
 
@@ -312,6 +306,7 @@ export interface ApiContainer {
   readonly webhookSecret?: string;
   /** Bound when a real DATABASE_URL is present; drained on shutdown. */
   readonly pool?: DevGuardPool;
+  readonly repositoryServices?: RepositoryDomainServices | undefined;
   readonly bindings: CompositionBindings;
   readonly auth: AuthenticationService;
   readonly apiTokens: ApiTokenService;
@@ -470,6 +465,14 @@ export function buildContainer(
         })
       : new VolatileWebhookAcceptance();
 
+  const privateKeyPem =
+    config.github !== undefined && isReal(config.github.privateKeyRef)
+      ? config.github.privateKeyRef
+      : undefined;
+  const githubPermissions = buildGitHubPermissionPort(pool, config.github, privateKeyPem);
+  const repositoryServices: RepositoryDomainServices | undefined =
+    pool !== undefined ? buildRepositoryDomainServices(pool, 'system') : undefined;
+
   const bindings: CompositionBindings = {
     sessions,
     transactions,
@@ -479,7 +482,7 @@ export function buildContainer(
     commandBus,
     workflowRuns,
     localAccess,
-    githubPermissions: new UnavailableGitHubPermissionPort(),
+    githubPermissions,
     evidence: new InMemoryAuthorizationEvidenceStore(),
     sessionEvents: VolatileSessionEvents,
     approvals,
@@ -540,6 +543,7 @@ export function buildContainer(
     workflowQueries,
     authorizer,
     ...(pool !== undefined ? { pool } : {}),
+    ...(repositoryServices !== undefined ? { repositoryServices } : {}),
     ...(webhookSecret !== undefined ? { webhookSecret } : {}),
   };
 }

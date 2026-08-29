@@ -131,31 +131,26 @@ export class CommentCommandService {
 
     const input = enrichInput(parsed.commandId, parsed.input, event);
     const idempotencyKey = githubCommentIdempotencyKey(event.comment.id, parsed.commandId);
-    try {
-      const receipt = await this.deps.commandBus.submit({
-        command: {
-          commandId: parsed.commandId,
-          definitionVersion: '1',
-          input,
-        },
-        repositoryId: repo.id,
-        originSurface: 'github_comment',
-        idempotencyKey,
-        createdBy: userId,
-        trustedSurface: true,
-      });
-      const submitted = {
-        kind: 'submitted' as const,
-        runId: receipt.runId,
-        replayed: receipt.replayed,
+    const receipt = await this.deps.commandBus.submit({
+      command: {
         commandId: parsed.commandId,
-      };
-      await this.maybeAck(event, submitted);
-      return submitted;
-    } catch (error) {
-      // Unexpected submission failures must remain retryable for the worker to redeliver.
-      throw error;
-    }
+        definitionVersion: '1',
+        input,
+      },
+      repositoryId: repo.id,
+      originSurface: 'github_comment',
+      idempotencyKey,
+      createdBy: userId,
+      trustedSurface: true,
+    });
+    const submitted = {
+      kind: 'submitted' as const,
+      runId: receipt.runId,
+      replayed: receipt.replayed,
+      commandId: parsed.commandId,
+    };
+    await this.maybeAck(event, submitted);
+    return submitted;
   }
 
   private async maybeAck(

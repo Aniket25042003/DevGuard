@@ -7,11 +7,11 @@ import {
   PostgresLocalRepositoryAccessPort,
   type DevGuardPool,
 } from '@devguard/db';
-import { RepositoryAuthorizationService } from '@devguard/authorization';
+import { RepositoryAuthorizationService, type GitHubPermissionPort } from '@devguard/authorization';
 import { CommentCommandService, CommandBus, newGitHubActorUserId } from '@devguard/workflows';
 import { WorkerCommandBusPersistencePort } from './command-bus-persistence.js';
 import { repositoryAuthorizerAdapter } from './comment-authorizer.js';
-import { EmptyLocalRepositoryAccessPort, UnavailableGitHubPermissionPort } from './stubs.js';
+import { EmptyLocalRepositoryAccessPort } from './stubs.js';
 
 export function buildCommentCommandService(
   pool: DevGuardPool,
@@ -49,13 +49,14 @@ export function buildCommentCommandService(
 
 export function buildWorkerAuthorizer(
   pool: DevGuardPool | undefined,
+  github: GitHubPermissionPort,
 ): RepositoryAuthorizationService {
   return new RepositoryAuthorizationService({
     local:
       pool !== undefined
         ? new PostgresLocalRepositoryAccessPort(pool)
         : new EmptyLocalRepositoryAccessPort(),
-    github: new UnavailableGitHubPermissionPort(),
+    github,
     evidence: {
       async append() {},
       async findFresh() {

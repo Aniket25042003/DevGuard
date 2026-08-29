@@ -11,12 +11,12 @@ import {
   ConnectedRepositoryStore,
   InstallationStore,
   PolicyVersionStore,
-  uuidv7,
 } from '@devguard/db';
 import { IDEMPOTENCY_KEY_HEADER, idempotencyKeySchema } from '@devguard/api-contracts';
 import type { RegisterV1Route, RouteMetadata } from '../transport/kernel.js';
 import type { ApiContainer } from '../composition/container.js';
 import type { ApprovalPort, ApprovalProjection } from './approval.routes.js';
+import type { RepositoryLifecycleService, RepositoryMetadataHealthService } from '@devguard/github-adapter';
 
 const repoRead: RouteMetadata = {
   rateLimitClass: 'default',
@@ -37,6 +37,10 @@ export function registerWebSurfaceRoutes(
   approvals: ApprovalPort,
 ): void {
   const pool = container.pool;
+  const lifecycle: RepositoryLifecycleService | undefined =
+    container.repositoryServices?.lifecycle;
+  const metadataHealth: RepositoryMetadataHealthService | undefined =
+    container.repositoryServices?.metadataHealth;
   const repoStore = pool === undefined ? undefined : new ConnectedRepositoryStore(pool);
   const installStore = pool === undefined ? undefined : new InstallationStore(pool);
   const policyStore = pool === undefined ? undefined : new PolicyVersionStore(pool);
@@ -88,10 +92,6 @@ export function registerWebSurfaceRoutes(
           401,
         );
       }
-      const rawKey = c.req.header(IDEMPOTENCY_KEY_HEADER);
-      if (!idempotencyKeySchema.safeParse(rawKey).success) {
-        throw validationFailed([{ path: IDEMPOTENCY_KEY_HEADER, constraint: 'required' }]);
-      }
       const body = (await c.req.json().catch(() => undefined)) as
         | {
             installationId?: unknown;
@@ -110,7 +110,8 @@ export function registerWebSurfaceRoutes(
           { path: 'body', constraint: 'installationId, githubRepositoryId, owner, name required' },
         ]);
       }
-      if (repoStore === undefined || installStore === undefined) {
+      const idempotencyKey = idempotencyKeySchema.parse(c.req.header(IDEMPOTENCY_KEY_HEADER));
+      if (repoStore === undefined || installStore === undefined || lifecycle === undefined) {
         return c.json(
           {
             error: {
@@ -122,17 +123,6 @@ export function registerWebSurfaceRoutes(
           },
           503,
         );
-      }
-      const existing = await repoStore.findByGitHubId(body.githubRepositoryId);
-      if (existing !== null) {
-        return c.json({
-          id: existing.id,
-          name: existing.name,
-          owner: existing.owner,
-          fullName: existing.fullName,
-          status: existing.status,
-          installationId: existing.installationId,
-        });
       }
       const installationPk = await installStore.findInternalId(body.installationId);
       if (installationPk === null) {
@@ -148,34 +138,57 @@ export function registerWebSurfaceRoutes(
           404,
         );
       }
-      const created = await repoStore.insert({
-        id: uuidv7(),
-        githubRepositoryId: body.githubRepositoryId,
+      const outcome = await lifecycle.connect({
+        actorId: principal.userId,
         installationId: installationPk,
-        owner: body.owner,
-        name: body.name,
-        fullName: `${body.owner}/${body.name}`,
-        connectedBy: principal.userId,
+        githubRepositoryId: Number(body.githubRepositoryId),
+        idempotencyKey,
+        ownerLogin: body.owner,
+        repoName: body.name,
+        defaultBranch: 'main',
+        visibility: 'private',
       });
-      let current = created;
-      if (current.status === 'pending') {
-        try {
-          current = await repoStore.transition(current.id, current.rowVersion, 'active', {});
-        } catch {
-          // Leave pending; the catalog still returns the row. Capability-gated
-          // routes stay denied until activation succeeds.
-        }
+      if (outcome.outcome === 'BLOCKED') {
+        return c.json(
+          {
+            error: {
+              code: outcome.code,
+              message: outcome.detail,
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          403,
+        );
       }
+      const record = outcome.record;
+      await pool!.query({
+        text: `UPDATE repositories SET connected_by = $1, connected_at = COALESCE(connected_at, now()) WHERE id = $2`,
+        values: [principal.userId, record.repositoryDevguardId],
+      });
+      if (metadataHealth !== undefined && outcome.outcome === 'CONNECTED') {
+        void metadataHealth.refresh({
+          repositoryId: record.repositoryDevguardId,
+          cause: 'connect',
+          operationKey: idempotencyKey,
+        });
+      }
+      const status =
+        record.status === 'connected'
+          ? 'active'
+          : record.status === 'degraded'
+            ? 'degraded'
+            : 'disconnected';
       return c.json(
         {
-          id: current.id,
-          name: current.name,
-          owner: current.owner,
-          fullName: current.fullName,
-          status: current.status,
-          installationId: current.installationId,
+          id: record.repositoryDevguardId,
+          name: record.repoName,
+          owner: record.ownerLogin,
+          fullName: record.fullName,
+          status,
+          installationId: record.installationId,
         },
-        201,
+        outcome.outcome === 'CONNECTED' ? 201 : 200,
       );
     },
   );
@@ -241,9 +254,38 @@ export function registerWebSurfaceRoutes(
     repoRead,
     async (c) => {
       const id = c.req.param('repositoryId') ?? '';
-      const row = repoStore !== undefined ? await repoStore.findById(id) : null;
-      const status = row?.status === 'active' ? 'ready' : (row?.status ?? 'unknown');
-      return c.json({ status, checkedAt: new Date().toISOString() });
+      if (metadataHealth === undefined || repoStore === undefined) {
+        const row = repoStore !== undefined ? await repoStore.findById(id) : null;
+        const status = row?.status === 'active' ? 'ready' : (row?.status ?? 'unknown');
+        return c.json({ status, checkedAt: new Date().toISOString() });
+      }
+      const row = await repoStore.findById(id);
+      if (row === null) {
+        return c.json(
+          {
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Repository not found.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          404,
+        );
+      }
+      const view = await metadataHealth.getSnapshot({
+        repositoryId: id,
+        maxAgeMs: 5 * 60 * 1000,
+      });
+      return c.json({
+        status: view.status,
+        readiness: view.readiness,
+        lifecycleStatus: view.lifecycleStatus,
+        checkedAt: new Date().toISOString(),
+        snapshotAgeMs: view.snapshotAgeMs,
+        partialFieldErrors: view.partialFieldErrors,
+        dimensions: view.health?.dimensions,
+      });
     },
   );
 

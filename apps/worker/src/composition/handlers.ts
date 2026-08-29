@@ -58,12 +58,22 @@ export function registerWorkflowExecute(registry: JobRegistry, runStore: RunTran
   });
 }
 
-/** Register the remaining job types as fail-closed until their owners land. */
+/** Register persistence-backed handlers that fail closed without a database. */
+export function registerUnavailablePersistenceHandlers(registry: JobRegistry): void {
+  const closed: Array<[JobTypeV1, string]> = [
+    ['outbox.publish', 'outbox_publish_unavailable_without_database'],
+    ['cleanup.retention', 'cleanup_unavailable_without_database'],
+  ];
+  for (const [jobType, errorCode] of closed) {
+    const handler: JobHandler = () => Promise.resolve(fail(errorCode));
+    registry.register(jobType, 1, handler);
+  }
+}
+
+/** Register job types that still fail closed until their owners land. */
 export function registerFailClosedHandlers(registry: JobRegistry): void {
   const closed: Array<[JobTypeV1, string]> = [
-    ['outbox.publish', 'outbox_publish_unavailable_until_cp008'],
     ['sandbox.monitor', 'sandbox_monitor_unavailable_until_cp013'],
-    ['cleanup.retention', 'cleanup_unavailable_until_cp012'],
   ];
   for (const [jobType, errorCode] of closed) {
     const handler: JobHandler = () => Promise.resolve(fail(errorCode));
