@@ -18,7 +18,7 @@ The demo walks through how DevGuard helps engineering teams ship with AI agents 
 2. **Three surfaces** — web workspace, CLI, and GitHub, united by one policy engine
 3. **Web** — sign in, connect repositories, and manage policy, approvals, and run history
 4. **CLI** — launch reviews, watch runs, and approve gated operations from the terminal
-5. **GitHub** — trigger workflows from pull request comments with inline status and policy feedback
+5. **GitHub** — trigger workflows from pull request comments, receive an immediate acknowledgement, and view live status in the DevGuard UI
 6. **Repository dashboard** — one view of runs and approvals, regardless of where they started
 7. **Workflow launcher & policy** — start governed work and enforce repository rules before execution
 8. **Approvals** — pause high-risk runs for human review of fingerprinted operations
