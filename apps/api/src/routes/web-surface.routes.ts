@@ -205,9 +205,21 @@ export function registerWebSurfaceRoutes(
     '/api/v1/github/installations/intents',
     { rateLimitClass: 'default', authClass: 'required_session' },
     async (c) => {
-      // GitHub owns the install UI. We return the GitHub-managed installations
-      // settings URL rather than minting a Next.js OAuth workaround.
-      return c.json({ installUrl: 'https://github.com/settings/installations' }, 201);
+      const slug = container.config?.github?.appSlug;
+      if (slug === undefined || slug.length === 0) {
+        return c.json(
+          {
+            error: {
+              code: 'INSTALL_INTENT_UNAVAILABLE',
+              message: 'GitHub App slug is not configured for installation.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          503,
+        );
+      }
+      return c.json({ installUrl: `https://github.com/apps/${slug}/installations/new` }, 201);
     },
   );
 
@@ -315,6 +327,25 @@ export function registerWebSurfaceRoutes(
           503,
         );
       }
+      const active = await policyStore.getActive(repositoryId);
+      const expected =
+        ifMatch !== undefined && /^\d+$/.test(ifMatch) ? Number(ifMatch) : (active?.version ?? 0);
+      if (active !== null && active.canonicalHash === digest) {
+        return c.json({ activeVersion: active.version, etag: String(active.version) }, 200);
+      }
+      if (active !== null && active.version !== expected) {
+        return c.json(
+          {
+            error: {
+              code: 'VERSION_CONFLICT',
+              message: 'Policy head changed. Reload and retry.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          409,
+        );
+      }
       const json = JSON.stringify(parsed.data);
       const version = await policyStore.appendVersion({
         repositoryId,
@@ -322,7 +353,6 @@ export function registerWebSurfaceRoutes(
         canonicalHash: digest,
         createdBy: principal.userId,
       });
-      const expected = ifMatch !== undefined && /^\d+$/.test(ifMatch) ? Number(ifMatch) : 0;
       try {
         await policyStore.activateHead(
           repositoryId,
@@ -332,6 +362,10 @@ export function registerWebSurfaceRoutes(
         );
       } catch (error) {
         if (error instanceof Error && error.message.startsWith('HEAD_VERSION_CONFLICT')) {
+          const latest = await policyStore.getActive(repositoryId);
+          if (latest !== null && latest.canonicalHash === digest) {
+            return c.json({ activeVersion: latest.version, etag: String(latest.version) }, 200);
+          }
           return c.json(
             {
               error: {
@@ -370,13 +404,24 @@ export function registerWebSurfaceRoutes(
       const principal = c.get('requestContext').principal!;
       const status = c.req.query('status');
       const repositoryId = c.req.query('repositoryId');
+      const accessible =
+        repoStore === undefined
+          ? undefined
+          : new Set((await repoStore.listForUser(principal.userId)).map((row) => row.id));
+      if (repositoryId !== undefined && accessible !== undefined && !accessible.has(repositoryId)) {
+        return c.json({ approvals: [] });
+      }
       if (approvalStore !== undefined) {
         const rows = await approvalStore.list({
           ...(status !== undefined ? { status } : {}),
           ...(repositoryId !== undefined ? { repositoryId } : {}),
         });
+        const filtered =
+          accessible === undefined
+            ? rows
+            : rows.filter((row) => accessible.has(String(row['repositoryId'] ?? '')));
         return c.json({
-          approvals: rows.map((row) => toApproval(row)),
+          approvals: filtered.map((row) => toApproval(row)),
         });
       }
       const nested = await approvals.listFor('', principal.userId);
@@ -391,7 +436,31 @@ export function registerWebSurfaceRoutes(
     async (c) => {
       const principal = c.get('requestContext').principal!;
       const approvalId = c.req.param('approvalId') ?? '';
-      const result = await approvals.resolve('', approvalId, 'approved', principal.userId);
+      const access = await assertApprovalAccess(
+        approvalId,
+        principal.userId,
+        approvalStore,
+        repoStore,
+      );
+      if (!access.ok) {
+        return c.json(
+          {
+            error: {
+              code: access.code,
+              message: access.detail,
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          access.status,
+        );
+      }
+      const result = await approvals.resolve(
+        access.workflowRunId,
+        approvalId,
+        'approved',
+        principal.userId,
+      );
       if (!result.ok) {
         return c.json(
           {
@@ -415,7 +484,31 @@ export function registerWebSurfaceRoutes(
     async (c) => {
       const principal = c.get('requestContext').principal!;
       const approvalId = c.req.param('approvalId') ?? '';
-      const result = await approvals.resolve('', approvalId, 'rejected', principal.userId);
+      const access = await assertApprovalAccess(
+        approvalId,
+        principal.userId,
+        approvalStore,
+        repoStore,
+      );
+      if (!access.ok) {
+        return c.json(
+          {
+            error: {
+              code: access.code,
+              message: access.detail,
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          access.status,
+        );
+      }
+      const result = await approvals.resolve(
+        access.workflowRunId,
+        approvalId,
+        'rejected',
+        principal.userId,
+      );
       if (!result.ok) {
         return c.json(
           {
@@ -432,6 +525,50 @@ export function registerWebSurfaceRoutes(
       return c.json({ resolved: true, approvalId });
     },
   );
+}
+
+async function assertApprovalAccess(
+  approvalId: string,
+  userId: string,
+  approvalStore: ApprovalStore | undefined,
+  repoStore: ConnectedRepositoryStore | undefined,
+): Promise<
+  | { ok: true; workflowRunId: string }
+  | { ok: false; code: string; detail: string; status: 403 | 404 }
+> {
+  if (approvalStore === undefined) {
+    return {
+      ok: false,
+      code: 'APPROVAL_UNKNOWN',
+      detail: 'Approval was not found.',
+      status: 404,
+    };
+  }
+  const row = await approvalStore.getById(approvalId);
+  if (row === null) {
+    return {
+      ok: false,
+      code: 'APPROVAL_UNKNOWN',
+      detail: 'Approval was not found.',
+      status: 404,
+    };
+  }
+  const repositoryId = String(row['repositoryId'] ?? '');
+  if (repoStore !== undefined) {
+    const accessible = new Set((await repoStore.listForUser(userId)).map((item) => item.id));
+    if (!accessible.has(repositoryId)) {
+      return {
+        ok: false,
+        code: 'REPOSITORY_FORBIDDEN',
+        detail: 'You do not have access to this approval.',
+        status: 403,
+      };
+    }
+  }
+  return {
+    ok: true,
+    workflowRunId: typeof row['workflowRunId'] === 'string' ? row['workflowRunId'] : '',
+  };
 }
 
 function toApproval(row: Record<string, unknown>): ApprovalProjection {
