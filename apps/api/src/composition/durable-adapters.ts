@@ -16,12 +16,27 @@ import { type WorkflowPorts } from './volatile-adapters.js';
 
 type PoolLike = DevGuardPool;
 
+const USER_SUBJECT_PREFIX = 'user:';
+const USER_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function userIdFromSubjectKey(subjectKey: string): string | undefined {
+  if (!subjectKey.startsWith(USER_SUBJECT_PREFIX)) return undefined;
+  const candidate = subjectKey.slice(USER_SUBJECT_PREFIX.length);
+  return USER_ID_PATTERN.test(candidate) ? candidate : undefined;
+}
+
 export class PostgresAuthorizationEvidenceStore implements AuthorizationEvidencePort {
   readonly bindingName = 'authorization_evidence_postgres';
 
   constructor(private readonly pool: PoolLike) {}
 
   async append(record: AuthorizationEvidenceRecord): Promise<void> {
+    const userId = userIdFromSubjectKey(record.subjectKey);
+    if (userId === undefined) {
+      // System actors and legacy subject keys are not persisted in this table.
+      return;
+    }
     await this.pool.query({
       text: `
 INSERT INTO repository_access_evidence
@@ -30,7 +45,7 @@ VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8::timestamptz)`,
       values: [
         record.id,
         record.repositoryId,
-        record.subjectKey,
+        userId,
         record.capability,
         record.effect === 'allow' ? 'allow' : 'deny',
         record.source,
@@ -46,6 +61,8 @@ VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8::timestamptz)`,
     capability: RepositoryCapability,
     nowMs: number,
   ): Promise<AuthorizationEvidenceRecord | undefined> {
+    const userId = userIdFromSubjectKey(subjectKey);
+    if (userId === undefined) return undefined;
     const rows = await this.pool.query<Record<string, unknown>>({
       text: `
 SELECT id::text AS id, repository_id::text AS repository_id, user_id::text AS user_id,
@@ -56,14 +73,14 @@ WHERE user_id = $1::uuid AND repository_id = $2::uuid AND capability = $3
   AND decision = 'allow' AND (expires_at IS NULL OR expires_at > to_timestamp($4 / 1000.0))
 ORDER BY checked_at DESC
 LIMIT 1`,
-      values: [subjectKey, repositoryId, capability, nowMs],
+      values: [userId, repositoryId, capability, nowMs],
     });
     const row = rows[0];
     if (row === undefined) return undefined;
     return {
       id: String(row['id']),
       repositoryId: String(row['repository_id']),
-      subjectKey: String(row['user_id']),
+      subjectKey: `${USER_SUBJECT_PREFIX}${String(row['user_id'])}`,
       capability: String(row['capability']) as RepositoryCapability,
       effect: 'allow',
       reasonCode: 'cached_evidence',

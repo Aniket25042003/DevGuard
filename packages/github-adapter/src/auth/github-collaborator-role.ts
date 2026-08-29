@@ -47,6 +47,22 @@ export class GitHubCollaboratorRoleService {
       host: 'api.github.com',
     });
     if (response.status === 404) {
+      // Personal-account owners are not listed as collaborators; treat a login
+      // match on the repository owner as admin so connecting owners can read.
+      if (input.owner.toLowerCase() === input.userLogin.toLowerCase()) {
+        const snapshotHash = createHash('sha256')
+          .update(
+            JSON.stringify({
+              permission: 'admin',
+              owner: input.owner,
+              repo: input.repo,
+              login: input.userLogin,
+              source: 'owner_login_match',
+            }),
+          )
+          .digest('hex');
+        return { role: 'admin', snapshotHash };
+      }
       const snapshotHash = createHash('sha256')
         .update(JSON.stringify({ permission: 'none', owner: input.owner, repo: input.repo }))
         .digest('hex');

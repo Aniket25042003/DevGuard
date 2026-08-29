@@ -35,4 +35,17 @@ describe('GitHubCollaboratorRoleService (C017)', () => {
     });
     expect(result.role).toBe('none');
   });
+
+  it('treats personal-account owners as admin when collaborator lookup is missing', async () => {
+    const service = new GitHubCollaboratorRoleService({
+      request: async () => ({ status: 404, headers: {}, bodyText: '' }),
+    });
+    const result = await service.fetchRole({
+      token: secretFrom('ghs_test'),
+      owner: 'octo',
+      repo: 'demo',
+      userLogin: 'octo',
+    });
+    expect(result.role).toBe('admin');
+  });
 });
