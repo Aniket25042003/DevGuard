@@ -1,4 +1,5 @@
 import type { OriginSurface } from '@devguard/api-contracts';
+import { APP_HOME_PATH } from '@/features/navigation/routes';
 
 export const COMMAND_BUTTONS = [
   {
@@ -55,8 +56,9 @@ export function newIdempotencyKey(): string {
 }
 
 export function validateReturnTo(candidate: string | null | undefined): string {
-  if (candidate === undefined || candidate === null || candidate === '') return '/';
-  if (!candidate.startsWith('/') || candidate.startsWith('//')) return '/';
-  if (candidate.includes('://') || candidate.includes('\\')) return '/';
+  if (candidate === undefined || candidate === null || candidate === '') return APP_HOME_PATH;
+  if (candidate === '/') return APP_HOME_PATH;
+  if (!candidate.startsWith('/') || candidate.startsWith('//')) return APP_HOME_PATH;
+  if (candidate.includes('://') || candidate.includes('\\')) return APP_HOME_PATH;
   return candidate;
 }

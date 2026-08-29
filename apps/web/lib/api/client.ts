@@ -259,7 +259,10 @@ export class DevGuardApiClient {
   }
 
   loginHref(returnTo: string): string {
-    const safe = returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/';
+    const safe =
+      returnTo.startsWith('/') && !returnTo.startsWith('//') && returnTo !== '/'
+        ? returnTo
+        : '/repositories';
     return joinUrl('/auth/login', { returnTo: safe });
   }
 

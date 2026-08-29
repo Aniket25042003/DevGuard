@@ -2,6 +2,9 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PRODUCT_NAME } from '@/lib/brand';
 import { buildAppHref } from '@/features/navigation/routes';
+import { LandingAuthRedirect } from '@/features/marketing/components/landing-auth-redirect';
+
+const SIGN_IN = buildAppHref({ name: 'signIn', returnTo: '/repositories' });
 
 const FEATURES = [
   {
@@ -35,19 +38,20 @@ const STEPS = [
 export function LandingPage(): ReactNode {
   return (
     <div className="hero-glow min-h-screen">
+      <LandingAuthRedirect />
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-6 sm:px-8">
         <Link href="/" className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-tight">
           {PRODUCT_NAME}
         </Link>
         <nav className="flex items-center gap-3">
           <Link
-            href={buildAppHref({ name: 'signIn' })}
+            href={SIGN_IN}
             className="hidden min-h-11 items-center rounded-lg px-4 text-sm font-medium text-[var(--muted)] transition hover:text-[var(--ink)] sm:inline-flex"
           >
             Sign in
           </Link>
           <Link
-            href={buildAppHref({ name: 'signIn' })}
+            href={SIGN_IN}
             className="inline-flex min-h-11 items-center rounded-lg bg-[var(--accent)] px-5 text-sm font-medium text-[var(--accent-ink)] shadow-[var(--shadow-sm)] transition hover:bg-[var(--accent-hover)]"
           >
             Get started
@@ -71,7 +75,7 @@ export function LandingPage(): ReactNode {
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
               <Link
-                href={buildAppHref({ name: 'signIn' })}
+                href={SIGN_IN}
                 className="inline-flex min-h-12 items-center rounded-xl bg-[var(--accent)] px-6 text-base font-medium text-[var(--accent-ink)] shadow-[var(--shadow-md)] transition hover:bg-[var(--accent-hover)]"
               >
                 Sign in with GitHub
@@ -150,7 +154,7 @@ export function LandingPage(): ReactNode {
               Connect your GitHub account, onboard repositories, and launch your first governed workflow in minutes.
             </p>
             <Link
-              href={buildAppHref({ name: 'signIn' })}
+              href={SIGN_IN}
               className="mt-8 inline-flex min-h-12 items-center rounded-xl bg-[var(--accent)] px-8 text-base font-medium text-[var(--accent-ink)] shadow-[var(--shadow-md)] transition hover:bg-[var(--accent-hover)]"
             >
               Go to sign in

@@ -66,9 +66,9 @@ function iso(date: Date): TimestampIso {
 
 function safeReturnTo(raw: string | undefined): string {
   if (raw !== undefined && raw.startsWith('/') && !raw.startsWith('//') && !raw.includes('\\')) {
-    return raw;
+    return raw === '/' ? '/repositories' : raw;
   }
-  return '/';
+  return '/repositories';
 }
 
 export class AuthenticationService {

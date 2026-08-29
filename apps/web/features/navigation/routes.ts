@@ -1,3 +1,5 @@
+export const APP_HOME_PATH = '/repositories' as const;
+
 export type AppRoute =
   | { readonly name: 'home' }
   | { readonly name: 'signIn'; readonly returnTo?: string }
@@ -16,7 +18,7 @@ export type AppRoute =
 export function buildAppHref(route: AppRoute): string {
   switch (route.name) {
     case 'home':
-      return '/repositories';
+      return APP_HOME_PATH;
     case 'signIn':
       return route.returnTo !== undefined
         ? `/sign-in?returnTo=${encodeURIComponent(route.returnTo)}`
