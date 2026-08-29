@@ -8,6 +8,8 @@
  * never raw scanner text or secrets. Session-required.
  */
 import type { FindingSeverity, FindingStatus } from '@devguard/contracts';
+import { IDEMPOTENCY_KEY_HEADER, idempotencyKeySchema } from '@devguard/api-contracts';
+import { validationFailed } from '@devguard/errors';
 import type { RegisterV1Route } from '../transport/kernel.js';
 
 export interface SecurityFinding {
@@ -83,7 +85,7 @@ export function registerFindingsRemediationRoutes(
           401,
         );
       }
-      const idempotencyKey = c.req.header('idempotency-key');
+      const idempotencyKey = c.req.header(IDEMPOTENCY_KEY_HEADER);
       if (idempotencyKey === undefined) {
         return c.json(
           {
@@ -97,7 +99,11 @@ export function registerFindingsRemediationRoutes(
           428,
         );
       }
-      const outcome = await submit({
+      const parsedKey = idempotencyKeySchema.safeParse(idempotencyKey);
+        if (!parsedKey.success) {
+          throw validationFailed([{ path: IDEMPOTENCY_KEY_HEADER, constraint: 'valid idempotency key required' }]);
+        }
+        const outcome = await submit({
         findingId: c.req.param('id') ?? '',
         idempotencyKey,
         surface: (c.req.header('origin') ?? '').includes('cli.') ? 'cli' : 'web',
