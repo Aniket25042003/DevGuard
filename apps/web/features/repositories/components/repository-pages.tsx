@@ -1,14 +1,15 @@
 'use client';
 
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { getApiClient } from '@/lib/api/client';
 import { newIdempotencyKey } from '@/lib/commands';
 import { queryKeys } from '@/lib/server-state/query-keys';
-import { Button, EmptyState, PageHeader } from '@/components/ui/primitives';
+import { Button, Card, EmptyState, PageHeader } from '@/components/ui/primitives';
 import { buildAppHref } from '@/features/navigation/routes';
 import { ProblemAlert, classifyUiProblem } from '@/features/errors/index';
+import type { RepositorySummary } from '@/lib/api/client';
 
 export function RepositoryIndexPage(): ReactNode {
   const client = getApiClient();
@@ -49,7 +50,9 @@ export function RepositoryIndexPage(): ReactNode {
                 href={buildAppHref({ name: 'repository', repositoryId: repo.id })}
                 className="group block rounded-2xl border border-[var(--line)] bg-[var(--bg-elevated)] px-5 py-4 shadow-[var(--shadow-sm)] transition hover:border-[var(--accent)] hover:shadow-[var(--shadow-md)]"
               >
-                <span className="font-medium group-hover:text-[var(--accent)]">{repo.fullName ?? repo.name}</span>
+                <span className="font-medium group-hover:text-[var(--accent)]">
+                  {repo.fullName ?? repo.name}
+                </span>
                 {repo.status !== undefined ? (
                   <span className="ml-2 text-sm text-[var(--muted)]">{repo.status}</span>
                 ) : null}
@@ -65,57 +68,97 @@ export function RepositoryIndexPage(): ReactNode {
 export function RepositoryOnboardingPage(): ReactNode {
   const client = getApiClient();
   const router = useRouter();
-  const ownerId = useId();
-  const nameId = useId();
+  const queryClient = useQueryClient();
   const installId = useId();
-  const githubId = useId();
+  const searchId = useId();
   const installations = useQuery({
     queryKey: queryKeys.github.installations,
     queryFn: ({ signal }) => client.github.installations({ signal }),
   });
-  const [owner, setOwner] = useState('');
-  const [name, setName] = useState('');
   const [installationId, setInstallationId] = useState('');
-  const [githubRepositoryId, setGithubRepositoryId] = useState('');
-  const [idempotencyKey] = useState(newIdempotencyKey);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (installationId.length > 0) return;
+    const first = installations.data?.[0];
+    if (first !== undefined) {
+      setInstallationId(first.id);
+    }
+  }, [installationId, installations.data]);
+
+  const candidates = useQuery({
+    queryKey: queryKeys.github.installationRepositories(installationId, search),
+    queryFn: ({ signal }) =>
+      client.github.installationRepositories(
+        installationId,
+        { signal },
+        search.trim().length > 0 ? { q: search.trim() } : undefined,
+      ),
+    enabled: installationId.length > 0,
+  });
+
+  const invalidate = async (): Promise<void> => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.repositories.onboarding }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.github.installationRepositories(installationId, search),
+      }),
+    ]);
+  };
 
   const connect = useMutation({
-    mutationFn: () =>
+    mutationFn: (repo: RepositorySummary) =>
       client.repositories.connect(
-        { installationId, githubRepositoryId, owner, name },
-        { signal: new AbortController().signal, idempotencyKey },
+        {
+          installationId,
+          githubRepositoryId: repo.githubRepositoryId ?? repo.id,
+          owner: repo.owner ?? repo.fullName?.split('/')[0] ?? '',
+          name: repo.name,
+          defaultBranch: repo.defaultBranch,
+          visibility: repo.visibility,
+        },
+        { signal: new AbortController().signal, idempotencyKey: newIdempotencyKey() },
       ),
-    onSuccess: (repo) => {
-      router.push(buildAppHref({ name: 'repository', repositoryId: repo.id }));
+    onSuccess: async (connected) => {
+      await invalidate();
+      router.push(buildAppHref({ name: 'repository', repositoryId: connected.id }));
     },
   });
 
+  const disconnect = useMutation({
+    mutationFn: (repositoryId: string) =>
+      client.repositories.disconnect(repositoryId, {
+        signal: new AbortController().signal,
+      }),
+    onSuccess: async () => {
+      await invalidate();
+    },
+  });
+
+  const selectedInstallation = useMemo(
+    () => (installations.data ?? []).find((item) => item.id === installationId),
+    [installationId, installations.data],
+  );
+
   return (
-    <div className="max-w-xl">
+    <div className="max-w-3xl">
       <PageHeader
         title="Connect a repository"
-        description="Confirm the exact owner/name. The server re-checks installation grants; this form is not authorization."
+        description="Repositories come from your linked GitHub App installation. Connect or disconnect with one click."
       />
       {installations.data !== undefined && installations.data.length === 0 ? (
         <EmptyState
           title="Install the GitHub App first"
-          body="Candidate discovery needs a recorded installation. Identity sign-in is not enough."
+          body="Link a GitHub App installation before choosing repositories."
           action={
             <Button href={buildAppHref({ name: 'githubSettings' })}>Open GitHub connection</Button>
           }
         />
       ) : (
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            connect.mutate();
-          }}
-        >
-          <Field id={installId} label="Installation">
+        <div className="space-y-6">
+          <Field id={installId} label="GitHub installation">
             <select
               id={installId}
-              required
               className="min-h-11 w-full rounded-md border border-[var(--line)] bg-[var(--bg-elevated)] px-3"
               value={installationId}
               onChange={(event) => setInstallationId(event.target.value)}
@@ -128,39 +171,92 @@ export function RepositoryOnboardingPage(): ReactNode {
               ))}
             </select>
           </Field>
-          <Field id={ownerId} label="Owner">
-            <input
-              id={ownerId}
-              required
-              value={owner}
-              onChange={(event) => setOwner(event.target.value)}
-              className="min-h-11 w-full rounded-md border border-[var(--line)] bg-[var(--bg-elevated)] px-3"
-            />
-          </Field>
-          <Field id={nameId} label="Repository name">
-            <input
-              id={nameId}
-              required
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="min-h-11 w-full rounded-md border border-[var(--line)] bg-[var(--bg-elevated)] px-3"
-            />
-          </Field>
-          <Field id={githubId} label="GitHub repository id">
-            <input
-              id={githubId}
-              required
-              inputMode="numeric"
-              value={githubRepositoryId}
-              onChange={(event) => setGithubRepositoryId(event.target.value)}
-              className="min-h-11 w-full rounded-md border border-[var(--line)] bg-[var(--bg-elevated)] px-3"
-            />
-          </Field>
-          {connect.isError ? <ProblemAlert problem={classifyUiProblem(connect.error)} /> : null}
-          <Button type="submit" disabled={connect.isPending}>
-            {connect.isPending ? 'Connecting…' : 'Connect this repository'}
-          </Button>
-        </form>
+
+          {installationId.length > 0 ? (
+            <>
+              <Field id={searchId} label="Filter repositories">
+                <input
+                  id={searchId}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search by name or owner"
+                  className="min-h-11 w-full rounded-md border border-[var(--line)] bg-[var(--bg-elevated)] px-3"
+                />
+              </Field>
+
+              {candidates.isLoading ? <p role="status">Loading repositories from GitHub…</p> : null}
+              {candidates.isError ? (
+                <ProblemAlert
+                  problem={classifyUiProblem(candidates.error)}
+                  onRecover={() => void candidates.refetch()}
+                />
+              ) : null}
+
+              {candidates.data !== undefined && candidates.data.repositories.length === 0 ? (
+                <EmptyState
+                  title="No repositories found"
+                  body={
+                    selectedInstallation !== undefined
+                      ? `No repositories are granted to ${selectedInstallation.accountLogin} for the DevGuard GitHub App. Update the app’s repository access on GitHub, then refresh.`
+                      : 'No repositories are available for this installation.'
+                  }
+                  action={
+                    <Button tone="neutral" onClick={() => void candidates.refetch()}>
+                      Refresh list
+                    </Button>
+                  }
+                />
+              ) : null}
+
+              <ul className="space-y-3">
+                {(candidates.data?.repositories ?? []).map((repo) => {
+                  const busy =
+                    (connect.isPending &&
+                      (connect.variables?.githubRepositoryId ?? connect.variables?.id) ===
+                        (repo.githubRepositoryId ?? repo.id)) ||
+                    (disconnect.isPending && disconnect.variables === repo.id);
+                  return (
+                    <li key={repo.githubRepositoryId ?? repo.id}>
+                      <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-medium">{repo.fullName ?? repo.name}</p>
+                          <p className="text-sm text-[var(--muted)]">
+                            {repo.visibility ?? 'private'}
+                            {repo.defaultBranch !== undefined ? ` · ${repo.defaultBranch}` : ''}
+                            {repo.archived === true ? ' · archived' : ''}
+                          </p>
+                        </div>
+                        {repo.connected ? (
+                          <Button
+                            tone="neutral"
+                            disabled={busy}
+                            onClick={() => disconnect.mutate(repo.id)}
+                          >
+                            {busy ? 'Disconnecting…' : 'Disconnect'}
+                          </Button>
+                        ) : (
+                          <Button
+                            disabled={busy || repo.archived === true}
+                            onClick={() => connect.mutate(repo)}
+                          >
+                            {busy ? 'Connecting…' : 'Connect'}
+                          </Button>
+                        )}
+                      </Card>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {connect.isError ? (
+                <ProblemAlert problem={classifyUiProblem(connect.error)} />
+              ) : null}
+              {disconnect.isError ? (
+                <ProblemAlert problem={classifyUiProblem(disconnect.error)} />
+              ) : null}
+            </>
+          ) : null}
+        </div>
       )}
     </div>
   );

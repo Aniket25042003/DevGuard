@@ -41,6 +41,10 @@ export interface RepositorySummary {
   readonly status?: string | undefined;
   readonly defaultBranch?: string | undefined;
   readonly installationId?: string | undefined;
+  readonly githubRepositoryId?: string | undefined;
+  readonly connected?: boolean | undefined;
+  readonly visibility?: 'public' | 'private' | undefined;
+  readonly archived?: boolean | undefined;
 }
 
 export interface InstallationSummary {
@@ -186,6 +190,10 @@ const repositorySummarySchema = z
     status: z.string().optional(),
     defaultBranch: z.string().optional(),
     installationId: z.string().optional(),
+    githubRepositoryId: z.string().optional(),
+    connected: z.boolean().optional(),
+    visibility: z.enum(['public', 'private']).optional(),
+    archived: z.boolean().optional(),
   })
   .passthrough();
 
@@ -339,12 +347,27 @@ export class DevGuardApiClient {
         readonly githubRepositoryId: string;
         readonly owner: string;
         readonly name: string;
+        readonly defaultBranch?: string | undefined;
+        readonly visibility?: 'public' | 'private' | undefined;
       },
       options: RequestOptions,
     ): Promise<RepositorySummary> =>
       this.requestJson('POST', '/repositories', {
         options,
         body,
+        schema: z
+          .union([
+            repositorySummarySchema,
+            z.object({ repository: repositorySummarySchema }),
+            z.object({ data: repositorySummarySchema }),
+          ])
+          .transform((value) =>
+            'id' in value ? value : 'repository' in value ? value.repository : value.data,
+          ),
+      }),
+    disconnect: (repositoryId: string, options: RequestOptions): Promise<RepositorySummary> =>
+      this.requestJson('POST', `/repositories/${encodeURIComponent(repositoryId)}/disconnect`, {
+        options,
         schema: z
           .union([
             repositorySummarySchema,

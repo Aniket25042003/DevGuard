@@ -39,6 +39,12 @@ export {
   type FetchedInstallationSnapshot,
 } from './auth/fetch-installation.js';
 export {
+  listInstallationRepositories,
+  type InstallationRepositoryCandidate,
+  type ListInstallationRepositoriesOptions,
+  type ListInstallationRepositoriesResult,
+} from './auth/list-installation-repositories.js';
+export {
   FetchInstallationTokenMintPort,
   type FetchInstallationTokenMintOptions,
 } from './auth/installation-token-mint.js';

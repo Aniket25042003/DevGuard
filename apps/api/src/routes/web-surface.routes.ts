@@ -18,6 +18,7 @@ import type { ApiContainer } from '../composition/container.js';
 import type { ApprovalPort, ApprovalProjection } from './approval.routes.js';
 import type { RepositoryLifecycleService, RepositoryMetadataHealthService } from '@devguard/github-adapter';
 import { completeGitHubInstallationSetup } from '../composition/github-installation-setup.js';
+import { listGitHubInstallationRepositories } from '../composition/github-installation-repositories.js';
 
 const repoRead: RouteMetadata = {
   rateLimitClass: 'default',
@@ -99,6 +100,8 @@ export function registerWebSurfaceRoutes(
             githubRepositoryId?: unknown;
             owner?: unknown;
             name?: unknown;
+            defaultBranch?: unknown;
+            visibility?: unknown;
           }
         | undefined;
       if (
@@ -146,8 +149,11 @@ export function registerWebSurfaceRoutes(
         idempotencyKey,
         ownerLogin: body.owner,
         repoName: body.name,
-        defaultBranch: 'main',
-        visibility: 'private',
+        defaultBranch:
+          typeof body.defaultBranch === 'string' && body.defaultBranch.length > 0
+            ? body.defaultBranch
+            : 'main',
+        visibility: body.visibility === 'public' ? 'public' : 'private',
       });
       if (outcome.outcome === 'BLOCKED') {
         return c.json(
@@ -312,10 +318,148 @@ export function registerWebSurfaceRoutes(
     '/api/v1/github/installations/:installationId/repositories',
     { rateLimitClass: 'default', authClass: 'required_session' },
     async (c) => {
-      void c.req.param('installationId');
-      // Candidate listing requires a GitHub App token lease; this route does not
-      // call GitHub from a stub. The connect form accepts an explicit identity.
-      return c.json({ repositories: [] });
+      const principal = c.get('requestContext').principal!;
+      const installationRef = c.req.param('installationId') ?? '';
+      const cursor = c.req.query('cursor');
+      const query = c.req.query('q');
+      const github = container.config.github;
+      const privateKeyPem =
+        github !== undefined &&
+        github.privateKeyRef !== undefined &&
+        github.privateKeyRef.length > 0 &&
+        !github.privateKeyRef.startsWith('<')
+          ? github.privateKeyRef
+          : undefined;
+      if (pool === undefined || github === undefined || privateKeyPem === undefined) {
+        return c.json(
+          {
+            error: {
+              code: 'DEPENDENCY_UNAVAILABLE',
+              message: 'GitHub App credentials are not configured on the API.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          503,
+        );
+      }
+      try {
+        const result = await listGitHubInstallationRepositories({
+          pool,
+          github,
+          privateKeyPem,
+          userId: principal.userId,
+          installationRef,
+          ...(cursor !== undefined ? { cursor } : {}),
+          ...(query !== undefined ? { query } : {}),
+        });
+        return c.json(result);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'installation_not_linked') {
+          return c.json(
+            {
+              error: {
+                code: 'INSTALLATION_UNKNOWN',
+                message: 'GitHub installation is not linked to this account.',
+                requestId: c.get('requestContext').requestId,
+                retryable: false,
+              },
+            },
+            404,
+          );
+        }
+        return c.json(
+          {
+            error: {
+              code: 'GITHUB_REPOSITORIES_UNAVAILABLE',
+              message: 'Could not list repositories from GitHub for this installation.',
+              requestId: c.get('requestContext').requestId,
+              retryable: true,
+            },
+          },
+          502,
+        );
+      }
+    },
+  );
+
+  kernel.registerV1Route(
+    'post',
+    '/api/v1/repositories/:repositoryId/disconnect',
+    repoRead,
+    async (c) => {
+      const principal = c.get('requestContext').principal!;
+      const repositoryId = c.req.param('repositoryId') ?? '';
+      if (repoStore === undefined || lifecycle === undefined) {
+        return c.json(
+          {
+            error: {
+              code: 'DEPENDENCY_UNAVAILABLE',
+              message: 'Durable repository store is not bound.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          503,
+        );
+      }
+      const row = await repoStore.findById(repositoryId);
+      if (row === null) {
+        return c.json(
+          {
+            error: {
+              code: 'NOT_FOUND',
+              message: 'Repository not found.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          404,
+        );
+      }
+      const owned = await repoStore.listForUser(principal.userId);
+      if (!owned.some((item) => item.id === repositoryId)) {
+        return c.json(
+          {
+            error: {
+              code: 'FORBIDDEN',
+              message: 'You can only disconnect repositories you connected.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          403,
+        );
+      }
+      const outcome = await lifecycle.disconnect({ repositoryDevguardId: repositoryId });
+      if (outcome.outcome !== 'DISCONNECTED') {
+        return c.json(
+          {
+            error: {
+              code: 'DISCONNECT_FAILED',
+              message: 'Could not disconnect the repository.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          500,
+        );
+      }
+      const record = outcome.record;
+      const status =
+        record.status === 'connected'
+          ? 'active'
+          : record.status === 'degraded'
+            ? 'degraded'
+            : 'disconnected';
+      return c.json({
+        id: record.repositoryDevguardId,
+        name: record.repoName,
+        owner: record.ownerLogin,
+        fullName: record.fullName,
+        status,
+        installationId: record.installationId,
+      });
     },
   );
 
