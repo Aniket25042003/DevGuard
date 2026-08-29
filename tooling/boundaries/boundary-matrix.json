@@ -33,7 +33,8 @@
     "packages/agent": "application",
     "packages/sandbox": "application",
     "packages/workflows": "application",
-    "packages/artifact-storage": "adapter"
+    "packages/artifact-storage": "adapter",
+    "apps/cli": "app"
   },
   "packageScope": "@devguard",
   "domainExternalAllowlist": ["zod"],

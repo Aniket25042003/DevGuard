@@ -69,6 +69,9 @@
     },
     {
       "path": "packages/artifact-storage"
+    },
+    {
+      "path": "apps/cli"
     }
   ]
 }

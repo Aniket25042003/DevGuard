@@ -87,6 +87,8 @@ importers:
         specifier: ^4.9.7
         version: 4.13.4
 
+  apps/cli: {}
+
   apps/web: {}
 
   apps/worker:
@@ -175,6 +177,9 @@ importers:
       '@devguard/errors':
         specifier: workspace:*
         version: link:../errors
+      '@devguard/security':
+        specifier: workspace:*
+        version: link:../security
 
   packages/auth:
     dependencies:
