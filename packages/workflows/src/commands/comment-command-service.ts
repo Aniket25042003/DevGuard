@@ -153,8 +153,11 @@ export class CommentCommandService {
       await this.maybeAck(event, submitted);
       return submitted;
     } catch (error) {
-      const detail = error instanceof Error ? error.message : 'submit_failed';
-      const denied = { kind: 'denied' as const, code: 'SUBMIT_FAILED', detail };
+      // Unexpected submission failures must remain retryable.
+        throw error;
+        /* const detail = error instanceof Error ? error.message : 'submit_failed'; */
+      throw error; /* unreachable */
+        const denied = { kind: 'denied' as const, code: 'SUBMIT_FAILED', detail: 'unreachable' };
       await this.maybeAck(event, denied);
       return denied;
     }
