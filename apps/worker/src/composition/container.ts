@@ -99,7 +99,7 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
   );
   const commentAuthorizer = buildWorkerAuthorizer(pool);
   const commentCommands =
-    pool !== undefined ? buildCommentCommandService(pool, commentAuthorizer) : undefined;
+    pool !== undefined ? buildCommentCommandService(pool, commentAuthorizer, config) : undefined;
   registerWebhookProcess(
     registry,
     pool !== undefined ? new PostgresWebhookDeliveryStore(pool) : new InMemoryDeliveryStore(),

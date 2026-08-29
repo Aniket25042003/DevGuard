@@ -93,6 +93,12 @@ export {
   type DeliveryStateV1,
 } from './repositories/webhook-delivery.js';
 
+// ---- CP021 GitHub comment ack dedup ----
+export {
+  InMemoryCommentAckDedupStore,
+  PostgresCommentAckDedupStore,
+} from './repositories/comment-ack-dedup.js';
+
 // ---- CP009 durable policy decisions ----
 export {
   PostgresPolicyDecisionStore,

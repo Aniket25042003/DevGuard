@@ -32,6 +32,10 @@ export {
   type InstallationTokenMintPort,
   type TokenLeaseCache,
 } from './auth/token-lease-cache.js';
+export {
+  FetchInstallationTokenMintPort,
+  type FetchInstallationTokenMintOptions,
+} from './auth/installation-token-mint.js';
 
 export type {
   AuthorizedActionContext,
@@ -422,6 +426,17 @@ export {
   type PrProviderPort,
 } from './write/pr/provider-port.js';
 export { sanitizePrContent, prSafe } from './write/pr/pr-safe.js';
+// ---- CP021 lightweight issue-comment ack writes ----
+export {
+  OP_CREATE_ISSUE_COMMENT,
+  type CreatedIssueComment,
+} from './write/issue/operations.js';
+export {
+  GitHubIssueCommentAckService,
+  type GitHubIssueCommentAckServiceDeps,
+  type PostIssueCommentAckInput,
+  type PostIssueCommentAckResult,
+} from './write/issue/github-issue-comment-acks.js';
 // ---- C020 GitHub branches/commits mutation adapter ----
 export {
   BRANCH_PREFIX,
