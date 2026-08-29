@@ -2,88 +2,143 @@
 
 **Autonomous software engineering with a license to act.**
 
-DevGuard is a GitHub-focused autonomous software-engineering control plane. It
-gives an AI software engineer the ability to inspect repositories, understand
-issues, modify code, run generated code in an isolated sandbox, validate
-changes, open pull requests, react to review feedback, and execute repository
-actions only within an explicit autonomy policy.
+DevGuard is a GitHub-focused control plane for autonomous software engineering. It lets an AI agent inspect repositories, understand issues, modify code, run changes in an isolated sandbox, validate results, open pull requests, and respond to review feedback — all within explicit, enforceable autonomy policies that maintainers define per repository.
 
-## What it does
+---
 
-1. **Junior Dev in a Box** — turn GitHub issues into inspected, tested pull
-   requests (`implement_issue`).
-2. **Security Patch Agent** — remediate findings in isolation and prove them
-   fixed with a comparable re-scan (`security_patch`, `security_audit`).
-3. **Repo Surgeon** — diagnose failing tests, regressions, and other defects,
-   then produce and validate a repair (`diagnose_failure`).
+## The problem
 
-Maintainers choose how much authority DevGuard has per repository: which
-workflows can start manually or from GitHub events, which actions are allowed,
-which require human approval, which are forbidden, and which validations must
-pass before a pull request can be opened or updated.
+Teams want AI agents that can ship real code, not just suggest it. But unconstrained automation creates risk: unreviewed changes, policy bypasses, unsafe execution on production hosts, and no durable audit trail when something goes wrong.
 
-## Architecture at a glance
+Most agent tooling treats governance as an afterthought. DevGuard treats it as the product.
 
-| Layer         | Responsibility                                                                        |
-| ------------- | ------------------------------------------------------------------------------------- |
-| **DevGuard**  | Product governance, deterministic policy, durable approvals, workflows, audit, and UX |
-| **TrueForge** | Agent runtime — sessions, MCP tools, sandbox execution, streaming, checkpoints        |
-| **GitHub**    | System of record for source, issues, pull requests, checks, and reviews               |
-| **Humans**    | Authorize exact privileged actions                                                    |
+---
 
-**Core rule:** the model proposes; DevGuard governs and records; TrueForge runs;
-GitHub holds repository truth; a human authorizes exact high-impact actions.
+## What DevGuard does
 
-## Repository layout
+DevGuard sits between your team, GitHub, and an agent runtime. It classifies every proposed action, evaluates repository policy, records decisions, requires human approval when configured, and only then delegates execution to the runtime.
 
-- `packages/*` — domain modules and adapters (foundation, persistence, GitHub,
-  policy, approvals, agent, sandbox, workflows, queue, observability, security,
-  API contracts, test harness). Each is an immutable, versioned component.
-- `apps/api` — versioned REST/SSE/webhook transport (`kernel.registerV1Route`).
-- `apps/worker` — queue consumers, workflow orchestration, provider calls.
-- `apps/web` — Next.js UI.
-- `tests/integration` — per-component integration + security (`ci / unit`).
-- `tests/e2e` — gated end-to-end project (`pnpm test:e2e`).
-- `docs/implementation-plan` — the 100-component plan (source of truth).
+**Built-in workflows:**
+
+| Workflow | Purpose |
+| --- | --- |
+| **Junior Dev in a Box** (`implement_issue`) | Turn GitHub issues into inspected, tested pull requests |
+| **Security Patch Agent** (`security_patch`, `security_audit`) | Remediate findings in isolation and prove fixes with a comparable re-scan |
+| **Repo Surgeon** (`diagnose_failure`) | Diagnose failing tests and regressions, then produce and validate a repair |
+
+Maintainers control how much authority DevGuard has: which workflows can start manually or from GitHub events, which actions are allowed or forbidden, which require approval, and which validations must pass before a pull request is opened or updated.
+
+---
+
+## Architecture
+
+DevGuard separates **governance** from **execution** and keeps GitHub as the system of record.
+
+| Layer | Role |
+| --- | --- |
+| **DevGuard** | Policy, approvals, workflows, audit, and operator UX |
+| **TrueForge** | Agent runtime — sessions, MCP tools, sandbox execution, streaming |
+| **GitHub** | Source of truth for code, issues, pull requests, checks, and reviews |
+| **Humans** | Authorize high-impact actions when policy requires it |
+
+**Core rule:** the model proposes; DevGuard governs and records; TrueForge runs; GitHub holds repository truth; humans authorize exact privileged actions when required.
+
+```text
+HTTP/SSE route  →  application use case  →  domain service  →  repository/port
+                                                      ↘ provider adapter (GitHub / TrueForge)
+```
+
+Apps compose services; domain packages stay provider-free. Adapters implement inward-facing ports. Unknown or ambiguous actions fail closed at every boundary.
+
+---
 
 ## Tech stack
 
-- **Language:** TypeScript (strict; `exactOptionalPropertyTypes`)
-- **Monorepo:** pnpm workspaces
-- **Frontend:** Next.js, React
-- **Backend:** TypeScript API/services
-- **Database:** PostgreSQL (authoritative), object storage for large artifacts
-- **Jobs:** Redis + worker queue
-- **Sandbox:** TrueForge-managed (generated code never runs on the DevGuard host)
-- **Integrations:** GitHub App, TrueForge
+DevGuard is a **pnpm TypeScript monorepo** with strict typing (`exactOptionalPropertyTypes`) and enforced package boundaries.
+
+| Technology | How it is used |
+| --- | --- |
+| **TypeScript** | End-to-end language for API, worker, domain packages, and shared contracts |
+| **Hono** | HTTP framework for `/api/v1` — webhooks, REST, and SSE with raw-body intake and typed handlers |
+| **Next.js + React** | Control-plane web UI; talks to the API via cookie-authenticated, CSRF-protected clients |
+| **PostgreSQL** | Authoritative store for policy, approvals, workflows, audit events, and repository state |
+| **Redis + worker queue** | Background job dispatch for workflow orchestration and provider calls |
+| **Zod** | Runtime validation and shared schema definitions across API contracts and services |
+| **Vitest** | Unit, integration, and gated end-to-end test suites |
+| **TrueForge** | Sandboxed execution environment — generated code never runs on the DevGuard host |
+| **GitHub App** | Repository access, webhooks, issues, pull requests, checks, and review interactions |
+
+Object storage backs large artifacts (logs, scan outputs, sandbox bundles). Local development runs Postgres and Redis via Docker Compose.
+
+---
+
+## Repository layout
+
+```text
+apps/
+  api/      HTTP transport and webhook intake
+  worker/   Queue consumers, workflow orchestration, provider calls
+  web/      Next.js operator UI
+packages/   Domain modules and adapters (contracts, policy, approvals, GitHub, agent, sandbox, queue, …)
+tests/
+  integration/  In-process suites with fakes and architecture gates
+  e2e/          Gated cross-system suites (`pnpm test:e2e`)
+docs/architecture/  Engineering architecture and ADRs
+```
+
+Each package under `packages/` is a versioned, boundary-checked module. `pnpm lint` enforces the dependency matrix so domain logic never imports transport or provider SDKs directly.
+
+---
+
+## Getting started
+
+Requires **Node 26**, **pnpm 10** (via Corepack), and **Docker** with Compose v2.
+
+```bash
+pnpm install
+pnpm local
+```
+
+`pnpm local` starts Postgres and Redis, applies migrations, and launches the API (`:4000`) and worker. Provider capabilities (GitHub, TrueForge) are reported honestly — disabled when credentials are absent, not faked as healthy.
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm typecheck` | Strict project-reference type check |
+| `pnpm lint` | ESLint + dependency-boundary gate |
+| `pnpm test` | Unit and in-process integration suites |
+| `pnpm test:e2e` | Gated end-to-end suites |
+| `pnpm local:status` | Container, API, and provider health summary |
+
+See [Local development](docs/local-development.md) for the full command reference.
+
+---
 
 ## Safety model
 
-- Repository policy and autonomy levels control what the agent may do.
+- Repository policy and autonomy levels define what the agent may do.
 - Unknown or ambiguous actions **fail closed**.
-- High-risk operations require durable human approval bound to the exact proposed
-  action and target-state fingerprint.
-- Generated code executes only in a TrueForge sandbox.
+- High-risk operations require durable human approval bound to the exact proposed action and target-state fingerprint.
+- Generated code executes only inside a TrueForge sandbox.
 - Repository instructions are untrusted and cannot override DevGuard policy.
-- Every privileged path is auditable: classify → evaluate policy → persist
-  decision → approve if required → revalidate → execute → verify.
+- Every privileged path is auditable: classify → evaluate policy → persist decision → approve if required → revalidate → execute → verify.
+
+---
 
 ## Documentation
 
 - [Architecture](docs/architecture/README.md)
+- [Local development](docs/local-development.md)
 - [Deployment topology](docs/deployment/deployment-topology.md)
 - [Demo guide](docs/deployment/demo-guide.md)
 - [Troubleshooting](docs/deployment/troubleshooting.md)
-- [Local development](docs/local-development.md)
+
+---
 
 ## Status
 
-The backend control plane is implemented across 100 planned components
-(`docs/implementation-plan/01-component-inventory.md`); the deterministic
-portions of the E2E/adversarial matrix (C097) and the deployment topology/demo
-framework (C100) are in the repository. The frontend app is scaffolded and the
-live-provider demo requires provisioned GitHub App + TrueForge credentials
-(see the demo guide for honest `LIVE` vs `HISTORICAL` vs `REHEARSAL` labeling).
+The backend control plane is implemented across a 100-component engineering plan. Deterministic portions of the E2E/adversarial matrix and the deployment topology/demo framework are in the repository. The web app is scaffolded; a live-provider demo requires provisioned GitHub App and TrueForge credentials (see the demo guide for `LIVE` vs `HISTORICAL` vs `REHEARSAL` labeling).
+
+---
 
 ## License
 
