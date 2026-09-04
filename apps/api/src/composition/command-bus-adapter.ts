@@ -40,7 +40,6 @@ export class PostgresCommandBusPersistencePort implements CommandBusPersistenceP
     return createUnitOfWork(this.pool).transaction(async (tx) => {
       const runStore = new WorkflowRunStore(tx as unknown as RunStoreLike);
       let created: { readonly runId: string } | undefined;
-      const definitionVersionInt = toDefinitionVersionInt(input.definitionVersion);
       try {
         const record = await runStore.create({
           id: input.runId,
@@ -61,10 +60,8 @@ export class PostgresCommandBusPersistencePort implements CommandBusPersistenceP
               : {}),
           }),
           idempotencyKeyHash: input.idempotencyKeyHash,
-          // Best-effort integer mapping into the definition_version column; the
-          // raw version string survives on the trigger reference for audit.
-          ...(definitionVersionInt !== undefined
-            ? { definitionVersion: definitionVersionInt }
+          ...(input.definitionVersion !== undefined
+            ? { definitionVersion: input.definitionVersion }
             : {}),
           ...(input.createdBy !== undefined ? { createdBy: input.createdBy } : {}),
         });
@@ -112,12 +109,4 @@ export class PostgresCommandBusPersistencePort implements CommandBusPersistenceP
       return { outcome: 'created', runId: created.runId } as const;
     });
   }
-}
-
-/** Best-effort integer mapping of a definition version for the column. */
-function toDefinitionVersionInt(raw: string | undefined): number | undefined {
-  if (raw === undefined) return undefined;
-  const major = raw.split('.')[0];
-  const parsed = Number.parseInt(major ?? '', 10);
-  return Number.isSafeInteger(parsed) && parsed >= 1 ? parsed : undefined;
 }

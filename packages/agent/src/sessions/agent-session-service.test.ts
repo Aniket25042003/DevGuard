@@ -142,6 +142,21 @@ describe('C037 AgentSessionService', () => {
     expect(reconciled.status).toBe('RECONCILING');
     expect((await sessions.get(session.sessionId))?.status).toBe('RECONCILING');
   });
+
+  it('cancels provider work and fences the active turn', async () => {
+    const { service, sessions, turns } = setup();
+    const session = await ensure(service);
+    const turn = await service.submitTurn(turnInput(session.sessionId, 'cmd-cancel'));
+    const current = await sessions.get(session.sessionId);
+    expect(current).toBeDefined();
+    const cancelled = await service.cancelSession({
+      sessionId: session.sessionId,
+      expectedVersion: current?.version ?? 0,
+    });
+    expect(cancelled.status).toBe('CANCELLED');
+    expect((await sessions.get(session.sessionId))?.cancellationGeneration).toBe(1);
+    expect((await turns.get(turn.turnId))?.status).toBe('CANCELLED');
+  });
 });
 
 describe('C038 event normalization', () => {

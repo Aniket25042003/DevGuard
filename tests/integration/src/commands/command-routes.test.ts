@@ -98,10 +98,21 @@ function mutationHeaders(c: { sessionToken: string; csrf: string }): Record<stri
 const KEY1 = 'idempotency-command-0001';
 
 function submitBody(overrides: Record<string, unknown>): string {
+  const commandId = typeof overrides.commandId === 'string' ? overrides.commandId : 'review';
+  const defaultInput =
+    commandId === 'implement'
+      ? { issueNumber: 1 }
+      : commandId === 'diagnose_failure' || commandId === 'fix'
+        ? { pullRequestNumber: 1 }
+        : commandId === 'security_patch'
+          ? { findingIds: ['11111111-1111-4111-8111-111111111111'] }
+          : commandId === 'security_audit'
+            ? {}
+            : { pullRequestNumber: 1 };
   return JSON.stringify({
     commandId: 'review',
     definitionVersion: '1.0.0',
-    input: {},
+    input: defaultInput,
     originSurface: 'cli',
     ...overrides,
   });

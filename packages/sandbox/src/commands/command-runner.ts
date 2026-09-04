@@ -155,7 +155,7 @@ export class GovernedCommandRunner {
     await this.event('sandbox.command.started', cmd.commandId);
 
     while (running) {
-      const slice = await this.#provider.stream(cursor);
+      const slice = await this.#provider.stream(cursor, { providerCommandId });
       if (!slice.ok) break;
       for (const chunk of slice.value.chunks) {
         if (chunk.stream === 'stdout') stdout.ingest(chunk.text);
@@ -215,7 +215,10 @@ export class GovernedCommandRunner {
     if (record === undefined) return 'cancelled_unsupported';
     if (isTerminalCommand(record.state as never) || record.state !== 'RUNNING')
       return 'cancelled_unsupported';
-    const result = await this.#provider.terminate();
+    const providerCommandId = record.providerRefs[0];
+    const result = await this.#provider.terminate(
+      providerCommandId === undefined ? {} : { providerCommandId },
+    );
     if (!result.ok || !result.value.terminated) return 'cancelled_unsupported';
     const inspected = await this.#provider.inspect();
     if (!inspected.ok || inspected.value.running) return 'cancelled_unsupported';

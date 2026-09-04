@@ -159,9 +159,9 @@ function makePool() {
 }
 
 describe('C009 identity/repository persistence (in-memory)', () => {
-  it('upserts observed identity and finds by external subject', () => {
+  it('upserts observed identity and finds by external subject', async () => {
     const repo = new IdentityRepository(makePool());
-    void repo.upsertObservedIdentity({
+    await repo.upsertObservedIdentity({
       userId: 'u-1',
       issuer: 'github',
       subject: '123',
@@ -173,10 +173,10 @@ describe('C009 identity/repository persistence (in-memory)', () => {
       subject: '123',
       loginSnapshot: 'octo',
     });
-    void expect(repo.findByExternalSubject('github', '123')).resolves.toMatchObject({
+    await expect(repo.findByExternalSubject('github', '123')).resolves.toMatchObject({
       userId: 'u-1',
     });
-    void expect(repo.findByExternalSubject('github', '999')).resolves.toBeNull();
+    await expect(repo.findByExternalSubject('github', '999')).resolves.toBeNull();
   });
 
   it('inserts a repository and transitions its lifecycle with CAS', async () => {
@@ -199,8 +199,8 @@ describe('C009 identity/repository persistence (in-memory)', () => {
       store.transition(repo.id, repo.rowVersion - 1, 'disconnected', {}),
     ).rejects.toThrowError(/VERSION_CONFLICT/);
 
-    void expect(store.findById(repo.id)).resolves.toMatchObject({ status: 'active' });
-    void expect(store.findByGitHubId('42')).resolves.toBeDefined();
+    await expect(store.findById(repo.id)).resolves.toMatchObject({ status: 'active' });
+    await expect(store.findByGitHubId('42')).resolves.toBeDefined();
   });
 
   it('installation snapshot upserts without error', async () => {

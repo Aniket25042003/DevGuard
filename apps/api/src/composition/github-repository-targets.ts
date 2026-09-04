@@ -9,7 +9,6 @@ import {
   FetchTransport,
   InMemoryKeyProvider,
   InMemoryTokenLeaseCache,
-  SecretString,
   TokenLeaseManager,
   listRepositoryIssues,
   listRepositoryPullRequests,
@@ -18,6 +17,7 @@ import {
   type GitRefSummary,
   type IssueSummary,
   type PullRequestSummary,
+  type SecretString,
 } from '@devguard/github-adapter';
 
 const TARGET_CACHE_TTL_MS = 30_000;
@@ -58,8 +58,7 @@ function filterByQuery<T extends { readonly title: string; readonly number: numb
   const needle = query?.trim().toLowerCase();
   if (needle === undefined || needle.length === 0) return items;
   return items.filter(
-    (item) =>
-      item.title.toLowerCase().includes(needle) || String(item.number).includes(needle),
+    (item) => item.title.toLowerCase().includes(needle) || String(item.number).includes(needle),
   );
 }
 
@@ -238,9 +237,7 @@ export async function listRepositorySecurityFindingTargets(input: {
   }[];
 }> {
   const statuses =
-    input.status === 'all' || input.status === undefined
-      ? ['open', 'confirmed']
-      : [input.status];
+    input.status === 'all' || input.status === undefined ? ['open', 'confirmed'] : [input.status];
   const rows = await input.pool.query<Record<string, unknown>>({
     text: `
 SELECT id::text AS id,

@@ -10,6 +10,14 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, stat, lstat, open, link, unlink } from 'node:fs/promises';
 import { relative, resolve, sep } from 'node:path';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+  HeadBucketCommand,
+  type S3ClientConfig,
+} from '@aws-sdk/client-s3';
 
 /** Typed, transport-mappable storage error (CP012 §23). */
 export class ArtifactStorageError extends Error {
@@ -129,6 +137,98 @@ export class LocalObjectStore implements ObjectStore {
       return s.size;
     } catch {
       return null;
+    }
+  }
+}
+
+/**
+ * Durable S3-compatible implementation used by API and workers in
+ * production. Keys remain UUIDs, writes are content-addressed by checksum,
+ * and all provider errors are mapped to the storage boundary.
+ */
+export class S3ObjectStore implements ObjectStore {
+  private readonly client: S3Client;
+
+  constructor(
+    private readonly bucket: string,
+    private readonly prefix = 'devguard/artifacts',
+    config: S3ClientConfig = {},
+  ) {
+    if (bucket.trim().length === 0) throw new ArtifactStorageError('BUCKET_REQUIRED');
+    this.client = new S3Client(config);
+  }
+
+  private key(objectKey: string): string {
+    if (!OBJECT_KEY_PATTERN.test(objectKey)) {
+      throw new ArtifactStorageError('OBJECT_KEY_INVALID', 'object key must be a UUID');
+    }
+    return `${this.prefix.replace(/\/$/, '')}/${objectKey}`;
+  }
+
+  async put(
+    objectKey: string,
+    bytes: Uint8Array,
+    contentType?: string,
+  ): Promise<ObjectStoreResult> {
+    const text = Buffer.from(bytes).toString('utf8');
+    if (containsSecret(text)) throw new ArtifactStorageError('ARTIFACT_CONTAINS_SECRET');
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    try {
+      await this.client.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: this.key(objectKey),
+          Body: bytes,
+          ContentType: contentType,
+          ChecksumSHA256: Buffer.from(sha256, 'hex').toString('base64'),
+          Metadata: { sha256 },
+        }),
+      );
+      return { objectKey, sizeBytes: bytes.byteLength, sha256 };
+    } catch (error) {
+      throw new ArtifactStorageError('OBJECT_PUT_FAILED', String(error));
+    }
+  }
+
+  async get(objectKey: string): Promise<{ bytes: Uint8Array; contentType?: string } | null> {
+    try {
+      const response = await this.client.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: this.key(objectKey) }),
+      );
+      if (response.Body === undefined) return null;
+      const bytes = await response.Body.transformToByteArray();
+      const expected = response.Metadata?.['sha256'];
+      if (expected !== undefined && createHash('sha256').update(bytes).digest('hex') !== expected) {
+        throw new ArtifactStorageError('OBJECT_CHECKSUM_MISMATCH');
+      }
+      return {
+        bytes,
+        ...(response.ContentType !== undefined ? { contentType: response.ContentType } : {}),
+      };
+    } catch (error) {
+      if (error instanceof ArtifactStorageError) throw error;
+      if ((error as { name?: string }).name === 'NoSuchKey') return null;
+      throw new ArtifactStorageError('OBJECT_GET_FAILED', String(error));
+    }
+  }
+
+  async delete(objectKey: string): Promise<boolean> {
+    try {
+      await this.client.send(
+        new DeleteObjectCommand({ Bucket: this.bucket, Key: this.key(objectKey) }),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async probe(): Promise<boolean> {
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      return true;
+    } catch {
+      return false;
     }
   }
 }

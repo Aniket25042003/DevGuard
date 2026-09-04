@@ -35,10 +35,7 @@ export class LifecycleLinkedMetadataProvider implements RepositoryMetadataProvid
 
   constructor(private readonly lifecycle: LifecycleLookupPort) {}
 
-  async #recordFor(
-    ownerLogin: string,
-    repoName: string,
-  ): Promise<IdentityObservation | undefined> {
+  async #recordFor(ownerLogin: string, repoName: string): Promise<IdentityObservation | undefined> {
     const rows = await this.lifecycle.getRecordByOwnerRepo(ownerLogin, repoName);
     if (rows === undefined) return undefined;
     return {
@@ -95,7 +92,10 @@ export class LifecycleLinkedMetadataProvider implements RepositoryMetadataProvid
   }
 
   async readRecentActivity(): Promise<
-    ProviderReadResult<{ pushedAtIso?: string | undefined; providerUpdatedAtIso?: string | undefined }>
+    ProviderReadResult<{
+      pushedAtIso?: string | undefined;
+      providerUpdatedAtIso?: string | undefined;
+    }>
   > {
     return {
       ok: false,

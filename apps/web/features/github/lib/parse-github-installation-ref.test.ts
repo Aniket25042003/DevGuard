@@ -7,9 +7,9 @@ describe('parseGitHubInstallationRef', () => {
   });
 
   it('extracts id from GitHub settings installation URL', () => {
-    expect(
-      parseGitHubInstallationRef('https://github.com/settings/installations/157569422'),
-    ).toBe('157569422');
+    expect(parseGitHubInstallationRef('https://github.com/settings/installations/157569422')).toBe(
+      '157569422',
+    );
   });
 
   it('extracts id from setup redirect query params', () => {

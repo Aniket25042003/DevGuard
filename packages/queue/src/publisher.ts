@@ -24,6 +24,8 @@ export interface OutboxScanPort {
     }>
   >;
   markPublished(id: bigint): Promise<void>;
+  /** Move an unrecognized event to a durable dead-letter state. */
+  deadLetter?(id: bigint, reason: string): Promise<void>;
   lastPublishedId(): Promise<bigint>;
 }
 
@@ -43,6 +45,11 @@ const DEFAULT_MAPPINGS: readonly OutboxMapping[] = [
     matchingEventTypes: ['webhook.accepted'],
     jobType: 'webhook.process',
     queue: 'webhook-processing',
+  },
+  {
+    matchingEventTypes: ['approval.resume_requested'],
+    jobType: 'approval.resume',
+    queue: 'approval-resume',
   },
 ];
 
@@ -73,21 +80,25 @@ export class OutboxPublisher {
     for (const row of rows) {
       const mapping = this.mappings.find((m) => m.matchingEventTypes.includes(row.eventType));
       if (mapping === undefined) {
-        // Unknown outbox event types are skipped — never crash a lease over them.
-        await this.deps.outbox.markPublished(row.id);
+        // Unknown event types must never be acknowledged as published: doing
+        // so permanently loses work after a deploy that introduces a new
+        // event before its worker handler. Prefer a durable DLQ; retain the
+        // old port shape as a safe test fallback that simply leaves the row
+        // unpublished for operator reconciliation.
+        if (this.deps.outbox.deadLetter !== undefined) {
+          await this.deps.outbox.deadLetter(row.id, 'OUTBOX_EVENT_UNKNOWN');
+        }
         published += 1;
         continue;
       }
       const runId = String(
         row.correlation['runId'] ?? row.payload['runId'] ?? row.correlation['workflowRunId'] ?? '',
       );
-      const deliveryId = String(
-        row.correlation['deliveryId'] ?? row.correlation['deliveryId'] ?? '',
-      );
+      const deliveryId = String(row.correlation['deliveryId'] ?? row.payload['deliveryId'] ?? '');
       const repositoryId = String(
         row.correlation['repositoryId'] ?? row.payload['repositoryId'] ?? '',
       );
-      const uniqueKey = this.buildUniqueKey(row, mapping, runId, deliveryId);
+      const uniqueKey = this.buildUniqueKey(row);
       const envelope = buildEnvelope({
         jobType: mapping.jobType,
         schemaVersion: 1,
@@ -109,14 +120,8 @@ export class OutboxPublisher {
     return published;
   }
 
-  private buildUniqueKey(
-    row: { readonly id: bigint; readonly eventType: string },
-    mapping: OutboxMapping,
-    runId: string,
-    deliveryId: string,
-  ): string {
-    const anchor = runId || deliveryId;
-    return `outbox:${mapping.jobType}:${anchor === '' ? row.id.toString() : anchor}`;
+  private buildUniqueKey(row: { readonly id: bigint }): string {
+    return `outbox:${row.id.toString()}`;
   }
 
   private buildPayload(
@@ -130,6 +135,12 @@ export class OutboxPublisher {
   ): Record<string, unknown> {
     if (jobType === 'workflow.execute') {
       return { runId, stepId: 'start', stepAttempt: 0 };
+    }
+    if (jobType === 'approval.resume') {
+      return {
+        approvalId: String(row.payload['approvalId'] ?? ''),
+        resolutionVersion: Number(row.payload['resolutionVersion'] ?? 1),
+      };
     }
     return {
       deliveryId,

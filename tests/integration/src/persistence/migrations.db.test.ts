@@ -54,7 +54,7 @@ describeDb('C007 migration runner', () => {
     const result = await runMigrations(pool);
     expect(result.applied).toEqual(expected);
     const rows = await pool.query<{ version: string }>({
-      text: 'SELECT version::text AS version FROM schema_migrations ORDER BY version',
+      text: 'SELECT version::text AS version FROM schema_migrations ORDER BY version::bigint',
     });
     expect(rows.map((row) => Number(row.version))).toEqual(expected);
     expect(await assertSchemaCompatible(pool)).toBeUndefined();

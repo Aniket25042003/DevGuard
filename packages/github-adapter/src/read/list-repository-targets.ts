@@ -2,7 +2,7 @@
  * List pull requests, issues, and branches for a connected repository.
  */
 import type { GitHubTransport } from '../core/client.js';
-import { SecretString } from '../auth/contracts.js';
+import type { SecretString } from '../auth/contracts.js';
 
 const API_VERSION = '2022-11-28';
 

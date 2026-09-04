@@ -12,6 +12,7 @@ class FakeOutbox implements OutboxScanPort {
     correlation: Record<string, unknown>;
   }>;
   readonly published: bigint[] = [];
+  readonly deadLettered: bigint[] = [];
   private cursor = 0n;
   constructor(rows: FakeOutbox['rows']) {
     this.rows = rows;
@@ -21,6 +22,10 @@ class FakeOutbox implements OutboxScanPort {
   }
   async markPublished(id: bigint): Promise<void> {
     this.published.push(id);
+    if (id > this.cursor) this.cursor = id;
+  }
+  async deadLetter(id: bigint): Promise<void> {
+    this.deadLettered.push(id);
     if (id > this.cursor) this.cursor = id;
   }
   async lastPublishedId(): Promise<bigint> {
@@ -69,7 +74,7 @@ describe('OutboxPublisher (CP008)', () => {
     expect(await publisher.publishOnce()).toBe(0);
   });
 
-  it('skips unknown event types but still advances the cursor, and tolerates duplicate enqueues', async () => {
+  it('dead-letters unknown event types and tolerates duplicate enqueues', async () => {
     const outbox = new FakeOutbox([
       { id: 1n, eventType: 'unknown.type', payload: {}, correlation: {} },
       {
@@ -89,8 +94,11 @@ describe('OutboxPublisher (CP008)', () => {
     const publisher = new OutboxPublisher({ outbox, queue, now: () => 0 });
     const published = await publisher.publishOnce();
     expect(published).toBe(3);
-    // 'd1' is a duplicate uniqueKey → second enqueue deduped, still advances.
-    expect(queue.enqueued.filter((j) => j.jobType === 'webhook.process').length).toBe(1);
-    expect(outbox.published).toEqual([1n, 2n, 3n]);
+    expect(outbox.deadLettered).toEqual([1n]);
+    // Each outbox event has its own stable idempotency key; repeated delivery
+    // of the same row is deduped by the queue itself, while distinct rows are
+    // preserved as distinct jobs.
+    expect(queue.enqueued.filter((j) => j.jobType === 'webhook.process').length).toBe(2);
+    expect(outbox.published).toEqual([2n, 3n]);
   });
 });

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setApiClientForTests, type DevGuardApiClient } from '@/lib/api/client';
@@ -49,6 +49,11 @@ describe('shell a11y', () => {
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main');
     await screen.findByText('Dashboard body');
+
+    // Unmount the query-backed shell before rendering the standalone alert.
+    // This prevents React scheduler work from outliving the jsdom test
+    // environment under the full-suite runner.
+    cleanup();
 
     render(
       createElement(ProblemAlert, {

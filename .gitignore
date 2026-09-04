@@ -1,11 +1,14 @@
-# Keep only the project README and engineering architecture docs tracked;
-# planning documents remain local-only.
+# Keep the project README, durable design/contract docs, and engineering
+# architecture docs tracked; other planning notes remain local-only.
 *.md
 !README.md
+!PRODUCT.md
+!DESIGN.md
 docs/*
 !docs/architecture
 !docs/architecture/**
 !docs/architecture/**/**
+!docs/frontend-backend-handoff.md
 
 DevGuard_PRD.md
 

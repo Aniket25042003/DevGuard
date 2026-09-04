@@ -32,16 +32,6 @@ export class DurableWebhookAcceptance implements WebhookAcceptancePort {
     void input.headers;
     const hash = createHash('sha256').update(input.payloadJson).digest('hex');
     const store = new PostgresWebhookDeliveryStore(this.pool);
-    const inserted = await store.insert({
-      githubDeliveryId: input.deliveryId,
-      githubEvent: input.event,
-      rawPayloadHash: hash,
-      payloadRef: input.event,
-    });
-    if (inserted.replay) {
-      return { accepted: true, replay: true };
-    }
-
     let repositoryId: string | undefined;
     let issueCommentPayload: string | undefined;
     try {
@@ -60,7 +50,21 @@ export class DurableWebhookAcceptance implements WebhookAcceptancePort {
       // Non-JSON payloads still enqueue a generic webhook.process job.
     }
 
-    await createUnitOfWork(this.pool).transaction(async (tx) => {
+    const inserted = await createUnitOfWork(this.pool).transaction(async (tx) => {
+      // Delivery acceptance and its processing intent commit atomically. A
+      // crash can therefore never leave an accepted row without an outbox
+      // event, and duplicate deliveries can safely return the prior outcome.
+      const result = await store.insert(
+        {
+          githubDeliveryId: input.deliveryId,
+          githubEvent: input.event,
+          rawPayloadHash: hash,
+          payloadRef: `sha256:${hash}`,
+          ...(repositoryId !== undefined ? { repositoryId } : {}),
+        },
+        tx,
+      );
+      if (result.replay) return result;
       await new OutboxWriter().append(
         {
           eventType: 'webhook.accepted',
@@ -73,7 +77,7 @@ export class DurableWebhookAcceptance implements WebhookAcceptancePort {
           },
           correlation: {
             deliveryId: input.deliveryId,
-            payloadRef: input.event,
+            payloadRef: `sha256:${hash}`,
             ...(repositoryId !== undefined ? { repositoryId } : {}),
           },
           aggregateType: 'github_webhook_delivery',
@@ -81,8 +85,9 @@ export class DurableWebhookAcceptance implements WebhookAcceptancePort {
         },
         tx,
       );
+      return result;
     });
 
-    return { accepted: true, replay: false };
+    return inserted.replay ? { accepted: true, replay: true } : { accepted: true, replay: false };
   }
 }

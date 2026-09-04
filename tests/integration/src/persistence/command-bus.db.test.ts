@@ -88,7 +88,7 @@ async function createQueuedRun(runId: string, keyHash: string, fingerprint: stri
           definitionVersion: '1.0.0',
         }),
         idempotencyKeyHash: keyHash,
-        definitionVersion: 1,
+        definitionVersion: '1.0.0',
         createdBy: 'user-1',
       });
       created = { runId: record.id };

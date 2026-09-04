@@ -4,6 +4,7 @@
 export {
   ArtifactStorageError,
   LocalObjectStore,
+  S3ObjectStore,
   OBJECT_KEY_PATTERN,
   type ObjectStore,
   type ObjectStoreResult,

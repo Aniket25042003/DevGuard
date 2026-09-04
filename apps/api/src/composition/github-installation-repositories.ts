@@ -34,12 +34,16 @@ export async function listGitHubInstallationRepositories(input: {
   readonly installationRef: string;
   readonly cursor?: string | undefined;
   readonly query?: string | undefined;
-}): Promise<{ readonly repositories: readonly InstallationRepositoryListItem[]; readonly nextCursor?: string }> {
+}): Promise<{
+  readonly repositories: readonly InstallationRepositoryListItem[];
+  readonly nextCursor?: string;
+}> {
   const installStore = new InstallationStore(input.pool);
   const repoStore = new ConnectedRepositoryStore(input.pool);
   const installations = await installStore.listForUser(input.userId);
   const installation = installations.find(
-    (item) => item.id === input.installationRef || item.githubInstallationId === input.installationRef,
+    (item) =>
+      item.id === input.installationRef || item.githubInstallationId === input.installationRef,
   );
   if (installation === undefined) {
     throw new Error('installation_not_linked');

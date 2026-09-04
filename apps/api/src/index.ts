@@ -43,7 +43,7 @@ export type {
   RouteHandler,
   RouteMetadata,
 } from './transport/kernel.js';
-export { InMemoryRateLimiter } from './transport/rate-limit.js';
+export { InMemoryRateLimiter, RedisRateLimiter } from './transport/rate-limit.js';
 export { ConnectionRegistry, createSseResponse, parseLastEventId } from './transport/sse.js';
 export type { SseConnection } from './transport/sse.js';
 export { API_APP_NAME, API_APP_VERSION } from './index.core.js';

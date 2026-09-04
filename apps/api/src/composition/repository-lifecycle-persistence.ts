@@ -108,7 +108,9 @@ export class DurableRepositoryLifecyclePersistence implements RepositoryLifecycl
     return toRecord(row, active?.version !== undefined ? String(active.version) : '0');
   }
 
-  async findByInstallationId(installationId: string): Promise<readonly ConnectedRepositoryRecord[]> {
+  async findByInstallationId(
+    installationId: string,
+  ): Promise<readonly ConnectedRepositoryRecord[]> {
     const rows = await this.pool.query<Record<string, unknown>>({
       text: `SELECT id, github_repository_id, installation_id, owner, name, full_name,
         default_branch, status, row_version::text AS row_version
@@ -158,12 +160,9 @@ export class DurableRepositoryLifecyclePersistence implements RepositoryLifecycl
     });
     const seeded = await input.seedPolicy(id);
     this.policyVersionByRepo.set(id, seeded.policyVersionId);
-    const active = await this.repos.transition(
-      id,
-      inserted.rowVersion,
-      'active',
-      { defaultBranch: input.defaultBranch },
-    );
+    const active = await this.repos.transition(id, inserted.rowVersion, 'active', {
+      defaultBranch: input.defaultBranch,
+    });
     return toRecord(active, seeded.policyVersionId, { visibility: input.visibility });
   }
 
@@ -176,12 +175,7 @@ export class DurableRepositoryLifecyclePersistence implements RepositoryLifecycl
     const current = await this.repos.findById(input.repositoryDevguardId);
     if (current === null) throw new Error(`NOT_FOUND:${input.repositoryDevguardId}`);
     const next = mapDbStatus(input.status);
-    const updated = await this.repos.transition(
-      current.id,
-      current.rowVersion,
-      next,
-      {},
-    );
+    const updated = await this.repos.transition(current.id, current.rowVersion, next, {});
     const policyVersionId =
       this.policyVersionByRepo.get(current.id) ??
       String((await this.policies.getActive(current.id))?.version ?? 0);

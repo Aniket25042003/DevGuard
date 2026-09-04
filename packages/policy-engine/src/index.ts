@@ -67,6 +67,7 @@ export {
   ACTION_CATEGORIES,
   ACTION_DEFINITIONS,
   findActionDefinition,
+  normalizeActionId,
   validateCatalog,
   type ActionCategory,
   type CanonicalActionId,

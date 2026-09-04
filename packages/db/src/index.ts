@@ -74,6 +74,13 @@ export type {
 // ---- C010 policy/approval persistence ----
 export { ApprovalStore, PolicyVersionStore } from './repositories/policy-approval.js';
 export type { ApprovalStatusTransition, CanonicalPolicy } from './repositories/policy-approval.js';
+export { PostgresApprovalResumeStore } from './repositories/approval-resume.js';
+export type {
+  ApprovalRecord as DurableApprovalRecord,
+  ApprovalResumeState as DurableApprovalResumeState,
+  ApprovalStorePort as DurableApprovalStorePort,
+} from './repositories/approval-resume.js';
+export type { ApprovalStorePort as ApprovalResumeStorePort } from './repositories/approval-resume.js';
 
 // ---- C011 workflow/evidence persistence ----
 export { WorkflowRunStore, EventStore } from './repositories/workflow-evidence.js';
@@ -83,6 +90,13 @@ export type {
   WorkflowRunProjection,
   WorkflowRunRecord,
 } from './repositories/workflow-evidence.js';
+
+// ---- Durable agent session/turn persistence ----
+export {
+  PostgresAgentSessionStore,
+  PostgresAgentTurnStore,
+} from './repositories/agent-execution.js';
+export type { AgentSessionRecord, AgentTurnRecord } from './repositories/agent-execution.js';
 
 // ---- CP012 durable artifact metadata ----
 export { PostgresArtifactStore, type StoredArtifact } from './repositories/artifacts.js';

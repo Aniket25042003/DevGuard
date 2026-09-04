@@ -271,9 +271,29 @@ const BY_ID: ReadonlyMap<string, ActionDefinition> = new Map(
   ACTION_DEFINITIONS.map((definition) => [definition.id, definition]),
 );
 
+/** Public policy contracts use dotted action IDs while workflow step IDs use
+ * the legacy underscore vocabulary. Normalize only at this policy boundary. */
+const PUBLIC_ACTION_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  'repository.read': 'repository_read',
+  'issue.read': 'issue_read',
+  'file.read': 'content_read',
+  'check.read': 'checks_read',
+  'review.read': 'review_read',
+  'branch.write': 'branch_create',
+  'commit.write': 'commit_create',
+  'pull_request.write': 'pull_request_update',
+  'pull_request.merge': 'pull_request_merge',
+  'sandbox.command': 'sandbox_run_readonly',
+  'issue.write': 'issue_destructive_close',
+});
+
+export function normalizeActionId(id: string): string {
+  return PUBLIC_ACTION_ALIASES[id] ?? id;
+}
+
 /** Unknown IDs return undefined — callers must fail closed, never guess. */
 export function findActionDefinition(id: string): ActionDefinition | undefined {
-  return BY_ID.get(id);
+  return BY_ID.get(normalizeActionId(id));
 }
 
 /** Registry-build-time validation: duplicate/empty/conflicting definitions stop publication. */
