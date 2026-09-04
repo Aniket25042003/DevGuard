@@ -63,6 +63,7 @@ export class AgentSessionService {
   readonly #turns: TurnStorePort;
   readonly #clock: { readonly nowIso: () => string };
   readonly #emit: AgentEventSinkPort;
+  readonly #agentVersion: string;
 
   constructor(deps: AgentSessionServiceDeps) {
     this.#runtime = deps.runtime;
@@ -70,7 +71,7 @@ export class AgentSessionService {
     this.#turns = deps.turns;
     this.#clock = deps.clock ?? { nowIso: () => new Date().toISOString() };
     this.#emit = deps.emit ?? { emit: async () => undefined };
-    void deps.agentVersion;
+    this.#agentVersion = deps.agentVersion;
   }
 
   async ensureSession(input: EnsureAgentSession): Promise<AgentSessionRef> {
@@ -92,7 +93,7 @@ export class AgentSessionService {
       workflowRunId: req.workflowRunId,
       repositoryId: req.repositoryId,
       agentDefinitionId: req.agentDefinitionId,
-      agentVersion: req.agentVersion,
+      agentVersion: this.#agentVersion,
       provider: 'trueforge',
       contractSnapshotDigest: req.contractSnapshotDigest,
       status: 'CREATING',
@@ -119,7 +120,7 @@ export class AgentSessionService {
 
     const created = await this.#runtime.createSession({
       provider: session.provider,
-      agentVersion: req.agentVersion,
+      agentVersion: this.#agentVersion,
     });
     if (!created.ok) {
       const failed: AgentSession = {
