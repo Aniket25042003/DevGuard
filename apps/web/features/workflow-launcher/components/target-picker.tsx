@@ -70,13 +70,12 @@ export function TargetPicker<T extends { readonly key: string }>({
       ) : null}
       <ul
         className="scroll-shadow max-h-72 space-y-2 overflow-y-auto"
-        role="listbox"
         aria-label={label}
       >
         {items.map((item) => {
           const selected = item.key === selectedKey;
           return (
-            <li key={item.key} role="option" aria-selected={selected}>
+            <li key={item.key}>
               <button
                 type="button"
                 onClick={() => onSelect(item)}
