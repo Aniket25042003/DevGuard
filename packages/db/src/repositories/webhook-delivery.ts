@@ -8,6 +8,8 @@
  * exposes `insert` for the ingress (persist before 202; duplicate → replay).
  */
 
+import type { TransactionContext } from '../transaction.js';
+
 /** Mirrors the C022 delivery FSM state union (db stays independent). */
 export type DeliveryStateV1 =
   'ACCEPTED' | 'PROCESSING' | 'ROUTED' | 'IGNORED' | 'FAILED_RETRYABLE' | 'DEAD_LETTERED';
@@ -28,14 +30,17 @@ interface Queryish {
 export class PostgresWebhookDeliveryStore {
   constructor(private readonly pool: Queryish) {}
 
-  async insert(input: {
-    readonly githubDeliveryId: string;
-    readonly githubEvent: string;
-    readonly rawPayloadHash: string;
-    readonly payloadRef?: string | undefined;
-    readonly repositoryId?: string | undefined;
-  }): Promise<{ accepted: boolean; replay: boolean }> {
-    const rows = await this.pool.query<Record<string, unknown>>({
+  async insert(
+    input: {
+      readonly githubDeliveryId: string;
+      readonly githubEvent: string;
+      readonly rawPayloadHash: string;
+      readonly payloadRef?: string | undefined;
+      readonly repositoryId?: string | undefined;
+    },
+    executor: Queryish | TransactionContext = this.pool,
+  ): Promise<{ accepted: boolean; replay: boolean }> {
+    const rows = await executor.query<Record<string, unknown>>({
       text: `INSERT INTO github_webhook_deliveries (github_delivery_id, github_event, raw_payload_hash, payload_ref, repository_id)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (github_delivery_id) DO NOTHING
@@ -49,7 +54,7 @@ RETURNING github_delivery_id`,
       ],
     });
     if (rows.length > 0) return { accepted: true, replay: false };
-    const existing = await this.pool.query<{
+    const existing = await executor.query<{
       raw_payload_hash: string;
       github_event: string;
       repository_id: string | null;

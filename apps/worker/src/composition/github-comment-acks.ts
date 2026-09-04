@@ -93,6 +93,8 @@ export function buildGitHubCommentAckAdapter(
     credentialVersion: github.appId,
   });
   const dedup =
-    pool !== undefined ? new PostgresCommentAckDedupStore(pool) : new InMemoryCommentAckDedupStore();
+    pool !== undefined
+      ? new PostgresCommentAckDedupStore(pool)
+      : new InMemoryCommentAckDedupStore();
   return new WorkerGitHubCommentAckAdapter(acks, dedup);
 }

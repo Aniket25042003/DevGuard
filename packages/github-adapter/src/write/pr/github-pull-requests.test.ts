@@ -236,29 +236,27 @@ describe('C021 PR adapter', () => {
   it('marks merge stale when the head moved after approval (never executes)', async () => {
     const { provider, service } = setup();
     seedPr(provider); // head SHA_B
-    const result = await service.mergePullRequest(
-      {
-        ...mergeInput({
-          ...{
-            providerId: 'pr-1',
-            ref: REF,
-            number: 1,
-            title: '',
-            body: '',
-            state: 'open_ready',
-            draft: false,
-            baseRef: 'main',
-            headRef: 'agent/x/1',
-            baseSha: SHA_A,
-            headSha: SHA_B,
-            authorLogin: 'd',
-            mergeable: 'mergeable',
-            updatedAtIso: 'x',
-          },
-        }),
-        expectedHeadSha: 'c'.repeat(40),
-      },
-    );
+    const result = await service.mergePullRequest({
+      ...mergeInput({
+        ...{
+          providerId: 'pr-1',
+          ref: REF,
+          number: 1,
+          title: '',
+          body: '',
+          state: 'open_ready',
+          draft: false,
+          baseRef: 'main',
+          headRef: 'agent/x/1',
+          baseSha: SHA_A,
+          headSha: SHA_B,
+          authorLogin: 'd',
+          mergeable: 'mergeable',
+          updatedAtIso: 'x',
+        },
+      }),
+      expectedHeadSha: 'c'.repeat(40),
+    });
     expect(result.status).toBe('stale');
   });
 

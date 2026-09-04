@@ -83,6 +83,12 @@ export {
   type RedisQueueTransportOptions,
 } from './redis-transport.js';
 export {
+  BullMqQueue,
+  BullMqWorkerRuntime,
+  type BullMqQueueOptions,
+  type BullMqWorkerRuntimeOptions,
+} from './bullmq.js';
+export {
   OutboxPublisher,
   type OutboxMapping,
   type OutboxPublisherDeps,

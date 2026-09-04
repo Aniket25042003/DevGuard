@@ -30,11 +30,7 @@ export type PostIssueCommentAckResult =
   | {
       readonly ok: false;
       readonly code:
-        | 'PERMISSION'
-        | 'VALIDATION'
-        | 'RATE_LIMITED'
-        | 'SERVER_ERROR'
-        | 'UNAUTHORIZED_WRITE';
+        'PERMISSION' | 'VALIDATION' | 'RATE_LIMITED' | 'SERVER_ERROR' | 'UNAUTHORIZED_WRITE';
       readonly detail: string;
     };
 

@@ -40,6 +40,7 @@ import { validationFailed } from '@devguard/errors';
 import type { Principal } from '@devguard/auth';
 import type { RegisterV1Route, RouteMetadata } from '../transport/kernel.js';
 import type { ApiContainer } from '../composition/container.js';
+import { encodeResourceCursor, parseResourceCursor } from './cursor.js';
 
 const HTTP_SURFACES = new Set(['web', 'cli']);
 
@@ -300,7 +301,7 @@ export function registerWorkflowRoutes(
           runs: page.runs.map(toRunDto),
           hasMore: page.hasMore,
           ...(page.nextCursor !== undefined
-            ? { nextCursor: `${page.nextCursor.id}:${page.nextCursor.createdAtIso}` }
+            ? { nextCursor: encodeResourceCursor(page.nextCursor) }
             : {}),
         },
       });
@@ -405,13 +406,8 @@ function workflowUnknown(c: {
   );
 }
 
-function parseCursor(value: string): { cursor?: { createdAtIso: string; id: string } } {
-  const [, second] = value.split(':');
-  const [createdAt, ...rest] = (second ?? value).split(',');
-  const id = rest.join(',');
-  return createdAt !== undefined && id !== undefined
-    ? { cursor: { createdAtIso: createdAt, id } }
-    : {};
+function parseCursor(value: string): { cursor: { createdAtIso: string; id: string } } {
+  return { cursor: parseResourceCursor(value) };
 }
 
 /** Map command-domain failures to stable HTTP envelopes (never 500). */

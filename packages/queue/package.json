@@ -18,6 +18,7 @@
   "dependencies": {
     "@devguard/errors": "workspace:*",
     "@devguard/logging": "workspace:*",
+    "bullmq": "6.3.4",
     "ioredis": "^5.4.1"
   }
 }

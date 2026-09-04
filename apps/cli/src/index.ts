@@ -143,7 +143,7 @@ export class DevguardClient {
   ): Promise<ApiResult> {
     return this.request('POST', `/repositories/${repositoryId}/commands`, {
       commandId: input.command,
-      definitionVersion: 1,
+      definitionVersion: '1.0.0',
       originSurface: 'cli',
       input: {
         ...(input.prNumber !== undefined ? { pullRequestNumber: input.prNumber } : {}),

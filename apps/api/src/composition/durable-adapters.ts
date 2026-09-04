@@ -5,7 +5,11 @@
  * present. They never carry bindingKind:'volatile' and fail closed where a
  * durable projection is not yet fully implemented.
  */
-import type { AuthorizationEvidencePort, AuthorizationEvidenceRecord, RepositoryCapability } from '@devguard/authorization';
+import type {
+  AuthorizationEvidencePort,
+  AuthorizationEvidenceRecord,
+  RepositoryCapability,
+} from '@devguard/authorization';
 import type { DevGuardPool } from '@devguard/db';
 import type { AuditPort, AuditRow } from '../routes/audit.routes.js';
 import type { FindingsPort, SecurityFinding } from '../routes/findings.routes.js';

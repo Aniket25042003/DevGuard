@@ -89,7 +89,11 @@ describe('list-repository-targets', () => {
           headers: {},
           bodyText: JSON.stringify([
             { name: 'feature', commit: { sha: 'abc1234567890abcdef1234567890abcdef1234' } },
-            { name: 'main', commit: { sha: 'def1234567890abcdef1234567890abcdef1234' }, protected: true },
+            {
+              name: 'main',
+              commit: { sha: 'def1234567890abcdef1234567890abcdef1234' },
+              protected: true,
+            },
           ]),
         }),
       },

@@ -155,6 +155,14 @@ registerError({
   detailSchema: detailSchema(['code']),
 });
 registerError({
+  code: 'SESSION_CANCEL_FAILED',
+  category: 'integration',
+  httpStatus: 503,
+  retryClass: 'reconcile_then_retry',
+  safeMessage: 'The agent runtime could not cancel the session.',
+  detailSchema: detailSchema(['code']),
+});
+registerError({
   code: 'SESSION_TURN_ACTIVE',
   category: 'domain',
   httpStatus: 409,

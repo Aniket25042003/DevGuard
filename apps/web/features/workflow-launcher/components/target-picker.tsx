@@ -2,7 +2,13 @@
 
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useId, useState, type ReactNode } from 'react';
-import { getApiClient, type GitRefSummary, type IssueSummary, type PullRequestSummary, type RepositoryFindingSummary } from '@/lib/api/client';
+import {
+  getApiClient,
+  type GitRefSummary,
+  type IssueSummary,
+  type PullRequestSummary,
+  type RepositoryFindingSummary,
+} from '@/lib/api/client';
 import { queryKeys } from '@/lib/server-state/query-keys';
 import { ProblemAlert, classifyUiProblem } from '@/features/errors/index';
 import { Button } from '@/components/ui/primitives';
@@ -52,9 +58,7 @@ export function TargetPicker<T extends { readonly key: string }>({
           className="mb-3 min-h-11 w-full rounded-md border border-[var(--line)] bg-[var(--bg-elevated)] px-3"
         />
       ) : null}
-      {isError ? (
-        <ProblemAlert problem={classifyUiProblem(error)} onRecover={onRecover} />
-      ) : null}
+      {isError ? <ProblemAlert problem={classifyUiProblem(error)} onRecover={onRecover} /> : null}
       {!isLoading && !isError && items.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">{emptyMessage}</p>
       ) : null}
@@ -104,7 +108,10 @@ export function ManualEntryToggle({
   );
 }
 
-export function useDebouncedSearch(initial = '', delayMs = 250): {
+export function useDebouncedSearch(
+  initial = '',
+  delayMs = 250,
+): {
   readonly value: string;
   readonly debounced: string;
   readonly setValue: (value: string) => void;
@@ -128,7 +135,11 @@ export function useRepositoryPullRequests(
   const pullRequests = useQuery<readonly PullRequestSummary[]>({
     queryKey: queryKeys.repositoryTargets.pullRequests(repositoryId, query),
     queryFn: ({ signal }) =>
-      client.repositoryTargets.pullRequests(repositoryId, { signal }, { state: 'open', q: query, limit: 25 }),
+      client.repositoryTargets.pullRequests(
+        repositoryId,
+        { signal },
+        { state: 'open', q: query, limit: 25 },
+      ),
   });
   return { pullRequests };
 }
@@ -143,7 +154,11 @@ export function useRepositoryIssues(
   const issues = useQuery<readonly IssueSummary[]>({
     queryKey: queryKeys.repositoryTargets.issues(repositoryId, query),
     queryFn: ({ signal }) =>
-      client.repositoryTargets.issues(repositoryId, { signal }, { state: 'open', q: query, limit: 25 }),
+      client.repositoryTargets.issues(
+        repositoryId,
+        { signal },
+        { state: 'open', q: query, limit: 25 },
+      ),
   });
   return { issues };
 }

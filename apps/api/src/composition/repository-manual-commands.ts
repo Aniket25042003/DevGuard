@@ -51,3 +51,24 @@ export async function resolveManualCommandsForRepository(input: {
   }
   return new Set(parsed.data.manualCommands);
 }
+
+/** Composition-owned policy port; routes must not construct PolicyVersionStore. */
+export interface ManualCommandPolicyPort {
+  resolve(input: {
+    readonly repositoryId: string;
+    readonly owner?: string | undefined;
+    readonly name?: string | undefined;
+  }): Promise<ReadonlySet<string>>;
+}
+
+export class ManualCommandPolicyAdapter implements ManualCommandPolicyPort {
+  constructor(private readonly pool: DevGuardPool | undefined) {}
+
+  resolve(input: {
+    readonly repositoryId: string;
+    readonly owner?: string | undefined;
+    readonly name?: string | undefined;
+  }): Promise<ReadonlySet<string>> {
+    return resolveManualCommandsForRepository({ ...input, pool: this.pool });
+  }
+}

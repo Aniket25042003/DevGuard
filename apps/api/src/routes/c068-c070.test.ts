@@ -116,7 +116,7 @@ describe('C070 approval routes', () => {
     ).toEqual([{ approvalId: 'appr-1', state: 'PENDING' }]);
     const approve = await k.app.request('/api/v1/workflows/run-1/approvals/appr-1', {
       method: 'POST',
-      headers,
+      headers: { ...headers, 'idempotency-key': 'approval-key-1', 'if-match': '1' },
       body: JSON.stringify({ action: 'approve' }),
     });
     expect(approve.status).toBe(200);

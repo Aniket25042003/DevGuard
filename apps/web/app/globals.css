@@ -122,8 +122,7 @@ a {
   background:
     radial-gradient(ellipse 70% 55% at 8% -5%, rgb(14 165 233 / 0.09), transparent),
     radial-gradient(ellipse 55% 45% at 92% 0%, rgb(15 118 110 / 0.1), transparent),
-    radial-gradient(ellipse 40% 35% at 50% 100%, rgb(99 102 241 / 0.05), transparent),
-    var(--bg);
+    radial-gradient(ellipse 40% 35% at 50% 100%, rgb(99 102 241 / 0.05), transparent), var(--bg);
 }
 
 .terminal-preview {

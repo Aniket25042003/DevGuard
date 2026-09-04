@@ -106,7 +106,7 @@ function queuedRow(status = 'queued'): RunRow {
     status,
     triggerType: 'manual',
     originSurface: 'cli',
-    definitionVersion: 1,
+    definitionVersion: '1.0.0',
     createdAtIso: '2026-01-01T00:00:00.000Z',
     updatedAtIso: '2026-01-01T00:00:00.000Z',
     rowVersion: 1,
@@ -133,7 +133,7 @@ function startBody(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
     commandId: 'review',
     definitionVersion: '1.0.0',
-    input: {},
+    input: { pullRequestNumber: 1 },
     originSurface: 'cli',
     ...overrides,
   });

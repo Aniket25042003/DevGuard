@@ -9,7 +9,7 @@ services:
     branch: main
     buildCommand: pnpm install --frozen-lockfile && pnpm build
     preDeployCommand: node scripts/deploy/migrate.mjs
-    startCommand: node scripts/deploy/migrate.mjs && RUN_SERVER=1 node apps/api/dist/main.js
+    startCommand: RUN_SERVER=1 node apps/api/dist/main.js
     healthCheckPath: /api/v1/health/ready
     envVars:
       - key: DEVGUARD_ENV
@@ -21,9 +21,15 @@ services:
       - key: AUTH_MODE
         value: github_oauth
       - key: DEVGUARD_ARTIFACT_DRIVER
-        value: local
-      - key: DEVGUARD_ARTIFACT_LOCAL_DIR
-        value: /tmp/devguard-artifacts
+        value: s3
+      - key: DEVGUARD_S3_ENDPOINT
+        sync: false
+      - key: DEVGUARD_S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: devguard-postgres
@@ -80,9 +86,15 @@ services:
       - key: NODE_VERSION
         value: '26'
       - key: DEVGUARD_ARTIFACT_DRIVER
-        value: local
-      - key: DEVGUARD_ARTIFACT_LOCAL_DIR
-        value: /tmp/devguard-artifacts
+        value: s3
+      - key: DEVGUARD_S3_ENDPOINT
+        sync: false
+      - key: DEVGUARD_S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: devguard-postgres

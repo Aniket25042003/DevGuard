@@ -11,7 +11,11 @@ export type AppRoute =
   | { readonly name: 'approvals' }
   | { readonly name: 'preflight' }
   | { readonly name: 'repository'; readonly repositoryId: string }
-  | { readonly name: 'launcher'; readonly repositoryId: string; readonly search?: string | undefined }
+  | {
+      readonly name: 'launcher';
+      readonly repositoryId: string;
+      readonly search?: string | undefined;
+    }
   | { readonly name: 'run'; readonly repositoryId: string; readonly runId: string }
   | { readonly name: 'policy'; readonly repositoryId: string }
   | { readonly name: 'policyHistory'; readonly repositoryId: string };
