@@ -123,7 +123,7 @@ export function registerWebhookProcess(
       try {
         const outcome = await options.commentCommands.handle(issueComment);
         const terminal = outcome.kind === 'ignored' ? 'IGNORED' : 'ROUTED';
-        await store.transition(p.deliveryId, 'PROCESSING', terminal);
+        await store.transition(p.deliveryId, claimed.state, terminal);
         return { outcome: 'SUCCEEDED', detail: outcome.kind };
       } catch (error) {
         try {
