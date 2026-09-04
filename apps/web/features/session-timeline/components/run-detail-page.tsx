@@ -288,12 +288,36 @@ function SessionTimeline({
         setStreamStatus(state.status);
         if (state.events.length === eventCountRef.current) return;
         eventCountRef.current = state.events.length;
-        void Promise.all([
-          queryClient.invalidateQueries({ queryKey: queryKeys.workflows.detail(runId) }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.approvals.forRun(runId) }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.artifacts.forRun(runId) }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.findings.forRun(runId) }),
-        ]);
+        const latest = state.events[state.events.length - 1];
+        if (latest !== undefined) {
+          const kind = latest.eventType.toLowerCase();
+          const queries: Promise<unknown>[] = [];
+          if (
+            kind.startsWith('run.') ||
+            kind.startsWith('workflow.') ||
+            kind.startsWith('session.')
+          ) {
+            queries.push(
+              queryClient.invalidateQueries({ queryKey: queryKeys.workflows.detail(runId) }),
+            );
+          }
+          if (kind.startsWith('approval.') || kind.includes('approval')) {
+            queries.push(
+              queryClient.invalidateQueries({ queryKey: queryKeys.approvals.forRun(runId) }),
+            );
+          }
+          if (kind.startsWith('artifact.') || kind.includes('artifact')) {
+            queries.push(
+              queryClient.invalidateQueries({ queryKey: queryKeys.artifacts.forRun(runId) }),
+            );
+          }
+          if (kind.startsWith('finding.') || kind.includes('finding')) {
+            queries.push(
+              queryClient.invalidateQueries({ queryKey: queryKeys.findings.forRun(runId) }),
+            );
+          }
+          void Promise.all(queries);
+        }
       },
       pollFallback: () => client.sessions.listEvents(sessionId, { signal: controller.signal }),
     });

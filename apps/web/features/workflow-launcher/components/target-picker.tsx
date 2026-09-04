@@ -68,10 +68,7 @@ export function TargetPicker<T extends { readonly key: string }>({
       {!isLoading && !isError && items.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">{emptyMessage}</p>
       ) : null}
-      <ul
-        className="scroll-shadow max-h-72 space-y-2 overflow-y-auto"
-        aria-label={label}
-      >
+      <ul className="scroll-shadow max-h-72 space-y-2 overflow-y-auto" aria-label={label}>
         {items.map((item) => {
           const selected = item.key === selectedKey;
           return (

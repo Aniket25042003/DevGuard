@@ -17,7 +17,9 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
   const params = useParams<{ repositoryId?: string }>();
   const repositoryId = typeof params.repositoryId === 'string' ? params.repositoryId : undefined;
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const closeRef = useRef<HTMLButtonElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const drawerCloseRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
   const client = getApiClient();
   const session = useQuery({
     queryKey: queryKeys.auth.session,
@@ -46,18 +48,29 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
 
   useEffect(() => {
     if (!drawerOpen) return;
-    closeRef.current?.focus();
+    drawerCloseRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setDrawerOpen(false);
       if (event.key !== 'Tab') return;
-      const dialog = document.querySelector('[aria-label="Navigation"][role="dialog"]');
-      const elements = Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])') ?? []);
+      const elements = Array.from(
+        drawerRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
       if (!elements.length) return;
-      if (event.shiftKey && document.activeElement === elements[0]) { event.preventDefault(); elements.at(-1)?.focus(); }
-      else if (!event.shiftKey && document.activeElement === elements.at(-1)) { event.preventDefault(); elements[0]?.focus(); }
+      if (event.shiftKey && document.activeElement === elements[0]) {
+        event.preventDefault();
+        elements.at(-1)?.focus();
+      } else if (!event.shiftKey && document.activeElement === elements.at(-1)) {
+        event.preventDefault();
+        elements[0]?.focus();
+      }
     };
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      menuTriggerRef.current?.focus();
+    };
   }, [drawerOpen]);
 
   const nav = (
@@ -168,7 +181,7 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
         <header className="app-topbar sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 px-4 sm:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button
-              ref={closeRef}
+              ref={menuTriggerRef}
               type="button"
               className="icon-button lg:hidden"
               aria-label="Open navigation"
@@ -214,7 +227,12 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
           </div>
         </header>
         {drawerOpen ? (
-          <MobileDrawer closeRef={closeRef} nav={nav} onClose={() => setDrawerOpen(false)} />
+          <MobileDrawer
+            closeRef={drawerCloseRef}
+            dialogRef={drawerRef}
+            nav={nav}
+            onClose={() => setDrawerOpen(false)}
+          />
         ) : null}
         <main id="main" className="page-shell">
           {repos.isError ? (
@@ -264,10 +282,12 @@ function MobileDrawer({
   nav,
   onClose,
   closeRef,
+  dialogRef,
 }: {
   readonly nav: ReactNode;
   readonly onClose: () => void;
   readonly closeRef: React.RefObject<HTMLButtonElement | null>;
+  readonly dialogRef: React.RefObject<HTMLElement | null>;
 }): ReactNode {
   return (
     <div
@@ -278,6 +298,7 @@ function MobileDrawer({
       }}
     >
       <aside
+        ref={dialogRef}
         className="flex h-full w-[min(21rem,88vw)] flex-col border-r border-[var(--line)] bg-[var(--bg-elevated)] px-4 py-5"
         role="dialog"
         aria-modal="true"
