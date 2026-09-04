@@ -90,6 +90,7 @@ export const FIELD_INVENTORY: readonly FieldDefinition[] = Object.freeze([
   ),
   field('AUTH_GITHUB_OAUTH_CALLBACK_URL', 'C005', ['api'], 'internal', 'OAuth callback URL.'),
   field('DEVGUARD_GITHUB_APP_ID', 'C017', ['api', 'worker'], 'internal', 'GitHub App numeric id.'),
+  field('DEVGUARD_GITHUB_APP_SLUG', 'C017', ['api', 'worker'], 'internal', 'GitHub App URL slug.'),
   field(
     'GITHUB_APP_PRIVATE_KEY',
     'C017',

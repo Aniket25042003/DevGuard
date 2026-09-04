@@ -14,7 +14,7 @@ export async function assertSchemaCompatible(pool: DevGuardPool): Promise<void> 
   let versions: number[];
   try {
     const rows = await pool.query<{ version: string }>({
-      text: 'SELECT version::text AS version FROM schema_migrations ORDER BY version',
+      text: 'SELECT version::text AS version FROM schema_migrations ORDER BY version::bigint',
     });
     versions = rows.map((row) => Number(row.version));
   } catch (error) {
