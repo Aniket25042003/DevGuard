@@ -134,7 +134,7 @@ export class CommentCommandService {
     const receipt = await this.deps.commandBus.submit({
       command: {
         commandId: parsed.commandId,
-        definitionVersion: '1',
+        definitionVersion: '1.0.0',
         input,
       },
       repositoryId: repo.id,

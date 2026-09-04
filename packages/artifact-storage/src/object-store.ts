@@ -11,11 +11,12 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, stat, lstat, open, link, unlink } from 'node:fs/promises';
 import { relative, resolve, sep } from 'node:path';
 import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
   HeadBucketCommand,
+  type S3ClientConfig,
 } from '@aws-sdk/client-s3';
 
 /** Typed, transport-mappable storage error (CP012 §23). */
@@ -42,7 +43,6 @@ export interface ObjectStore {
   ): Promise<ObjectStoreResult>;
   get(objectKey: string): Promise<{ bytes: Uint8Array; contentType?: string | undefined } | null>;
   delete(objectKey: string): Promise<boolean>;
-  probe?(): Promise<boolean>;
 }
 
 export const OBJECT_KEY_PATTERN =
@@ -141,28 +141,28 @@ export class LocalObjectStore implements ObjectStore {
   }
 }
 
-/** S3-compatible durable object store used by production API and workers. */
+/**
+ * Durable S3-compatible implementation used by API and workers in
+ * production. Keys remain UUIDs, writes are content-addressed by checksum,
+ * and all provider errors are mapped to the storage boundary.
+ */
 export class S3ObjectStore implements ObjectStore {
   private readonly client: S3Client;
 
   constructor(
     private readonly bucket: string,
-    options: {
-      readonly endpoint: string;
-      readonly accessKeyId: string;
-      readonly secretAccessKey: string;
-      readonly region?: string;
-    },
+    private readonly prefix = 'devguard/artifacts',
+    config: S3ClientConfig = {},
   ) {
-    this.client = new S3Client({
-      endpoint: options.endpoint,
-      region: options.region ?? 'us-east-1',
-      forcePathStyle: true,
-      credentials: {
-        accessKeyId: options.accessKeyId,
-        secretAccessKey: options.secretAccessKey,
-      },
-    });
+    if (bucket.trim().length === 0) throw new ArtifactStorageError('BUCKET_REQUIRED');
+    this.client = new S3Client(config);
+  }
+
+  private key(objectKey: string): string {
+    if (!OBJECT_KEY_PATTERN.test(objectKey)) {
+      throw new ArtifactStorageError('OBJECT_KEY_INVALID', 'object key must be a UUID');
+    }
+    return `${this.prefix.replace(/\/$/, '')}/${objectKey}`;
   }
 
   async put(
@@ -170,48 +170,57 @@ export class S3ObjectStore implements ObjectStore {
     bytes: Uint8Array,
     contentType?: string,
   ): Promise<ObjectStoreResult> {
-    validateObjectKey(objectKey);
     const text = Buffer.from(bytes).toString('utf8');
     if (containsSecret(text)) throw new ArtifactStorageError('ARTIFACT_CONTAINS_SECRET');
     const sha256 = createHash('sha256').update(bytes).digest('hex');
-    await this.client.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: objectKey,
-        Body: bytes,
-        ContentType: contentType ?? 'application/octet-stream',
-        Metadata: { sha256 },
-      }),
-    );
-    return { objectKey, sizeBytes: bytes.byteLength, sha256 };
+    try {
+      await this.client.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: this.key(objectKey),
+          Body: bytes,
+          ContentType: contentType,
+          ChecksumSHA256: Buffer.from(sha256, 'hex').toString('base64'),
+          Metadata: { sha256 },
+        }),
+      );
+      return { objectKey, sizeBytes: bytes.byteLength, sha256 };
+    } catch (error) {
+      throw new ArtifactStorageError('OBJECT_PUT_FAILED', String(error));
+    }
   }
 
   async get(objectKey: string): Promise<{ bytes: Uint8Array; contentType?: string } | null> {
-    validateObjectKey(objectKey);
     try {
-      const output = await this.client.send(
-        new GetObjectCommand({ Bucket: this.bucket, Key: objectKey }),
+      const response = await this.client.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: this.key(objectKey) }),
       );
-      if (output.Body === undefined) return null;
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of output.Body as AsyncIterable<Uint8Array | string>) {
-        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      if (response.Body === undefined) return null;
+      const bytes = await response.Body.transformToByteArray();
+      const expected = response.Metadata?.['sha256'];
+      if (expected !== undefined && createHash('sha256').update(bytes).digest('hex') !== expected) {
+        throw new ArtifactStorageError('OBJECT_CHECKSUM_MISMATCH');
       }
-      const bytes = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
       return {
-        bytes: new Uint8Array(bytes),
-        ...(output.ContentType ? { contentType: output.ContentType } : {}),
+        bytes,
+        ...(response.ContentType !== undefined ? { contentType: response.ContentType } : {}),
       };
     } catch (error) {
+      if (error instanceof ArtifactStorageError) throw error;
       if ((error as { name?: string }).name === 'NoSuchKey') return null;
-      throw error;
+      throw new ArtifactStorageError('OBJECT_GET_FAILED', String(error));
     }
   }
 
   async delete(objectKey: string): Promise<boolean> {
-    validateObjectKey(objectKey);
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: objectKey }));
-    return true;
+    try {
+      await this.client.send(
+        new DeleteObjectCommand({ Bucket: this.bucket, Key: this.key(objectKey) }),
+      );
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async probe(): Promise<boolean> {
@@ -221,11 +230,5 @@ export class S3ObjectStore implements ObjectStore {
     } catch {
       return false;
     }
-  }
-}
-
-function validateObjectKey(objectKey: string): void {
-  if (!OBJECT_KEY_PATTERN.test(objectKey)) {
-    throw new ArtifactStorageError('OBJECT_KEY_INVALID', 'object key must be a UUID');
   }
 }

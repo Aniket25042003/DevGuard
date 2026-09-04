@@ -13,7 +13,7 @@ export interface RunRow {
   readonly status: string;
   readonly triggerType: string;
   readonly originSurface: string;
-  readonly definitionVersion: number;
+  readonly definitionVersion: string;
   readonly createdAtIso: string;
   readonly updatedAtIso: string;
   readonly startedAtIso?: string | undefined;

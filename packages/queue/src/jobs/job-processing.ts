@@ -111,11 +111,12 @@ export class InMemoryDeliveryStore implements DeliveryStorePort {
   private readonly states = new Map<string, string>();
   readonly claims = new Set<string>();
 
-  async claim(deliveryId: string): Promise<{ ok: true; state: 'ACCEPTED' } | { ok: false }> {
+  async claim(deliveryId: string): Promise<{ ok: true; state: 'PROCESSING' } | { ok: false }> {
     if (this.claims.has(deliveryId) && this.states.get(deliveryId) !== 'FAILED_RETRYABLE')
       return { ok: false };
     this.claims.add(deliveryId);
-    return { ok: true, state: 'ACCEPTED' };
+    this.states.set(deliveryId, 'PROCESSING');
+    return { ok: true, state: 'PROCESSING' };
   }
   async transition(
     deliveryId: string,

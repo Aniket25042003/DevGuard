@@ -254,7 +254,8 @@ RETURNING ${APPROVAL_COLS}`;
     // Insert transition evidence (unique command key prevents duplicates).
     await tx.query({
       text: `INSERT INTO approval_transitions (id, approval_id, from_status, to_status, actor_type, actor_id, reason_code, command_key)
-VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)`,
+VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (approval_id, command_key) DO NOTHING`,
       values: [
         approvalId,
         transition.from,
@@ -289,7 +290,19 @@ RETURNING ${APPROVAL_COLS}`,
       ],
     });
     const row = rows[0];
-    if (!row) throw new Error(`VERSION_CONFLICT:expected=${expectedVersion}`);
+    if (!row) {
+      // A retried resolution with the same idempotency key is successful only
+      // when the original transition already reached the requested state.
+      const existing = await tx.query<Record<string, unknown>>({
+        text: `SELECT ${APPROVAL_COLS} FROM approvals WHERE id = $1`,
+        values: [approvalId],
+      });
+      const current = existing[0];
+      if (current !== undefined && String(current['status']) === transition.to) {
+        return mapApproval(current);
+      }
+      throw new Error(`VERSION_CONFLICT:expected=${expectedVersion}`);
+    }
     return mapApproval(row);
   }
 

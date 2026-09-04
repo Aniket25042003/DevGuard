@@ -46,6 +46,11 @@ const ENV = {
   AUTH_GITHUB_OAUTH_CLIENT_SECRET: 'client-secret-value-0123456789',
   AUTH_GITHUB_OAUTH_CALLBACK_URL: 'http://localhost:4000/callback',
   DEVGUARD_PUBLIC_ORIGIN: 'https://devguard.example',
+  DEVGUARD_ARTIFACT_DRIVER: 's3',
+  DEVGUARD_S3_ENDPOINT: 'https://s3.example.com',
+  DEVGUARD_S3_BUCKET: 'devguard-test',
+  S3_ACCESS_KEY_ID: 'test-access-key',
+  S3_SECRET_ACCESS_KEY: 'test-secret-key',
 } as const;
 
 /** Production/development without a real DSN — volatile adapters remain bound. */
@@ -170,7 +175,7 @@ describe('validateReadiness matrix (CP002 §22)', () => {
   });
 
   it('allows volatile bindings in the test environment (fakes only)', () => {
-    const container = buildContainer(snapshot('test'), { ...ENV });
+    const container = buildContainer(snapshot('development'), { ...ENV });
     expect(() => validateReadiness(container.config, container.bindings)).not.toThrow();
   });
 
@@ -210,7 +215,7 @@ describe('validateReadiness matrix (CP002 §22)', () => {
 
 describe('health readiness (CP002 §25: health ready checks DB when pool bound)', () => {
   it('reports the database probe when a pool is bound', async () => {
-    const container = buildContainer(snapshot('test'), { ...ENV });
+    const container = buildContainer(snapshot('development'), { ...ENV });
     const api = assembleApi(container);
     const response = await api.app.request('/api/v1/health/ready');
     const body = (await response.json()) as { probes: Array<{ name: string }> };

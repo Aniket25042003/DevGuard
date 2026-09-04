@@ -6,6 +6,7 @@
  */
 import type { RateLimiterPort } from './kernel.js';
 import { RATE_LIMITS, type RateLimitClass } from './kernel.js';
+import type { Redis } from 'ioredis';
 
 interface Bucket {
   readonly windowStart: number;
@@ -56,5 +57,34 @@ export class InMemoryRateLimiter implements RateLimiterPort {
       return { allowed: false, retryAfterSeconds: retryAfter };
     }
     return { allowed: true, retryAfterSeconds: 0 };
+  }
+}
+
+/** Shared sliding-window limiter for multi-instance production API deploys. */
+export class RedisRateLimiter implements RateLimiterPort {
+  constructor(private readonly redis: Redis) {}
+
+  async consume(key: string): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+    const [classPart] = key.split(':');
+    const limits = RATE_LIMITS[classPart as RateLimitClass] ?? RATE_LIMITS.default;
+    const window = Math.floor(Date.now() / (limits.windowSeconds * 1_000));
+    const redisKey = `devguard:ratelimit:${classPart}:${window}:${key}`;
+    const count = Number(
+      await this.redis.eval(
+        `local c = redis.call('INCR', KEYS[1]); if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end; return c`,
+        1,
+        redisKey,
+        limits.windowSeconds,
+      ),
+    );
+    return count > limits.limit
+      ? {
+          allowed: false,
+          retryAfterSeconds: Math.max(
+            1,
+            limits.windowSeconds - (Math.floor(Date.now() / 1000) % limits.windowSeconds),
+          ),
+        }
+      : { allowed: true, retryAfterSeconds: 0 };
   }
 }

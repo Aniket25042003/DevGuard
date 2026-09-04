@@ -106,6 +106,7 @@ export const agentSessionSchema = z
     version: z.number().int().nonnegative(),
     startedAtIso: z.string().min(1).max(40),
     updatedAtIso: z.string().min(1).max(40),
+    commandKey: z.string().min(1).max(128),
   })
   .strict();
 export interface AgentSession {
@@ -124,6 +125,7 @@ export interface AgentSession {
   readonly version: number;
   readonly startedAtIso: string;
   readonly updatedAtIso: string;
+  readonly commandKey: string;
 }
 
 export const agentTurnSchema = z
@@ -142,6 +144,7 @@ export const agentTurnSchema = z
     errorCode: z.string().max(64).optional(),
     startedAtIso: z.string().min(1).max(40),
     completedAtIso: z.string().min(1).max(40).optional(),
+    version: z.number().int().nonnegative().optional(),
   })
   .strict();
 export interface AgentTurn {
@@ -159,6 +162,8 @@ export interface AgentTurn {
   readonly errorCode?: string | undefined;
   readonly startedAtIso: string;
   readonly completedAtIso?: string | undefined;
+  /** Optimistic-concurrency version populated by durable stores. */
+  readonly version?: number | undefined;
 }
 
 export const ensureAgentSessionSchema = z

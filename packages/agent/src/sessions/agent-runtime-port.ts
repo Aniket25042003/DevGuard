@@ -10,6 +10,15 @@ export type AgentRuntimeResult<T> =
   | { readonly ok: false; readonly code: string; readonly detail: string };
 
 export interface AgentRuntimePort {
+  /** Optional dependency probe; implementations should never mutate state. */
+  preflight?(): Promise<AgentRuntimeResult<{ provider: string; version: string }>>;
+  cancelSession?(input: {
+    providerSessionId: string;
+  }): Promise<AgentRuntimeResult<{ cancelled: boolean }>>;
+  cancelTurn?(input: {
+    providerSessionId: string;
+    providerTurnId: string;
+  }): Promise<AgentRuntimeResult<{ cancelled: boolean }>>;
   createSession(input: {
     provider: string;
     agentVersion: string;
@@ -32,6 +41,18 @@ export class InMemoryAgentRuntimePort implements AgentRuntimePort {
   requests = 0;
   sessionState: string = 'ready';
   failNext: { op: 'createSession' | 'createTurn'; code: string } | undefined;
+
+  async preflight(): Promise<AgentRuntimeResult<{ provider: string; version: string }>> {
+    return { ok: true, value: { provider: 'in-memory', version: 'test' } };
+  }
+
+  async cancelSession(): Promise<AgentRuntimeResult<{ cancelled: boolean }>> {
+    return { ok: true, value: { cancelled: true } };
+  }
+
+  async cancelTurn(): Promise<AgentRuntimeResult<{ cancelled: boolean }>> {
+    return { ok: true, value: { cancelled: true } };
+  }
 
   async createSession(): Promise<
     AgentRuntimeResult<{ providerSessionId: string; providerThreadId?: string | undefined }>

@@ -13,8 +13,6 @@
  * inferred. Route stays thin: all rules live in the `CommandBus` use case.
  */
 import type { ApiContainer } from '../composition/container.js';
-import { resolveManualCommandsForRepository } from '../composition/repository-manual-commands.js';
-import { ConnectedRepositoryStore } from '@devguard/db';
 import {
   commandReceiptSchema,
   IDEMPOTENCY_KEY_HEADER,
@@ -51,11 +49,8 @@ export function registerRepositoryCommandRoutes(
     listMeta,
     async (c) => {
       const repositoryId = c.req.param('repositoryId') ?? '';
-      const repoStore =
-        container.pool === undefined ? undefined : new ConnectedRepositoryStore(container.pool);
-      const repo = repoStore === undefined ? null : await repoStore.findById(repositoryId);
-      const allowed = await resolveManualCommandsForRepository({
-        pool: container.pool,
+      const repo = (await container.bindings.repositoryCatalog.findById?.(repositoryId)) ?? null;
+      const allowed = await container.bindings.manualCommands.resolve({
         repositoryId,
         ...(repo !== null && repo !== undefined ? { owner: repo.owner, name: repo.name } : {}),
       });
@@ -96,15 +91,17 @@ export function registerRepositoryCommandRoutes(
         return renderCommandError(c, new CommandOriginForgedError(parsed.data.originSurface));
       }
 
-      const repoStore =
-        container.pool === undefined ? undefined : new ConnectedRepositoryStore(container.pool);
-      const repo = repoStore === undefined ? null : await repoStore.findById(repositoryId);
-      const allowed = await resolveManualCommandsForRepository({
-        pool: container.pool,
+      const repo = (await container.bindings.repositoryCatalog.findById?.(repositoryId)) ?? null;
+      const allowed = await container.bindings.manualCommands.resolve({
         repositoryId,
         ...(repo !== null && repo !== undefined ? { owner: repo.owner, name: repo.name } : {}),
       });
-      const workflowId = normalizeCommandId(parsed.data.commandId);
+      let workflowId: ReturnType<typeof normalizeCommandId>;
+      try {
+        workflowId = normalizeCommandId(parsed.data.commandId);
+      } catch (error) {
+        return renderCommandError(c, error);
+      }
       if (!allowed.has(workflowId)) {
         return renderCommandError(c, new CommandDisabledError(workflowId));
       }

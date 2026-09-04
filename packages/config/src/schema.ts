@@ -582,6 +582,12 @@ function parseArtifactStorage(parser: ConfigParser, env: EnvRecord): ArtifactSto
       s3: { endpoint, bucket, accessKeyIdRef, secretAccessKeyRef },
     };
   }
+  if (env['DEVGUARD_ENV'] === 'production') {
+    parser.addIssue(
+      'DEVGUARD_ARTIFACT_DRIVER',
+      'local artifact storage is forbidden in production; configure the s3 driver',
+    );
+  }
   return {
     driver: 'local',
     localDir: parser.optionalString(env, 'DEVGUARD_ARTIFACT_LOCAL_DIR') ?? '.data/artifacts',

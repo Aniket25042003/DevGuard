@@ -61,9 +61,22 @@ export function registerWebhookRoutes(
           401,
         );
       }
+      if (event.length === 0 || deliveryHeader.length === 0) {
+        return c.json(
+          {
+            error: {
+              code: 'WEBHOOK_HEADERS_INVALID',
+              message: 'Webhook event and delivery headers are required.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
+          400,
+        );
+      }
       const payloadJson = Buffer.from(rawBody).toString('utf8');
       const result = await accept.accept({
-        deliveryId: deliveryHeader || 'generated',
+        deliveryId: deliveryHeader,
         event,
         payloadJson,
         headers: { signature: signatureHeader },
@@ -82,7 +95,7 @@ export function registerWebhookRoutes(
         );
       }
       c.status(202);
-      return c.json({ accepted: true, deliveryId: deliveryHeader || 'generated' });
+      return c.json({ accepted: true, deliveryId: deliveryHeader });
     },
   );
 }
@@ -100,6 +113,8 @@ export interface Repository {
 
 export interface RepositoryCatalogPort {
   listFor(userId: string): Promise<readonly Repository[]>;
+  /** Optional detail lookup used by repository-scoped command policy. */
+  findById?(repositoryId: string): Promise<Repository | null>;
 }
 
 export function registerRepositoryRoutes(

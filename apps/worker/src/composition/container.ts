@@ -1,17 +1,23 @@
 /**
- * CP008 — Worker composition root (durable queue + typed consumers).
+ * CP008 — Worker composition root (BullMQ delivery + typed consumers).
  *
  * Workers act ONLY as scoped system actors bound to persisted runs/approvals.
  * No user principals exist here; forged user actors cannot be constructed.
  *
- * CP008 wires the durable Redis `QueueTransport` (ioredis) when REDIS_URL is
- * configured, registers the typed job handlers (workflow.execute transitions
- * a claimed run queued → running; the other owners fail CLOSED until they
- * mount), and builds the `WorkerRuntime` poll loop. In production a volatile
- * (in-memory) queue is refused, so the worker never silently runs on a
- * non-durable queue.
+ * Production binds BullMQ to Redis and leaves PostgreSQL authoritative through
+ * the independent outbox relay. The in-memory transport remains a test-only
+ * fallback and is refused by readiness checks outside test/development.
  */
 import { Redis } from 'ioredis';
+import {
+  AgentSessionService,
+  InMemorySessionStore,
+  InMemoryTurnStore,
+  TrueForgeSdkAgentRuntime,
+  type AgentRuntimePort,
+  type SessionStorePort,
+  type TurnStorePort,
+} from '@devguard/agent';
 import {
   RepositoryAuthorizationService,
   type AuthorizationEvidencePort,
@@ -23,14 +29,20 @@ import {
   CancellationFence,
   InMemoryDeliveryStore,
   InMemoryTransport,
+  BullMqQueue,
+  BullMqWorkerRuntime,
   JobRegistry,
+  Queue,
   QUEUE_NAMES,
-  RedisQueueTransport,
   WorkerRuntime,
   type QueueTransport,
+  type QueuePortShape,
 } from '@devguard/queue';
 import {
   createPool,
+  PostgresAgentSessionStore,
+  PostgresAgentTurnStore,
+  PostgresApprovalResumeStore,
   PostgresArtifactRetentionCleaner,
   PostgresLocalRepositoryAccessPort,
   OutboxRepository,
@@ -57,11 +69,15 @@ export interface WorkerContainer {
   readonly config: WorkerConfigSnapshot;
   readonly authorizer: RepositoryAuthorizationService;
   /** Durable Redis queue substrate; InMemoryTransport is volatile and refused in production. */
-  readonly queue: QueueTransport;
+  readonly queue: QueueTransport | BullMqQueue;
   readonly registry: JobRegistry;
-  readonly runtime: WorkerRuntime;
+  readonly runtime: WorkerRuntime | BullMqWorkerRuntime;
   readonly transportDurability: 'redis' | 'in_memory';
   readonly pool?: DevGuardPool | undefined;
+  readonly agentRuntime: AgentRuntimePort;
+  readonly agentSessions: AgentSessionService;
+  /** Dedicated health connection; queue/worker connections are owned by BullMQ. */
+  readonly redisHealth?: Redis | undefined;
   readonly objectStore: ObjectStore;
 }
 
@@ -74,16 +90,24 @@ function isPostgresDsn(value: string | undefined): value is string {
   return value.startsWith('postgres://') || value.startsWith('postgresql://');
 }
 
+function isRedisDsn(value: string | undefined): value is string {
+  return value !== undefined && (value.startsWith('redis://') || value.startsWith('rediss://'));
+}
+
 export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContainer {
   const pool: DevGuardPool | undefined = isPostgresDsn(config.databaseUrlRef.name)
     ? createPool({ connectionString: config.databaseUrlRef.name })
     : undefined;
+
   const objectStore: ObjectStore =
     config.artifacts.driver === 's3' && config.artifacts.s3 !== undefined
-      ? new S3ObjectStore(config.artifacts.s3.bucket, {
+      ? new S3ObjectStore(config.artifacts.s3.bucket, 'devguard/artifacts', {
           endpoint: config.artifacts.s3.endpoint,
-          accessKeyId: config.artifacts.s3.accessKeyIdRef,
-          secretAccessKey: config.artifacts.s3.secretAccessKeyRef,
+          credentials: {
+            accessKeyId: config.artifacts.s3.accessKeyIdRef,
+            secretAccessKey: config.artifacts.s3.secretAccessKeyRef,
+          },
+          forcePathStyle: true,
         })
       : new LocalObjectStore(config.artifacts.localDir ?? '.data/artifacts');
 
@@ -115,14 +139,38 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
     now: () => new Date(),
   });
 
-  const redisUrl = real(config.redisUrlRef.name) ? config.redisUrlRef.name : undefined;
+  const redisUrl = isRedisDsn(config.redisUrlRef.name) ? config.redisUrlRef.name : undefined;
+  const agentRuntime: AgentRuntimePort = new TrueForgeSdkAgentRuntime({
+    enabled: config.features.trueforgeIntegrationEnabled.value && config.trueforge !== undefined,
+    baseUrl: config.trueforge?.baseUrl ?? 'http://trueforge.invalid',
+    ...(config.trueforge?.apiKeyRef !== undefined ? { apiKey: config.trueforge.apiKeyRef } : {}),
+    timeoutMs: config.trueforge?.timeoutMs,
+  });
+  const sessionStore: SessionStorePort = (pool !== undefined
+    ? new PostgresAgentSessionStore(pool)
+    : new InMemorySessionStore()) as unknown as SessionStorePort;
+  const turnStore: TurnStorePort = (pool !== undefined
+    ? new PostgresAgentTurnStore(pool)
+    : new InMemoryTurnStore()) as unknown as TurnStorePort;
+  const agentSessions = new AgentSessionService({
+    runtime: agentRuntime,
+    sessions: sessionStore,
+    turns: turnStore,
+    agentVersion: 'devguard-mvp@1.0.0',
+  });
   const transportDurability = redisUrl !== undefined ? 'redis' : 'in_memory';
-  const queue: QueueTransport =
+  const redisHealth =
     redisUrl !== undefined
-      ? new RedisQueueTransport({
-          client: new Redis(redisUrl, { maxRetriesPerRequest: 1 }) as never,
+      ? new Redis(redisUrl, { maxRetriesPerRequest: 1, enableReadyCheck: true, lazyConnect: true })
+      : undefined;
+  const queue: QueueTransport | BullMqQueue =
+    redisUrl !== undefined
+      ? new BullMqQueue({
+          connection: new Redis(redisUrl, { maxRetriesPerRequest: null }) as never,
         })
       : new InMemoryTransport();
+  const approvalQueue: QueuePortShape =
+    redisUrl !== undefined ? (queue as BullMqQueue) : new Queue(queue as QueueTransport);
 
   const registry = new JobRegistry();
   registerWorkflowExecute(
@@ -137,7 +185,18 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
     pool !== undefined ? new PostgresWebhookDeliveryStore(pool) : new InMemoryDeliveryStore(),
     { commentCommands },
   );
-  registerApprovalResume(registry);
+  registerApprovalResume(
+    registry,
+    pool !== undefined
+      ? {
+          store: new PostgresApprovalResumeStore(pool),
+          queue: approvalQueue,
+          workerId: `worker-${process.pid}`,
+          resumeRun: async (runId) =>
+            (await durableRunTransitions(pool).resumeForApproval?.(runId)) ?? false,
+        }
+      : undefined,
+  );
   if (pool !== undefined) {
     registerOutboxPublish(registry, {
       outbox: new OutboxRepository(pool),
@@ -152,20 +211,28 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
   }
   registerFailClosedHandlers(registry);
 
-  const runtime = new WorkerRuntime(
-    registry,
-    queue,
-    new CancellationFence(),
-    undefined,
-    {
-      queues: [...QUEUE_NAMES],
-      leaseMs: 30_000,
-      pollIntervalMs: 250,
-      maxConcurrent: 10,
-      workerId: `worker-${process.pid}`,
-    },
-    Math.random,
-  );
+  const runtime =
+    redisUrl !== undefined
+      ? new BullMqWorkerRuntime({
+          connection: new Redis(redisUrl, { maxRetriesPerRequest: null }) as never,
+          queues: [...QUEUE_NAMES],
+          registry,
+          concurrency: 10,
+        })
+      : new WorkerRuntime(
+          registry,
+          queue as QueueTransport,
+          new CancellationFence(),
+          undefined,
+          {
+            queues: [...QUEUE_NAMES],
+            leaseMs: 30_000,
+            pollIntervalMs: 250,
+            maxConcurrent: 10,
+            workerId: `worker-${process.pid}`,
+          },
+          Math.random,
+        );
 
   return {
     config,
@@ -175,7 +242,10 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
     runtime,
     transportDurability,
     ...(pool !== undefined ? { pool } : {}),
+    agentRuntime,
+    agentSessions,
     objectStore,
+    ...(redisHealth !== undefined ? { redisHealth } : {}),
   };
 }
 
@@ -199,4 +269,30 @@ export type WorkerStartupStatus = 'consuming' | 'idle_no_transport';
 
 export function workerStartupStatus(container: WorkerContainer): WorkerStartupStatus {
   return container.transportDurability === 'redis' ? 'consuming' : 'idle_no_transport';
+}
+
+/** Live dependency checks used before advertising worker readiness. */
+export async function checkWorkerReadiness(
+  container: WorkerContainer,
+): Promise<{ readonly ok: boolean; readonly reasons: readonly string[] }> {
+  const reasons: string[] = [];
+  if (container.pool !== undefined && !(await container.pool.health()).ok) reasons.push('database');
+  if (container.redisHealth !== undefined) {
+    try {
+      if ((await container.redisHealth.ping()) !== 'PONG') reasons.push('redis');
+    } catch {
+      reasons.push('redis');
+    }
+  } else if (container.config.environment === 'production') {
+    reasons.push('redis');
+  }
+  if (container.config.features.trueforgeIntegrationEnabled.value) {
+    const probe = container.agentRuntime.preflight;
+    if (probe === undefined) reasons.push('trueforge');
+    else if (!(await probe.call(container.agentRuntime)).ok) reasons.push('trueforge');
+  }
+  if (container.config.environment === 'production' && container.config.artifacts.driver !== 's3') {
+    reasons.push('artifact-storage');
+  }
+  return { ok: reasons.length === 0, reasons };
 }

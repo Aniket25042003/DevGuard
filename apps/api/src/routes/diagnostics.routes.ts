@@ -9,6 +9,7 @@
 import type { RegisterV1Route } from '../transport/kernel.js';
 import type { RunRow } from '@devguard/workflows';
 import { validationFailed } from '@devguard/errors';
+import { encodeResourceCursor, parseResourceCursor } from './cursor.js';
 
 export interface PreflightStatus {
   readonly database: boolean;
@@ -83,21 +84,17 @@ export function registerDiagnosticsRoutes(
           repositoryId: r.repositoryId,
         })),
         hasMore: page.hasMore,
-        ...(page.nextCursor === undefined ? {} : { nextCursor: encodeCursor(page.nextCursor) }),
+        ...(page.nextCursor === undefined
+          ? {}
+          : { nextCursor: encodeResourceCursor(page.nextCursor) }),
       });
     },
   );
 }
 
-function encodeCursor(cursor: { createdAtIso: string; id: string }): string {
-  return JSON.stringify(cursor);
-}
-
 function safeParseCursor(raw: string): { createdAtIso: string; id: string } | undefined {
   try {
-    const parsed = JSON.parse(raw) as { createdAtIso?: unknown; id?: unknown };
-    if (typeof parsed.createdAtIso !== 'string' || typeof parsed.id !== 'string') return undefined;
-    return { createdAtIso: parsed.createdAtIso, id: parsed.id };
+    return parseResourceCursor(raw);
   } catch {
     return undefined;
   }
