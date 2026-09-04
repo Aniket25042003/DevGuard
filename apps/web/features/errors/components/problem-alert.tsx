@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { DevGuardApiError, isDevGuardApiError } from '@/lib/api/errors';
 import { Button } from '@/components/ui/primitives';
+import { Icon } from '@/components/ui/icons';
 
 export interface UiProblem {
   readonly title: string;
@@ -86,15 +87,9 @@ export function ProblemAlert({
   readonly onRecover?: () => void;
 }): ReactNode {
   return (
-    <div
-      role="alert"
-      className="rounded-[var(--radius-lg)] border border-[var(--danger)]/30 bg-[var(--danger-soft)] p-4"
-    >
+    <div role="alert" className="status-strip rounded-[var(--radius-lg)] p-4" data-tone="danger">
       <div className="flex items-start gap-3">
-        <span
-          className="mt-1.5 size-2 shrink-0 rounded-full bg-[var(--danger)]"
-          aria-hidden="true"
-        />
+        <Icon name="alert" size={17} className="mt-0.5 shrink-0 text-[var(--danger)]" />
         <div className="min-w-0 flex-1">
           <p className="font-medium text-[var(--ink)]">{problem.title}</p>
           <p className="mt-1 text-[var(--muted)]">{problem.body}</p>
@@ -106,7 +101,7 @@ export function ProblemAlert({
           {onRecover !== undefined &&
           (problem.recovery === 'retry' || problem.recovery === 'reconcile') ? (
             <div className="mt-3">
-              <Button tone="neutral" onClick={onRecover}>
+              <Button tone="neutral" onClick={onRecover} icon="activity">
                 {problem.recovery === 'reconcile' ? 'Refresh status' : 'Retry'}
               </Button>
             </div>

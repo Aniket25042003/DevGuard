@@ -8,7 +8,8 @@ import { getApiClient } from '@/lib/api/client';
 import { PRODUCT_NAME } from '@/lib/brand';
 import { validateReturnTo } from '@/lib/commands';
 import { queryKeys } from '@/lib/server-state/query-keys';
-import { Button, Card } from '@/components/ui/primitives';
+import { Button, Card, PageHeader } from '@/components/ui/primitives';
+import { Icon } from '@/components/ui/icons';
 import { buildAppHref } from '@/features/navigation/routes';
 import { ProblemAlert, classifyUiProblem } from '@/features/errors/index';
 
@@ -34,27 +35,36 @@ export function SignInPage(): ReactNode {
             Welcome back
           </h1>
           <p className="mt-2 text-[var(--muted)]">
-            Sign in with GitHub to access your governed workspace. Sessions are HttpOnly cookies — no
-            personal access tokens required.
+            Sign in with GitHub to access your governed workspace. Sessions are HttpOnly cookies —
+            no personal access tokens required.
           </p>
           <ul className="mt-6 space-y-3 text-sm text-[var(--muted)]">
             <li className="flex gap-3">
-              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />
+              <span
+                className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]"
+                aria-hidden="true"
+              />
               Identity sign-in is separate from GitHub App repository access
             </li>
             <li className="flex gap-3">
-              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />
+              <span
+                className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]"
+                aria-hidden="true"
+              />
               Privileged actions require in-product approval
             </li>
             <li className="flex gap-3">
-              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />
+              <span
+                className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]"
+                aria-hidden="true"
+              />
               Agent code runs in sandboxed workspaces, not on the host
             </li>
           </ul>
           <div className="mt-8">
             <Button
               size="lg"
-              href={busy ? undefined : href}
+              {...(busy ? {} : { href })}
               disabled={busy}
               onClick={() => {
                 setBusy(true);
@@ -159,20 +169,15 @@ export function GitHubConnectionPage(): ReactNode {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
-            GitHub connection
-          </h1>
-          <p className="mt-2 text-[var(--muted)]">
-            Installations and repository grants are recorded by the API. This page does not talk to GitHub
-            directly.
-          </p>
-        </div>
-        <Button tone="neutral" onClick={() => logout.mutate()} disabled={logout.isPending}>
-          Sign out
-        </Button>
-      </header>
+      <PageHeader
+        title="GitHub connection"
+        description="Installations and repository grants are recorded by the API. This page does not talk to GitHub directly."
+        actions={
+          <Button tone="ghost" onClick={() => logout.mutate()} disabled={logout.isPending} icon="x">
+            {logout.isPending ? 'Signing out' : 'Sign out'}
+          </Button>
+        }
+      />
       {installations.isError ? (
         <ProblemAlert
           problem={classifyUiProblem(installations.error)}
@@ -199,7 +204,8 @@ export function GitHubConnectionPage(): ReactNode {
           </div>
           <p className="mt-4 text-sm text-[var(--muted)]">
             After installing on GitHub, use Link existing installation and paste either the
-            installation ID or the full GitHub settings URL. For automatic redirect after install, set your GitHub App setup URL to{' '}
+            installation ID or the full GitHub settings URL. For automatic redirect after install,
+            set your GitHub App setup URL to{' '}
             <code className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5">
               https://devguard-olive.vercel.app/settings/github/setup
             </code>
@@ -222,7 +228,10 @@ export function GitHubConnectionPage(): ReactNode {
                 <li key={installation.id}>
                   <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="font-medium">{installation.accountLogin}</p>
+                      <p className="flex items-center gap-2 font-semibold">
+                        <Icon name="github" size={16} className="text-[var(--accent)]" />
+                        {installation.accountLogin}
+                      </p>
                       <p className="text-sm text-[var(--muted)]">
                         {installation.accountType} · {installation.status}
                       </p>
@@ -265,7 +274,10 @@ export function GitHubConnectionPage(): ReactNode {
       ) : (
         <ul className="mt-3 space-y-2">
           {(repos.data ?? []).map((repo) => (
-            <li key={repo.id} className="rounded-lg border border-[var(--line)] bg-[var(--bg-muted)] px-4 py-2">
+            <li
+              key={repo.id}
+              className="rounded-lg border border-[var(--line)] bg-[var(--bg-muted)] px-4 py-2"
+            >
               {repo.fullName ?? repo.name}
             </li>
           ))}

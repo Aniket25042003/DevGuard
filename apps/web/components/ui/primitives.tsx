@@ -1,44 +1,48 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { Icon, type IconName } from './icons';
 
-const STATUS_COPY: Record<string, { label: string; tone: string }> = {
-  queued: { label: 'Queued', tone: 'bg-[var(--muted)]' },
-  running: { label: 'Running', tone: 'bg-[var(--accent)]' },
-  waiting_for_approval: { label: 'Waiting for approval', tone: 'bg-[var(--warn)]' },
-  resuming: { label: 'Resuming', tone: 'bg-[var(--accent)]' },
-  verifying: { label: 'Verifying', tone: 'bg-[var(--accent)]' },
-  completed: { label: 'Completed', tone: 'bg-[var(--ok)]' },
-  failed: { label: 'Failed', tone: 'bg-[var(--danger)]' },
-  cancelled: { label: 'Cancelled', tone: 'bg-[var(--muted)]' },
-  rejected: { label: 'Rejected', tone: 'bg-[var(--danger)]' },
-  timed_out: { label: 'Timed out', tone: 'bg-[var(--danger)]' },
-  pending: { label: 'Pending', tone: 'bg-[var(--warn)]' },
-  approved: { label: 'Approved', tone: 'bg-[var(--ok)]' },
-  stale: { label: 'Stale', tone: 'bg-[var(--warn)]' },
-  expired: { label: 'Expired', tone: 'bg-[var(--muted)]' },
-  ready: { label: 'Ready', tone: 'bg-[var(--ok)]' },
-  degraded: { label: 'Degraded', tone: 'bg-[var(--danger)]' },
-  unknown: { label: 'Unknown', tone: 'bg-[var(--muted)]' },
+const STATUS_COPY: Record<string, { label: string; tone: string; icon: IconName }> = {
+  queued: { label: 'Queued', tone: 'info', icon: 'clock' },
+  dispatch_pending: { label: 'Dispatch pending', tone: 'info', icon: 'clock' },
+  running: { label: 'Running', tone: 'accent', icon: 'activity' },
+  waiting_for_approval: { label: 'Needs approval', tone: 'warn', icon: 'alert' },
+  resuming: { label: 'Resuming', tone: 'accent', icon: 'activity' },
+  verifying: { label: 'Verifying', tone: 'accent', icon: 'shield' },
+  completed: { label: 'Completed', tone: 'ok', icon: 'check' },
+  failed: { label: 'Failed', tone: 'danger', icon: 'x' },
+  blocked: { label: 'Blocked', tone: 'danger', icon: 'shield' },
+  unavailable: { label: 'Unavailable', tone: 'danger', icon: 'alert' },
+  cancelling: { label: 'Cancelling', tone: 'warn', icon: 'clock' },
+  cancelled: { label: 'Cancelled', tone: 'neutral', icon: 'x' },
+  rejected: { label: 'Rejected', tone: 'danger', icon: 'x' },
+  timed_out: { label: 'Timed out', tone: 'danger', icon: 'clock' },
+  pending: { label: 'Pending', tone: 'warn', icon: 'clock' },
+  approved: { label: 'Approved', tone: 'ok', icon: 'check' },
+  stale: { label: 'Stale', tone: 'warn', icon: 'alert' },
+  expired: { label: 'Expired', tone: 'neutral', icon: 'clock' },
+  ready: { label: 'Ready', tone: 'ok', icon: 'check' },
+  degraded: { label: 'Degraded', tone: 'warn', icon: 'alert' },
+  unknown: { label: 'Unknown', tone: 'neutral', icon: 'alert' },
 };
 
 export function StatusBadge({
   status,
   label,
+  showIcon = true,
 }: {
   readonly status: string;
   readonly label?: string;
+  readonly showIcon?: boolean;
 }): ReactNode {
-  const meta = STATUS_COPY[status] ?? { label: label ?? status, tone: 'bg-[var(--muted)]' };
-  const textTone =
-    status === 'ready' || status === 'completed' || status === 'approved'
-      ? 'text-[var(--ok)]'
-      : status === 'failed' || status === 'rejected' || status === 'degraded'
-        ? 'text-[var(--danger)]'
-        : status === 'waiting_for_approval' || status === 'pending'
-          ? 'text-[var(--warn)]'
-          : 'text-[var(--muted)]';
+  const meta = STATUS_COPY[status] ?? {
+    label: label ?? status,
+    tone: 'neutral',
+    icon: 'alert' as const,
+  };
   return (
-    <span className={`inline-flex items-center gap-2 text-sm font-medium ${textTone}`}>
-      <span className={`size-2 shrink-0 rounded-full ${meta.tone}`} aria-hidden="true" />
+    <span className={`status-badge status-badge-${meta.tone}`} data-status={status}>
+      {showIcon ? <Icon name={meta.icon} size={14} /> : null}
       <span>{label ?? meta.label}</span>
     </span>
   );
@@ -54,16 +58,16 @@ export function RiskIndicator({ risk }: { readonly risk: string }): ReactNode {
           ? 'External side effect'
           : risk === 'reversible_write'
             ? 'Reversible write'
-            : 'Read';
+            : 'Read only';
   const tone =
     risk === 'destructive' || risk === 'sensitive_write'
-      ? 'text-[var(--danger)]'
+      ? 'danger'
       : risk === 'external_side_effect'
-        ? 'text-[var(--warn)]'
-        : 'text-[var(--muted)]';
+        ? 'warn'
+        : 'neutral';
   return (
-    <span className={`inline-flex items-center gap-2 text-sm font-medium ${tone}`}>
-      <span className="size-2 rounded-full bg-current opacity-80" aria-hidden="true" />
+    <span className={`risk-indicator risk-indicator-${tone}`}>
+      <Icon name="shield" size={14} />
       <span>{label}</span>
     </span>
   );
@@ -88,33 +92,80 @@ export function Button({
   tone = 'primary',
   href,
   size = 'md',
+  icon,
+  loading = false,
 }: {
   readonly children: ReactNode;
-  readonly type?: 'button' | 'submit' | undefined;
-  readonly onClick?: (() => void) | undefined;
-  readonly disabled?: boolean | undefined;
-  readonly tone?: 'primary' | 'neutral' | 'danger' | undefined;
+  readonly type?: 'button' | 'submit' | 'reset';
+  readonly onClick?: () => void;
+  readonly disabled?: boolean;
+  readonly tone?: 'primary' | 'neutral' | 'danger' | 'ghost';
   readonly href?: string | undefined;
-  readonly size?: 'md' | 'lg' | undefined;
+  readonly size?: 'sm' | 'md' | 'lg';
+  readonly icon?: IconName;
+  readonly loading?: boolean;
 }): ReactNode {
-  const palette =
-    tone === 'danger'
-      ? 'border border-transparent bg-[var(--danger)] text-white shadow-sm hover:brightness-110'
-      : tone === 'neutral'
-        ? 'border border-[var(--line)] bg-[var(--bg-elevated)] text-[var(--ink)] shadow-sm hover:border-[var(--accent)] hover:text-[var(--accent)]'
-        : 'border border-transparent bg-[var(--accent)] text-[var(--accent-ink)] shadow-[var(--shadow-accent)] hover:bg-[var(--accent-hover)]';
-  const sizing = size === 'lg' ? 'min-h-12 px-7 text-base' : 'min-h-10 px-5 text-sm';
-  const className = `inline-flex min-w-10 items-center justify-center rounded-[var(--radius-pill)] font-medium transition ${sizing} ${palette} disabled:opacity-50 disabled:pointer-events-none`;
+  const className = `button button-${tone} button-${size}`;
+  const content = (
+    <>
+      {loading ? (
+        <span className="button-spinner" aria-hidden="true" />
+      ) : icon ? (
+        <Icon name={icon} size={size === 'sm' ? 14 : 16} />
+      ) : null}
+      <span>{children}</span>
+    </>
+  );
   if (href !== undefined) {
+    if (disabled)
+      return (
+        <span className={`${className} button-disabled`} aria-disabled="true">
+          {content}
+        </span>
+      );
     return (
-      <a className={className} href={disabled === true ? undefined : href} aria-disabled={disabled}>
-        {children}
-      </a>
+      <Link href={href} className={className} {...(onClick === undefined ? {} : { onClick })}>
+        {content}
+      </Link>
     );
   }
   return (
-    <button type={type} className={className} onClick={onClick} disabled={disabled}>
-      {children}
+    <button type={type} className={className} onClick={onClick} disabled={disabled || loading}>
+      {content}
+    </button>
+  );
+}
+
+export function IconButton({
+  label,
+  icon,
+  onClick,
+  href,
+  disabled,
+}: {
+  readonly label: string;
+  readonly icon: IconName;
+  readonly onClick?: () => void;
+  readonly href?: string;
+  readonly disabled?: boolean;
+}): ReactNode {
+  const className = 'icon-button';
+  const content = <Icon name={icon} size={18} label={label} />;
+  if (href !== undefined)
+    return (
+      <Link href={href} className={className} aria-label={label}>
+        {content}
+      </Link>
+    );
+  return (
+    <button
+      type="button"
+      className={className}
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {content}
     </button>
   );
 }
@@ -129,75 +180,86 @@ export function PageHeader({
   readonly actions?: ReactNode;
 }): ReactNode {
   return (
-    <header className="mb-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-      <div className="max-w-2xl">
-        <h1 className="font-[family-name:var(--font-display)] text-[2.125rem] font-semibold leading-tight tracking-[-0.03em] sm:text-[2.5rem]">
-          {title}
-        </h1>
-        {description !== undefined ? (
-          <p className="mt-3 text-base text-[var(--muted)] leading-relaxed">{description}</p>
-        ) : null}
+    <header className="page-header">
+      <div className="min-w-0">
+        <h1>{title}</h1>
+        {description ? <p className="page-header-description">{description}</p> : null}
       </div>
-      {actions !== undefined ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
+      {actions ? <div className="page-header-actions">{actions}</div> : null}
     </header>
   );
 }
 
 export function Card({
   children,
-  className,
+  className = '',
 }: {
   readonly children: ReactNode;
   readonly className?: string;
 }): ReactNode {
-  return <div className={`surface-soft rounded-[var(--radius-lg)] ${className ?? ''}`}>{children}</div>;
+  return <div className={`surface-soft rounded-[var(--radius-lg)] ${className}`}>{children}</div>;
 }
 
 export function EmptyState({
   title,
   body,
   action,
+  icon = 'repo',
 }: {
   readonly title: string;
   readonly body: string;
   readonly action?: ReactNode;
+  readonly icon?: IconName;
 }): ReactNode {
   return (
-    <Card className="p-10 text-center sm:text-left">
-      <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-[-0.02em]">
-        {title}
-      </h2>
-      <p className="mt-2 max-w-prose text-[var(--muted)]">{body}</p>
-      {action !== undefined ? <div className="mt-6">{action}</div> : null}
+    <Card className="empty-state">
+      <span className="empty-state-icon">
+        <Icon name={icon} size={20} />
+      </span>
+      <h2>{title}</h2>
+      <p>{body}</p>
+      {action ? <div className="mt-6">{action}</div> : null}
     </Card>
   );
 }
 
-export function Skeleton({ className }: { readonly className?: string }): ReactNode {
-  return (
-    <div
-      className={`animate-pulse rounded-[var(--radius)] bg-[var(--line)] ${className ?? 'h-24'}`}
-      aria-hidden="true"
-    />
-  );
+export function Skeleton({ className = 'h-24' }: { readonly className?: string }): ReactNode {
+  return <div className={`skeleton ${className}`} aria-hidden="true" />;
 }
 
 export function Badge({
   children,
   tone = 'neutral',
+  icon,
 }: {
   readonly children: ReactNode;
-  readonly tone?: 'neutral' | 'accent' | 'warn' | undefined;
+  readonly tone?: 'neutral' | 'accent' | 'warn' | 'danger' | 'ok';
+  readonly icon?: IconName;
 }): ReactNode {
-  const palette =
-    tone === 'accent'
-      ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
-      : tone === 'warn'
-        ? 'bg-[var(--warn-soft)] text-[var(--warn)]'
-        : 'bg-[var(--bg-muted)] text-[var(--muted)]';
   return (
-    <span className={`inline-flex items-center rounded-[var(--radius-sm)] px-2 py-0.5 text-xs font-medium ${palette}`}>
+    <span className={`badge badge-${tone}`}>
+      {icon ? <Icon name={icon} size={13} /> : null}
       {children}
     </span>
+  );
+}
+
+export function SectionHeading({
+  title,
+  description,
+  action,
+}: {
+  readonly title: string;
+  readonly description?: string;
+  readonly action?: ReactNode;
+}): ReactNode {
+  return (
+    <div className="section-heading">
+      <div>
+        <h2>{title}</h2>
+        {description ? <p>{description}</p> : null}
+      </div>
+      {action}
+    </div>
   );
 }

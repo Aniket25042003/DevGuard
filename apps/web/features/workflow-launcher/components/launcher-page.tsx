@@ -3,7 +3,13 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { getApiClient, type GitRefSummary, type IssueSummary, type PullRequestSummary, type RepositoryFindingSummary } from '@/lib/api/client';
+import {
+  getApiClient,
+  type GitRefSummary,
+  type IssueSummary,
+  type PullRequestSummary,
+  type RepositoryFindingSummary,
+} from '@/lib/api/client';
 import { COMMAND_BUTTONS, newIdempotencyKey } from '@/lib/commands';
 import { queryKeys } from '@/lib/server-state/query-keys';
 import { Button, PageHeader } from '@/components/ui/primitives';
@@ -41,9 +47,7 @@ export function WorkflowLauncherPage({
   const initialPr = searchParams.get('pr');
   const initialIssue = searchParams.get('issue');
   const [selected, setSelected] = useState<string>(
-    initialCommand !== null && initialCommand.length > 0
-      ? initialCommand
-      : 'review_remediation',
+    initialCommand !== null && initialCommand.length > 0 ? initialCommand : 'review_remediation',
   );
   const [prNumber, setPrNumber] = useState(initialPr ?? '');
   const [issueNumber, setIssueNumber] = useState(initialIssue ?? '');
@@ -56,6 +60,7 @@ export function WorkflowLauncherPage({
   const [manualFindings, setManualFindings] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const idempotencyRef = useRef<string | undefined>(undefined);
+  const reviewRef = useRef<HTMLDivElement>(null);
   const prSearch = useDebouncedSearch();
   const issueSearch = useDebouncedSearch();
   const refSearch = useDebouncedSearch();
@@ -108,6 +113,19 @@ export function WorkflowLauncherPage({
     },
   });
 
+  useEffect(() => {
+    if (!confirming) return;
+    const firstButton = reviewRef.current?.querySelector(
+      'button:not([disabled])',
+    ) as HTMLButtonElement | null;
+    firstButton?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !launch.isPending) setConfirming(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [confirming, launch.isPending]);
+
   const prItems: Array<{ readonly key: string; readonly pr: PullRequestSummary }> = (
     pullRequests.data ?? []
   ).map((pr) => ({
@@ -126,12 +144,11 @@ export function WorkflowLauncherPage({
     key: ref.name,
     ref,
   }));
-  const findingItems: Array<{ readonly key: string; readonly finding: RepositoryFindingSummary }> = (
-    findings.data ?? []
-  ).map((finding) => ({
-    key: finding.id,
-    finding,
-  }));
+  const findingItems: Array<{ readonly key: string; readonly finding: RepositoryFindingSummary }> =
+    (findings.data ?? []).map((finding) => ({
+      key: finding.id,
+      finding,
+    }));
 
   return (
     <div className="max-w-3xl">
@@ -145,7 +162,7 @@ export function WorkflowLauncherPage({
           onRecover={() => void commands.refetch()}
         />
       ) : null}
-      <ul className="mb-6 grid gap-3">
+      <ul className="mb-6 grid gap-3" role="group" aria-label="Workflow type">
         {COMMAND_BUTTONS.map((command) => {
           const enabled = advertised.has(command.commandId);
           if (
@@ -165,6 +182,7 @@ export function WorkflowLauncherPage({
             <li key={command.commandId}>
               <button
                 type="button"
+                aria-pressed={selected === command.commandId}
                 disabled={!enabled && commands.data !== undefined}
                 onClick={() => setSelected(command.commandId)}
                 className={`w-full rounded-[var(--radius-lg)] border px-4 py-3.5 text-left transition ${
@@ -273,9 +291,7 @@ export function WorkflowLauncherPage({
                     </span>
                     <span className="mt-1 block text-sm text-[var(--muted)]">
                       {item.issue.authorLogin} · {formatRelativeTime(item.issue.updatedAt)}
-                      {item.issue.labels.length > 0
-                        ? ` · ${item.issue.labels.join(', ')}`
-                        : null}
+                      {item.issue.labels.length > 0 ? ` · ${item.issue.labels.join(', ')}` : null}
                     </span>
                   </>
                 )}
@@ -387,36 +403,53 @@ export function WorkflowLauncherPage({
             </ManualEntryToggle>
           </div>
         ) : null}
-        <Button type="submit" disabled={!canSubmit(selected, { prNumber, issueNumber, findingIds })}>
+        <Button
+          type="submit"
+          disabled={!canSubmit(selected, { prNumber, issueNumber, findingIds })}
+        >
           Review before launch
         </Button>
       </form>
       {confirming ? (
         <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="launch-review-title"
-          className="mt-6 rounded-lg border border-[var(--line)] bg-[var(--bg-elevated)] p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !launch.isPending) setConfirming(false);
+          }}
         >
-          <h2 id="launch-review-title" className="text-lg font-medium">
-            Confirm launch
-          </h2>
-          <p className="mt-2">
-            Repository <strong>{repository.data?.fullName ?? repositoryId}</strong> · command{' '}
-            <strong>{selected}</strong> · origin <strong>web</strong>.
-          </p>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            A 202 means the run is queued, not completed. The same idempotency key is reused if this
-            click retries.
-          </p>
-          {launch.isError ? <ProblemAlert problem={classifyUiProblem(launch.error)} /> : null}
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Button onClick={() => launch.mutate()} disabled={launch.isPending}>
-              {launch.isPending ? 'Submitting…' : 'Launch'}
-            </Button>
-            <Button tone="neutral" onClick={() => setConfirming(false)} disabled={launch.isPending}>
-              Cancel
-            </Button>
+          <div
+            ref={reviewRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="launch-review-title"
+            className="w-full max-w-lg rounded-[var(--radius-lg)] border border-[var(--line-strong)] bg-[var(--bg-elevated)] p-6 shadow-[var(--shadow-md)]"
+          >
+            <h2 id="launch-review-title" className="text-lg font-medium">
+              Confirm launch
+            </h2>
+            <p className="mt-2">
+              Repository <strong>{repository.data?.fullName ?? repositoryId}</strong> · command{' '}
+              <strong>{selected}</strong> · origin <strong>web</strong>.
+            </p>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              A 202 means the run is queued, not completed. The same idempotency key is reused if
+              this click retries.
+            </p>
+            {launch.isError ? <ProblemAlert problem={classifyUiProblem(launch.error)} /> : null}
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Button
+                onClick={() => launch.mutate()}
+                disabled={launch.isPending}
+                loading={launch.isPending}
+                icon="play"
+              >
+                {launch.isPending ? 'Submitting' : 'Launch'}
+              </Button>
+              <Button tone="ghost" onClick={() => setConfirming(false)} disabled={launch.isPending}>
+                Cancel
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -426,7 +459,11 @@ export function WorkflowLauncherPage({
 
 function canSubmit(
   commandId: string,
-  fields: { readonly prNumber: string; readonly issueNumber: string; readonly findingIds: readonly string[] },
+  fields: {
+    readonly prNumber: string;
+    readonly issueNumber: string;
+    readonly findingIds: readonly string[];
+  },
 ): boolean {
   if (commandId === 'review_remediation' || commandId === 'diagnose_failure') {
     return /^\d+$/.test(fields.prNumber);

@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { getApiClient } from '@/lib/api/client';
 import { queryKeys } from '@/lib/server-state/query-keys';
-import { Button, Card } from '@/components/ui/primitives';
+import { Button, Card, PageHeader } from '@/components/ui/primitives';
+import { Icon } from '@/components/ui/icons';
 import { buildAppHref } from '@/features/navigation/routes';
 import { ProblemAlert, classifyUiProblem } from '@/features/errors';
 import { parseGitHubInstallationRef } from '@/features/github/lib/parse-github-installation-ref';
@@ -43,20 +44,28 @@ export function GitHubSetupPage(): ReactNode {
 
   if (installationId !== null && complete.isPending) {
     return (
-      <div className="mx-auto max-w-lg py-16 text-center">
-        <p role="status" className="text-[var(--muted)]">
-          Linking GitHub App installation…
-        </p>
+      <div className="mx-auto max-w-2xl">
+        <PageHeader
+          title="Link GitHub App installation"
+          description="The API is recording the installation and checking its repository grants."
+        />
+        <div role="status">
+          <Card className="flex items-center gap-3 p-6">
+            <Icon name="activity" size={18} className="animate-pulse text-[var(--accent)]" />
+            <p className="text-[var(--muted)]">Linking GitHub App installation…</p>
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-lg py-8">
+    <div className="mx-auto max-w-2xl">
+      <PageHeader
+        title="Link GitHub App installation"
+        description="Connect the installation that your team uses to grant DevGuard repository access."
+      />
       <Card className="p-8">
-        <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold">
-          Link GitHub App installation
-        </h1>
         <p className="mt-2 text-[var(--muted)]">
           Paste your GitHub installation ID or the full settings URL from GitHub under Settings →
           Applications → Installed GitHub Apps → DevGuard AI Agent.
@@ -74,7 +83,10 @@ export function GitHubSetupPage(): ReactNode {
         {manualInput.trim().length > 0 && parsedManualId === undefined ? (
           <p className="mt-2 text-sm text-[var(--danger)]" role="alert">
             Enter a numeric installation ID or a GitHub settings URL that ends with{' '}
-            <code className="rounded bg-[var(--bg-muted)] px-1 py-0.5">/installations/12345678</code>.
+            <code className="rounded bg-[var(--bg-muted)] px-1 py-0.5">
+              /installations/12345678
+            </code>
+            .
           </p>
         ) : parsedManualId !== undefined ? (
           <p className="mt-2 text-sm text-[var(--muted)]">

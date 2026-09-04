@@ -63,6 +63,11 @@ export function PolicyEditorPage({ repositoryId }: { readonly repositoryId: stri
     draft ??
     active.data?.document ??
     DEFAULT_POLICY(repository.data?.owner ?? 'owner', repository.data?.name ?? 'name');
+  const updateDraft = (next: PolicyDocument): void => {
+    setDraft(next);
+    setDigest(undefined);
+    setDanger([]);
+  };
 
   const validate = useMutation({
     mutationFn: () =>
@@ -96,7 +101,7 @@ export function PolicyEditorPage({ repositoryId }: { readonly repositoryId: stri
     <div>
       <PageHeader
         title="Repository policy"
-        description={`Source: ${active.data?.source ?? 'defaults'} · version ${active.data?.activeVersion ?? 0}. YAML is a read-only preview.`}
+        description={`Source: ${active.data?.source ?? 'defaults'} · version ${active.data?.activeVersion ?? 0}. Canonical policy is previewed read-only.`}
         actions={
           <Button href={buildAppHref({ name: 'policyHistory', repositoryId })} tone="neutral">
             History
@@ -121,7 +126,7 @@ export function PolicyEditorPage({ repositoryId }: { readonly repositoryId: stri
                 type="radio"
                 name="autonomy"
                 checked={current.autonomy.level === level}
-                onChange={() => setDraft({ ...current, autonomy: { level } })}
+                onChange={() => updateDraft({ ...current, autonomy: { level } })}
               />
               {level}
             </label>
@@ -146,7 +151,7 @@ export function PolicyEditorPage({ repositoryId }: { readonly repositoryId: stri
                     type="radio"
                     name={`action-${action}`}
                     checked={current.actions[effect].includes(action)}
-                    onChange={() => setDraft(setActionEffect(current, action, effect))}
+                    onChange={() => updateDraft(setActionEffect(current, action, effect))}
                   />
                   {effect === 'allow'
                     ? 'Allow'
@@ -165,21 +170,21 @@ export function PolicyEditorPage({ repositoryId }: { readonly repositoryId: stri
           label="Max files changed"
           value={current.limits.maxFilesChanged}
           onChange={(value) =>
-            setDraft({ ...current, limits: { ...current.limits, maxFilesChanged: value } })
+            updateDraft({ ...current, limits: { ...current.limits, maxFilesChanged: value } })
           }
         />
         <NumberField
           label="Max iterations"
           value={current.limits.maxIterations}
           onChange={(value) =>
-            setDraft({ ...current, limits: { ...current.limits, maxIterations: value } })
+            updateDraft({ ...current, limits: { ...current.limits, maxIterations: value } })
           }
         />
         <NumberField
           label="Max runtime minutes"
           value={current.limits.maxRuntimeMinutes}
           onChange={(value) =>
-            setDraft({ ...current, limits: { ...current.limits, maxRuntimeMinutes: value } })
+            updateDraft({ ...current, limits: { ...current.limits, maxRuntimeMinutes: value } })
           }
         />
       </fieldset>
@@ -190,7 +195,7 @@ export function PolicyEditorPage({ repositoryId }: { readonly repositoryId: stri
             type="checkbox"
             checked={current.validation.obligations.includes('run_tests')}
             onChange={(event) =>
-              setDraft({
+              updateDraft({
                 ...current,
                 validation: {
                   obligations: event.target.checked ? ['run_tests'] : [],
@@ -230,7 +235,7 @@ export function PolicyEditorPage({ repositoryId }: { readonly repositoryId: stri
       </div>
       {validate.isError ? <ProblemAlert problem={classifyUiProblem(validate.error)} /> : null}
       {save.isError ? <ProblemAlert problem={classifyUiProblem(save.error)} /> : null}
-      <h2 className="mb-2 text-lg font-medium">Canonical preview (read-only)</h2>
+      <h2 className="mb-2 text-lg font-medium">Canonical policy preview (read-only)</h2>
       <pre className="overflow-x-auto rounded-md border border-[var(--line)] bg-[var(--bg-elevated)] p-3 text-sm">
         {yamlPreview}
       </pre>
