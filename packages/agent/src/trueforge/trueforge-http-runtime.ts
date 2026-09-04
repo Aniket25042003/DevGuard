@@ -83,7 +83,10 @@ export class TrueForgeHttpAgentRuntime implements AgentRuntimePort {
           detail: `preflight failed (${capabilities.status}/${legacy.status})`,
         };
       }
-      return { ok: true, value: { provider: identify.provider, version: identify.version ?? 'unknown' } };
+      return {
+        ok: true,
+        value: { provider: identify.provider, version: identify.version ?? 'unknown' },
+      };
     } catch {
       return { ok: false, code: 'TIMEOUT', detail: 'trueforge preflight timed out' };
     }
@@ -132,7 +135,10 @@ export class TrueForgeHttpAgentRuntime implements AgentRuntimePort {
         return { ok: false, code: 'SERVER_ERROR', detail: 'session id missing' };
       return {
         ok: true,
-        value: { providerSessionId: sessionId, ...(threadId !== undefined ? { providerThreadId: threadId } : {}) },
+        value: {
+          providerSessionId: sessionId,
+          ...(threadId !== undefined ? { providerThreadId: threadId } : {}),
+        },
       };
     } catch {
       return { ok: false, code: 'TIMEOUT', detail: 'trueforge createSession timed out' };
@@ -157,7 +163,10 @@ export class TrueForgeHttpAgentRuntime implements AgentRuntimePort {
       );
       if (!res.ok)
         return { ok: false, code: 'SERVER_ERROR', detail: `turn create (${res.status})` };
-      const body = (await res.json()) as { turnId?: string; data?: { turnId?: string; id?: string } };
+      const body = (await res.json()) as {
+        turnId?: string;
+        data?: { turnId?: string; id?: string };
+      };
       const turnId = body.turnId ?? body.data?.turnId ?? body.data?.id;
       if (turnId === undefined)
         return { ok: false, code: 'SERVER_ERROR', detail: 'turn id missing' };

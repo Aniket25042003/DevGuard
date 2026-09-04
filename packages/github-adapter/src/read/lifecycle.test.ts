@@ -8,7 +8,9 @@ import {
   type RepositoryLifecyclePersistencePort,
 } from './lifecycle.js';
 
-const baseRecord = (overrides: Partial<ConnectedRepositoryRecord> = {}): ConnectedRepositoryRecord => ({
+const baseRecord = (
+  overrides: Partial<ConnectedRepositoryRecord> = {},
+): ConnectedRepositoryRecord => ({
   id: 'rec-1',
   repositoryDevguardId: 'repo-1',
   githubRepositoryId: 42,

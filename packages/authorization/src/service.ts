@@ -60,9 +60,7 @@ function roleSatisfies(role: NormalizedGitHubRole, capability: string): boolean 
 }
 
 function subjectKeyOf(principal: PrincipalRef): string {
-  return principal.kind === 'user'
-    ? `user:${principal.userId}`
-    : `system:${principal.serviceId}`;
+  return principal.kind === 'user' ? `user:${principal.userId}` : `system:${principal.serviceId}`;
 }
 
 export class RepositoryAuthorizationService {

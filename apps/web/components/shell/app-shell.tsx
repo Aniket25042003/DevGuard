@@ -138,7 +138,10 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
             >
               Menu
             </button>
-            <Link href={buildAppHref({ name: 'home' })} className="font-[family-name:var(--font-display)] font-semibold">
+            <Link
+              href={buildAppHref({ name: 'home' })}
+              className="font-[family-name:var(--font-display)] font-semibold"
+            >
               {PRODUCT_NAME}
             </Link>
             <Link

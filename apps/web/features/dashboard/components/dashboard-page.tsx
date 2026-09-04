@@ -236,7 +236,7 @@ export function RunTable({
               </td>
               <td className="py-3">
                 <Link
-                className="inline-flex min-h-10 items-center text-[var(--accent)] underline-offset-2 hover:underline"
+                  className="inline-flex min-h-10 items-center text-[var(--accent)] underline-offset-2 hover:underline"
                   href={buildAppHref({ name: 'run', repositoryId, runId: run.id })}
                 >
                   View run

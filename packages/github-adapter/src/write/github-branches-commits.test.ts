@@ -49,10 +49,7 @@ function setup() {
       input: Parameters<GithubBranchesCommitsAdapter['createBranch']>[0],
       ctx?: WriteContext,
     ) =>
-      createBranch(
-        input,
-        ctx ?? writeCtx(input.operationKey, { kind: 'create_branch', ...input }),
-      ),
+      createBranch(input, ctx ?? writeCtx(input.operationKey, { kind: 'create_branch', ...input })),
     createCommit: (
       input: Parameters<GithubBranchesCommitsAdapter['createCommit']>[0],
       ctx?: WriteContext,
@@ -144,56 +141,48 @@ describe('C020 createBranch', () => {
   it('conflicts when the branch already exists at a different base', async () => {
     const { provider, service } = setup();
     provider.seedBranch(REPO, BRANCH, SHA_B);
-    const result = await service.createBranch(
-      {
-        repository: REPO,
-        branch: BRANCH,
-        baseSha: SHA_A,
-        workflowRunId: RUN_ID,
-        operationKey: OP1,
-      },
-    );
+    const result = await service.createBranch({
+      repository: REPO,
+      branch: BRANCH,
+      baseSha: SHA_A,
+      workflowRunId: RUN_ID,
+      operationKey: OP1,
+    });
     expect(result.status).toBe('conflict');
   });
 
   it('reports outcome_unknown on provider timeout instead of blind failure', async () => {
     const { provider, service } = setup();
     provider.failNext = { op: 'createRef', code: 'TIMEOUT' };
-    const result = await service.createBranch(
-      {
-        repository: REPO,
-        branch: BRANCH,
-        baseSha: SHA_A,
-        workflowRunId: RUN_ID,
-        operationKey: OP1,
-      },
-    );
+    const result = await service.createBranch({
+      repository: REPO,
+      branch: BRANCH,
+      baseSha: SHA_A,
+      workflowRunId: RUN_ID,
+      operationKey: OP1,
+    });
     expect(result.status).toBe('outcome_unknown');
   });
 
   it('rejects protected targets and non-mutation branches', async () => {
     const { service } = setup();
     await expect(
-      service.createBranch(
-        {
-          repository: REPO,
-          branch: 'main',
-          baseSha: SHA_A,
-          workflowRunId: RUN_ID,
-          operationKey: OP1,
-        },
-      ),
+      service.createBranch({
+        repository: REPO,
+        branch: 'main',
+        baseSha: SHA_A,
+        workflowRunId: RUN_ID,
+        operationKey: OP1,
+      }),
     ).rejects.toThrow();
     await expect(
-      service.createBranch(
-        {
-          repository: REPO,
-          branch: 'feature/x',
-          baseSha: SHA_A,
-          workflowRunId: RUN_ID,
-          operationKey: OP1,
-        },
-      ),
+      service.createBranch({
+        repository: REPO,
+        branch: 'feature/x',
+        baseSha: SHA_A,
+        workflowRunId: RUN_ID,
+        operationKey: OP1,
+      }),
     ).rejects.toThrow();
   });
 
@@ -224,24 +213,20 @@ describe('C020 createBranch', () => {
 
   it('rejects opKey reuse with different inputs (digest conflict)', async () => {
     const { service } = setup();
-    await service.createBranch(
-      {
-        repository: REPO,
-        branch: BRANCH,
-        baseSha: SHA_A,
-        workflowRunId: RUN_ID,
-        operationKey: OP1,
-      },
-    );
-    const result = await service.createBranch(
-      {
-        repository: REPO,
-        branch: BRANCH,
-        baseSha: SHA_B,
-        workflowRunId: RUN_ID,
-        operationKey: OP1,
-      },
-    );
+    await service.createBranch({
+      repository: REPO,
+      branch: BRANCH,
+      baseSha: SHA_A,
+      workflowRunId: RUN_ID,
+      operationKey: OP1,
+    });
+    const result = await service.createBranch({
+      repository: REPO,
+      branch: BRANCH,
+      baseSha: SHA_B,
+      workflowRunId: RUN_ID,
+      operationKey: OP1,
+    });
     expect(result.status).toBe('conflict');
   });
 
@@ -250,42 +235,36 @@ describe('C020 createBranch', () => {
     // Same namespace, but the canonical branch for a DIFFERENT operation key.
     const unbound = buildWorkflowBranchName(RUN_ID, OP2);
     await expect(
-      service.createBranch(
-        {
-          repository: REPO,
-          branch: unbound,
-          baseSha: SHA_A,
-          workflowRunId: RUN_ID,
-          operationKey: OP1,
-        },
-      ),
+      service.createBranch({
+        repository: REPO,
+        branch: unbound,
+        baseSha: SHA_A,
+        workflowRunId: RUN_ID,
+        operationKey: OP1,
+      }),
     ).rejects.toThrow('GITHUB_MUTATION_BRANCH_UNBOUND');
   });
 
   it('does not claim an applied replay for an uncertain prior attempt', async () => {
     const { provider, service } = setup();
     provider.failNext = { op: 'createRef', code: 'TIMEOUT' };
-    const first = await service.createBranch(
-      {
-        repository: REPO,
-        branch: BRANCH2,
-        baseSha: SHA_A,
-        workflowRunId: RUN_ID,
-        operationKey: OP2,
-      },
-    );
+    const first = await service.createBranch({
+      repository: REPO,
+      branch: BRANCH2,
+      baseSha: SHA_A,
+      workflowRunId: RUN_ID,
+      operationKey: OP2,
+    });
     expect(first.status).toBe('outcome_unknown');
     // Same key/digest retried while the prior attempt is still uncertain must NOT
     // claim an applied replay — reconciliation must resolve it first.
-    const retry = await service.createBranch(
-      {
-        repository: REPO,
-        branch: BRANCH2,
-        baseSha: SHA_A,
-        workflowRunId: RUN_ID,
-        operationKey: OP2,
-      },
-    );
+    const retry = await service.createBranch({
+      repository: REPO,
+      branch: BRANCH2,
+      baseSha: SHA_A,
+      workflowRunId: RUN_ID,
+      operationKey: OP2,
+    });
     expect(retry.status).toBe('outcome_unknown');
   });
 });
@@ -300,18 +279,16 @@ describe('C020 createCommit + advanceBranch', () => {
   it('creates a commit and advances the owned branch', async () => {
     const { provider, service } = setup();
     provider.seedBranch(REPO, BRANCH, SHA_A);
-    const result = await service.createCommit(
-      {
-        repository: REPO,
-        branch: BRANCH,
-        expectedHeadSha: SHA_A,
-        parentSha: SHA_A,
-        tree,
-        message: 'feat: add doc',
-        workflowRunId: RUN_ID,
-        operationKey: OP1,
-      },
-    );
+    const result = await service.createCommit({
+      repository: REPO,
+      branch: BRANCH,
+      expectedHeadSha: SHA_A,
+      parentSha: SHA_A,
+      tree,
+      message: 'feat: add doc',
+      workflowRunId: RUN_ID,
+      operationKey: OP1,
+    });
     expect(result.status).toBe('applied');
     if (result.status !== 'applied') return;
     expect(result.value.message).toContain('add doc');
@@ -324,18 +301,16 @@ describe('C020 createCommit + advanceBranch', () => {
   it('conflicts when the expected head is no longer current (CAS)', async () => {
     const { provider, service } = setup();
     provider.seedBranch(REPO, BRANCH, SHA_B);
-    const result = await service.createCommit(
-      {
-        repository: REPO,
-        branch: BRANCH,
-        expectedHeadSha: SHA_A,
-        parentSha: SHA_A,
-        tree,
-        message: 'feat: doc',
-        workflowRunId: RUN_ID,
-        operationKey: OP1,
-      },
-    );
+    const result = await service.createCommit({
+      repository: REPO,
+      branch: BRANCH,
+      expectedHeadSha: SHA_A,
+      parentSha: SHA_A,
+      tree,
+      message: 'feat: doc',
+      workflowRunId: RUN_ID,
+      operationKey: OP1,
+    });
     expect(result.status).toBe('conflict');
   });
 
@@ -343,18 +318,16 @@ describe('C020 createCommit + advanceBranch', () => {
     const { provider, service } = setup();
     provider.seedBranch(REPO, BRANCH, SHA_A);
     provider.failNext = { op: 'updateRef', code: 'TIMEOUT' };
-    const result = await service.createCommit(
-      {
-        repository: REPO,
-        branch: BRANCH,
-        expectedHeadSha: SHA_A,
-        parentSha: SHA_A,
-        tree,
-        message: 'feat: doc',
-        workflowRunId: RUN_ID,
-        operationKey: OP1,
-      },
-    );
+    const result = await service.createCommit({
+      repository: REPO,
+      branch: BRANCH,
+      expectedHeadSha: SHA_A,
+      parentSha: SHA_A,
+      tree,
+      message: 'feat: doc',
+      workflowRunId: RUN_ID,
+      operationKey: OP1,
+    });
     expect(result.status).toBe('outcome_unknown');
     expect(result.detail).toContain('orphan');
   });
@@ -362,32 +335,28 @@ describe('C020 createCommit + advanceBranch', () => {
   it('advanceBranch is non-force, exact-state CAS, and reports unknown on timeout', async () => {
     const { provider, service } = setup();
     provider.seedBranch(REPO, BRANCH, SHA_A);
-    const ok = await service.advanceBranch(
-      {
-        repository: REPO,
-        branch: BRANCH,
-        expectedOldSha: SHA_A,
-        newSha: SHA_B,
-        force: false,
-        workflowRunId: RUN_ID,
-        operationKey: OP1,
-      },
-    );
+    const ok = await service.advanceBranch({
+      repository: REPO,
+      branch: BRANCH,
+      expectedOldSha: SHA_A,
+      newSha: SHA_B,
+      force: false,
+      workflowRunId: RUN_ID,
+      operationKey: OP1,
+    });
     expect(ok.status).toBe('applied');
     // A distinct owned branch exercises the timeout path without an ownership clash.
     provider.seedBranch(REPO, BRANCH2, SHA_A);
     provider.failNext = { op: 'updateRef', code: 'SERVER_ERROR' };
-    const unknown = await service.advanceBranch(
-      {
-        repository: REPO,
-        branch: BRANCH2,
-        expectedOldSha: SHA_A,
-        newSha: SHA_C,
-        force: false,
-        workflowRunId: RUN_ID,
-        operationKey: OP2,
-      },
-    );
+    const unknown = await service.advanceBranch({
+      repository: REPO,
+      branch: BRANCH2,
+      expectedOldSha: SHA_A,
+      newSha: SHA_C,
+      force: false,
+      workflowRunId: RUN_ID,
+      operationKey: OP2,
+    });
     expect(unknown.status).toBe('outcome_unknown');
   });
 
@@ -425,15 +394,13 @@ describe('C020 reconcile', () => {
   it('reconciles an uncertain createBranch to applied when the ref now points at the base', async () => {
     const { service, provider } = setup();
     provider.failNext = { op: 'createRef', code: 'TIMEOUT' };
-    const result = await service.createBranch(
-      {
-        repository: REPO,
-        branch: BRANCH,
-        baseSha: SHA_A,
-        workflowRunId: RUN_ID,
-        operationKey: OP1,
-      },
-    );
+    const result = await service.createBranch({
+      repository: REPO,
+      branch: BRANCH,
+      baseSha: SHA_A,
+      workflowRunId: RUN_ID,
+      operationKey: OP1,
+    });
     expect(result.status).toBe('outcome_unknown');
     if (result.status !== 'outcome_unknown') return;
     // Provider actually applied it (response lost); reconcile against real state.
@@ -447,15 +414,13 @@ describe('C020 reconcile', () => {
   it('reconciles an uncertain createBranch to not_applied when the ref was never created', async () => {
     const { service, provider } = setup();
     provider.failNext = { op: 'createRef', code: 'TIMEOUT' };
-    await service.createBranch(
-      {
-        repository: REPO,
-        branch: BRANCH2,
-        baseSha: SHA_A,
-        workflowRunId: RUN_ID,
-        operationKey: OP2,
-      },
-    );
+    await service.createBranch({
+      repository: REPO,
+      branch: BRANCH2,
+      baseSha: SHA_A,
+      workflowRunId: RUN_ID,
+      operationKey: OP2,
+    });
     const op = await service.operationStore().findByIdempotency(OP2);
     if (op === undefined) throw new Error('op missing');
     const reconciled = await service.reconcile({ operationId: op.id });
@@ -471,15 +436,13 @@ describe('C020 reconcile', () => {
   it('escalates to manual_review when the reconcile read itself fails', async () => {
     const { provider, service } = setup();
     provider.failNext = { op: 'createRef', code: 'TIMEOUT' };
-    await service.createBranch(
-      {
-        repository: REPO,
-        branch: BRANCH3,
-        baseSha: SHA_A,
-        workflowRunId: RUN_ID,
-        operationKey: OP3,
-      },
-    );
+    await service.createBranch({
+      repository: REPO,
+      branch: BRANCH3,
+      baseSha: SHA_A,
+      workflowRunId: RUN_ID,
+      operationKey: OP3,
+    });
     const op = await service.operationStore().findByIdempotency(OP3);
     if (op === undefined) throw new Error('op missing');
     // Reconcile cannot read the provider: absence is NOT authoritative, so the

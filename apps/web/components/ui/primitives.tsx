@@ -138,7 +138,9 @@ export function PageHeader({
           <p className="mt-3 text-base text-[var(--muted)] leading-relaxed">{description}</p>
         ) : null}
       </div>
-      {actions !== undefined ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
+      {actions !== undefined ? (
+        <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>
+      ) : null}
     </header>
   );
 }
@@ -150,7 +152,9 @@ export function Card({
   readonly children: ReactNode;
   readonly className?: string;
 }): ReactNode {
-  return <div className={`surface-soft rounded-[var(--radius-lg)] ${className ?? ''}`}>{children}</div>;
+  return (
+    <div className={`surface-soft rounded-[var(--radius-lg)] ${className ?? ''}`}>{children}</div>
+  );
 }
 
 export function EmptyState({
@@ -196,7 +200,9 @@ export function Badge({
         ? 'bg-[var(--warn-soft)] text-[var(--warn)]'
         : 'bg-[var(--bg-muted)] text-[var(--muted)]';
   return (
-    <span className={`inline-flex items-center rounded-[var(--radius-sm)] px-2 py-0.5 text-xs font-medium ${palette}`}>
+    <span
+      className={`inline-flex items-center rounded-[var(--radius-sm)] px-2 py-0.5 text-xs font-medium ${palette}`}
+    >
       {children}
     </span>
   );

@@ -57,9 +57,7 @@ export function registerRepositoryCommandRoutes(
       const allowed = await resolveManualCommandsForRepository({
         pool: container.pool,
         repositoryId,
-        ...(repo !== null && repo !== undefined
-          ? { owner: repo.owner, name: repo.name }
-          : {}),
+        ...(repo !== null && repo !== undefined ? { owner: repo.owner, name: repo.name } : {}),
       });
       const commands = container.commandBus
         .listAvailable()
@@ -104,9 +102,7 @@ export function registerRepositoryCommandRoutes(
       const allowed = await resolveManualCommandsForRepository({
         pool: container.pool,
         repositoryId,
-        ...(repo !== null && repo !== undefined
-          ? { owner: repo.owner, name: repo.name }
-          : {}),
+        ...(repo !== null && repo !== undefined ? { owner: repo.owner, name: repo.name } : {}),
       });
       const workflowId = normalizeCommandId(parsed.data.commandId);
       if (!allowed.has(workflowId)) {

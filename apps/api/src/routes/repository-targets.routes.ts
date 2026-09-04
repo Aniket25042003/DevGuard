@@ -47,11 +47,7 @@ function githubConfigured(container: ApiContainer): boolean {
 function renderTargetError(c: Context<AppEnv>, error: unknown) {
   const message = error instanceof Error ? error.message : 'target_fetch_failed';
   const status =
-    message === 'repository_not_found'
-      ? 404
-      : message.includes('fetch_failed')
-        ? 502
-        : 500;
+    message === 'repository_not_found' ? 404 : message.includes('fetch_failed') ? 502 : 500;
   return c.json(
     {
       error: {

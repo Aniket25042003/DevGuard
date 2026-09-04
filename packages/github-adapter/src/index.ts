@@ -459,10 +459,7 @@ export {
 } from './write/pr/provider-port.js';
 export { sanitizePrContent, prSafe } from './write/pr/pr-safe.js';
 // ---- CP021 lightweight issue-comment ack writes ----
-export {
-  OP_CREATE_ISSUE_COMMENT,
-  type CreatedIssueComment,
-} from './write/issue/operations.js';
+export { OP_CREATE_ISSUE_COMMENT, type CreatedIssueComment } from './write/issue/operations.js';
 export {
   GitHubIssueCommentAckService,
   type GitHubIssueCommentAckServiceDeps,
