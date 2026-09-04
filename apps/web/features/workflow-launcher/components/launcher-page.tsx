@@ -61,6 +61,7 @@ export function WorkflowLauncherPage({
   const [confirming, setConfirming] = useState(false);
   const idempotencyRef = useRef<string | undefined>(undefined);
   const reviewRef = useRef<HTMLDivElement>(null);
+  const launchOpenerRef = useRef<HTMLElement | null>(null);
   const prSearch = useDebouncedSearch();
   const issueSearch = useDebouncedSearch();
   const refSearch = useDebouncedSearch();
@@ -115,15 +116,23 @@ export function WorkflowLauncherPage({
 
   useEffect(() => {
     if (!confirming) return;
+    launchOpenerRef.current = document.activeElement as HTMLElement | null;
+    const dialog = reviewRef.current;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])') ?? []);
     const firstButton = reviewRef.current?.querySelector(
       'button:not([disabled])',
     ) as HTMLButtonElement | null;
     firstButton?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !launch.isPending) setConfirming(false);
+      if (event.key !== 'Tab') return;
+      const elements = focusable();
+      if (!elements.length) return;
+      if (event.shiftKey && document.activeElement === elements[0]) { event.preventDefault(); elements.at(-1)?.focus(); }
+      else if (!event.shiftKey && document.activeElement === elements.at(-1)) { event.preventDefault(); elements[0]?.focus(); }
     };
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('keydown', onKeyDown); launchOpenerRef.current?.focus(); };
   }, [confirming, launch.isPending]);
 
   const prItems: Array<{ readonly key: string; readonly pr: PullRequestSummary }> = (
