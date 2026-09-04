@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { getApiClient } from '@/lib/api/client';
 import type { TimelineEvent } from '@/lib/api/index';
 import { originLabel } from '@/lib/commands';
@@ -276,6 +276,7 @@ function SessionTimeline({
   });
   const [liveEvents, setLiveEvents] = useState<readonly TimelineEvent[]>([]);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>('idle');
+  const eventCountRef = useRef(0);
   useEffect(() => {
     if (sessionId === undefined) return;
     const controller = new AbortController();
@@ -285,6 +286,8 @@ function SessionTimeline({
       onState: (state) => {
         setLiveEvents(state.events);
         setStreamStatus(state.status);
+        if (state.events.length === eventCountRef.current) return;
+        eventCountRef.current = state.events.length;
         void Promise.all([
           queryClient.invalidateQueries({ queryKey: queryKeys.workflows.detail(runId) }),
           queryClient.invalidateQueries({ queryKey: queryKeys.approvals.forRun(runId) }),
