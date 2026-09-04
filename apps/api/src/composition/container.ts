@@ -494,10 +494,13 @@ export function buildContainer(
 
   const objectStore: ObjectStore =
     config.artifacts.driver === 's3' && config.artifacts.s3 !== undefined
-      ? new S3ObjectStore(config.artifacts.s3.bucket, {
+      ? new S3ObjectStore(config.artifacts.s3.bucket, 'devguard/artifacts', {
           endpoint: config.artifacts.s3.endpoint,
-          accessKeyId: config.artifacts.s3.accessKeyIdRef,
-          secretAccessKey: config.artifacts.s3.secretAccessKeyRef,
+          credentials: {
+            accessKeyId: config.artifacts.s3.accessKeyIdRef,
+            secretAccessKey: config.artifacts.s3.secretAccessKeyRef,
+          },
+          forcePathStyle: true,
         })
       : new LocalObjectStore(config.artifacts.localDir ?? '.data/artifacts');
 

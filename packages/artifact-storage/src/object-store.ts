@@ -15,6 +15,7 @@ import {
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
+  HeadBucketCommand,
   type S3ClientConfig,
 } from '@aws-sdk/client-s3';
 
@@ -216,6 +217,15 @@ export class S3ObjectStore implements ObjectStore {
       await this.client.send(
         new DeleteObjectCommand({ Bucket: this.bucket, Key: this.key(objectKey) }),
       );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async probe(): Promise<boolean> {
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
       return true;
     } catch {
       return false;
