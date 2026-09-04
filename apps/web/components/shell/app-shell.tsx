@@ -49,6 +49,12 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactN
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setDrawerOpen(false);
+      if (event.key !== 'Tab') return;
+      const dialog = document.querySelector('[aria-label="Navigation"][role="dialog"]');
+      const elements = Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])') ?? []);
+      if (!elements.length) return;
+      if (event.shiftKey && document.activeElement === elements[0]) { event.preventDefault(); elements.at(-1)?.focus(); }
+      else if (!event.shiftKey && document.activeElement === elements.at(-1)) { event.preventDefault(); elements[0]?.focus(); }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
