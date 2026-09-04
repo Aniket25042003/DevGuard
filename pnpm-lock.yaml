@@ -56,6 +56,9 @@ importers:
       '@devguard/approvals':
         specifier: workspace:*
         version: link:../../packages/approvals
+      '@devguard/artifact-storage':
+        specifier: workspace:*
+        version: link:../../packages/artifact-storage
       '@devguard/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -99,7 +102,7 @@ importers:
         specifier: ^4.9.7
         version: 4.13.4
       ioredis:
-        specifier: ^5.11.1
+        specifier: ^5.4.1
         version: 5.11.1
 
   apps/cli: {}
@@ -161,6 +164,9 @@ importers:
       '@devguard/approvals':
         specifier: workspace:*
         version: link:../../packages/approvals
+      '@devguard/artifact-storage':
+        specifier: workspace:*
+        version: link:../../packages/artifact-storage
       '@devguard/authorization':
         specifier: workspace:*
         version: link:../../packages/authorization

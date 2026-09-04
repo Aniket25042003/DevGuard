@@ -29,7 +29,10 @@ import {
 } from './routes/github.routes.js';
 import { registerArtifactRoutes } from './routes/artifact.routes.js';
 import { registerAuditRoutes } from './routes/audit.routes.js';
-import { registerFindingsRoutes, registerFindingsRemediationRoutes } from './routes/findings.routes.js';
+import {
+  registerFindingsRoutes,
+  registerFindingsRemediationRoutes,
+} from './routes/findings.routes.js';
 import { registerDiagnosticsRoutes, type PreflightStatus } from './routes/diagnostics.routes.js';
 import { registerWebSurfaceRoutes } from './routes/web-surface.routes.js';
 import { registerRepositoryTargetRoutes } from './routes/repository-targets.routes.js';
@@ -136,6 +139,15 @@ export function assembleApi(container: ApiContainer): AssembledApi {
               const health = await container.pool!.health();
               return { ok: health.ok };
             },
+          } as const,
+        ]),
+    ...(container.objectStore?.probe === undefined
+      ? []
+      : [
+          {
+            name: 'artifact-storage',
+            critical: true,
+            check: async () => ({ ok: await container.objectStore!.probe!() }),
           } as const,
         ]),
   ]);

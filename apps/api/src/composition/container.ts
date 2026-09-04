@@ -45,7 +45,10 @@ import {
 } from '@devguard/authorization';
 import { DurableWebhookAcceptance } from './durable-webhook-acceptance.js';
 import { buildGitHubPermissionPort } from './github-permission-port.js';
-import { buildRepositoryDomainServices, type RepositoryDomainServices } from './repository-services.js';
+import {
+  buildRepositoryDomainServices,
+  type RepositoryDomainServices,
+} from './repository-services.js';
 import { configurationInvalid } from '@devguard/errors';
 import type { ApiConfigSnapshot } from '@devguard/config';
 import { createPool, type DevGuardPool } from '@devguard/db';
@@ -68,6 +71,7 @@ import {
   type WorkflowRunStorePort,
 } from '@devguard/workflows';
 import { isVolatileBinding } from './bindings.js';
+import { LocalObjectStore, S3ObjectStore, type ObjectStore } from '@devguard/artifact-storage';
 import {
   DurableAuditAdapter,
   DurableCommandCatalogAdapter,
@@ -321,6 +325,7 @@ export interface ApiContainer {
   readonly commandBus: CommandBus;
   readonly workflowQueries: WorkflowQueryService;
   readonly authorizer: RepositoryAuthorizationService;
+  readonly objectStore?: ObjectStore;
 }
 
 /** Environments that permit volatile (in-memory) bindings without a flag. */
@@ -432,6 +437,15 @@ export function buildContainer(
   const databaseUrl = isReal(config.databaseUrlRef.name) ? config.databaseUrlRef.name : undefined;
   const pool: DevGuardPool | undefined =
     databaseUrl === undefined ? undefined : createPool({ connectionString: databaseUrl });
+
+  const objectStore: ObjectStore =
+    config.artifacts.driver === 's3' && config.artifacts.s3 !== undefined
+      ? new S3ObjectStore(config.artifacts.s3.bucket, {
+          endpoint: config.artifacts.s3.endpoint,
+          accessKeyId: config.artifacts.s3.accessKeyIdRef,
+          secretAccessKey: config.artifacts.s3.secretAccessKeyRef,
+        })
+      : new LocalObjectStore(config.artifacts.localDir ?? '.data/artifacts');
 
   // CP003: durable auth stores in non-test environments with a pool; volatile
   // (in-memory) stores otherwise (only allowed in `test`, or `development`
@@ -552,6 +566,7 @@ export function buildContainer(
     commandBus: commandBusService,
     workflowQueries,
     authorizer,
+    objectStore,
     ...(pool !== undefined ? { pool } : {}),
     ...(repositoryServices !== undefined ? { repositoryServices } : {}),
     ...(webhookSecret !== undefined ? { webhookSecret } : {}),

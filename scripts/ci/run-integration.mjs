@@ -13,7 +13,9 @@ const DEFAULT_TEST_DB =
   'postgres://devguard_test:devguard_test_local@127.0.0.1:25432/devguard_test';
 
 const url =
-  process.env.DEVGUARD_TEST_DATABASE_URL ?? process.env.DEGUARD_TEST_DATABASE_URL ?? DEFAULT_TEST_DB;
+  process.env.DEVGUARD_TEST_DATABASE_URL ??
+  process.env.DEGUARD_TEST_DATABASE_URL ??
+  DEFAULT_TEST_DB;
 if (!/(test|disposable|_dg|dg_)/i.test(url)) {
   console.error(
     'DEVGUARD_TEST_DATABASE_URL must reference a disposable database (name contains "test"/"disposable"/"dg").',
