@@ -159,7 +159,7 @@ ON CONFLICT (id) DO UPDATE SET
   contract_snapshot_digest = EXCLUDED.contract_snapshot_digest,
   updated_at = now(),
   row_version = agent_sessions.row_version + 1
-WHERE agent_sessions.row_version = $14
+WHERE agent_sessions.row_version = $13
 RETURNING id::text AS id`,
       values: [
         value.id,
