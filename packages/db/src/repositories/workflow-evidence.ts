@@ -15,7 +15,7 @@ export interface NewRunInput {
   readonly id: string;
   readonly repositoryId: string;
   readonly workflowType: string;
-  readonly definitionVersion?: number | undefined;
+  readonly definitionVersion?: string | undefined;
   readonly triggerType: 'manual' | 'webhook' | 'api' | 'schedule';
   readonly triggerReferenceJson: string;
   readonly idempotencyKeyHash?: string | undefined;
@@ -45,7 +45,7 @@ export interface WorkflowRunProjection {
   readonly status: string;
   readonly triggerType: string;
   readonly originSurface: string;
-  readonly definitionVersion: number;
+  readonly definitionVersion: string;
   readonly createdAtIso: string;
   readonly updatedAtIso: string;
   readonly startedAtIso?: string | undefined;
@@ -95,9 +95,10 @@ function mapRunProjection(row: Record<string, unknown>): WorkflowRunProjection {
     status: String(row['status']),
     triggerType: String(row['trigger_type']),
     originSurface,
-    definitionVersion: Number.isFinite(Number(row['definition_version']))
-      ? Number(row['definition_version'])
-      : 1,
+    definitionVersion:
+      typeof row['definition_version'] === 'string' && row['definition_version'].length > 0
+        ? row['definition_version']
+        : '1.0.0',
     createdAtIso: String(row['created_at'] ?? ''),
     updatedAtIso: String(row['updated_at'] ?? ''),
     startedAtIso: iso(row['started_at']),
@@ -135,7 +136,7 @@ RETURNING ${RUN_COLS}`,
         input.id,
         input.repositoryId,
         input.workflowType,
-        input.definitionVersion ?? 1,
+        input.definitionVersion ?? '1.0.0',
         input.triggerType,
         input.triggerReferenceJson,
         input.idempotencyKeyHash ?? null,
@@ -253,7 +254,7 @@ LIMIT $${bind}`,
   completed_at = now(),
   updated_at = now(),
   row_version = row_version + 1
-WHERE id = $1 AND row_version = $2 AND status IN ('queued', 'waiting_for_approval')
+WHERE id = $1 AND row_version = $2 AND status IN ('queued', 'dispatch_pending', 'waiting_for_approval')
 RETURNING ${PROJ_COLS}`,
       values: [id, expectedVersion],
     });
@@ -263,7 +264,9 @@ RETURNING ${PROJ_COLS}`,
   }
 
   private static readonly LEGAL: Readonly<Record<string, readonly string[]>> = Object.freeze({
-    queued: ['running', 'cancelled'],
+    queued: ['dispatch_pending', 'provisioning', 'running', 'cancelled'],
+    dispatch_pending: ['provisioning', 'running', 'cancelled'],
+    provisioning: ['running', 'waiting_for_approval', 'failed', 'cancelled', 'timed_out'],
     running: [
       'waiting_for_approval',
       'resuming',
@@ -275,12 +278,13 @@ RETURNING ${PROJ_COLS}`,
     ],
     waiting_for_approval: ['resuming', 'rejected', 'expired', 'cancelled'],
     resuming: ['running', 'failed', 'cancelled'],
-    verifying: ['completed', 'failed'],
+    verifying: ['completed', 'failed', 'cancelled'],
     completed: [],
     failed: [],
     cancelled: [],
     rejected: [],
     timed_out: [],
+    expired: [],
   });
 
   async transition(
@@ -298,7 +302,7 @@ RETURNING ${PROJ_COLS}`,
 UPDATE workflow_runs SET
   status = $2,
   started_at = CASE WHEN $2 = 'running' AND started_at IS NULL THEN now() ELSE started_at END,
-  completed_at = CASE WHEN $2 IN ('completed','failed','cancelled','rejected','timed_out') THEN now() ELSE completed_at END,
+  completed_at = CASE WHEN $2 IN ('completed','failed','cancelled','rejected','timed_out','expired') THEN now() ELSE completed_at END,
   cancel_requested_at = CASE WHEN $2 = 'waiting_for_approval' THEN cancel_requested_at ELSE cancel_requested_at END,
   updated_at = now(),
   row_version = row_version + 1
@@ -313,6 +317,39 @@ RETURNING ${RUN_COLS}`,
       status: String(row['status']),
       rowVersion: Number(row['row_version']),
     };
+  }
+
+  /**
+   * Atomically claims the run execution lease while advancing the lifecycle.
+   * Duplicate deliveries are idempotent when the run is already running; a
+   * queued run can only be claimed once by a worker generation.
+   */
+  async claimExecutionLease(
+    id: string,
+    owner: string,
+    token: string,
+    leaseMs: number,
+  ): Promise<boolean> {
+    const rows = await this.poolLike.query<{ id: string }>({
+      text: `UPDATE workflow_runs SET
+  status = 'running',
+  started_at = COALESCE(started_at, now()),
+  updated_at = now(),
+  row_version = row_version + 1,
+  execution_lease_owner = $2,
+  execution_lease_token = $3,
+  execution_lease_expires_at = now() + ($4::bigint * interval '1 millisecond'),
+  execution_generation = execution_generation + 1
+WHERE id = $1 AND status IN ('queued', 'dispatch_pending')
+RETURNING id::text AS id`,
+      values: [id, owner, token, Math.max(1_000, leaseMs)],
+    });
+    if (rows.length > 0) return true;
+    const existing = await this.poolLike.query<{ status: string }>({
+      text: `SELECT status FROM workflow_runs WHERE id = $1`,
+      values: [id],
+    });
+    return existing[0]?.status === 'running';
   }
 }
 

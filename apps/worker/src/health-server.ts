@@ -5,11 +5,13 @@
  */
 import { createServer } from 'node:http';
 
-export function startWorkerHealthServer(port: number): () => void {
+export function startWorkerHealthServer(port: number, readiness: () => boolean = () => true): () => void {
   const server = createServer((req, res) => {
-    if (req.url === '/health' || req.url === '/healthz') {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, role: 'worker' }));
+    if (req.url === '/health' || req.url === '/healthz' || req.url === '/ready') {
+      const live = req.url !== '/ready';
+      const ready = live || readiness();
+      res.writeHead(ready ? 200 : 503, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: ready, role: 'worker', ...(live ? {} : { ready }) }));
       return;
     }
     res.writeHead(404).end();

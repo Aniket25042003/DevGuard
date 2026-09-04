@@ -35,7 +35,7 @@ export interface ProviderStreamSlice {
 
 export interface TrueForgeCommandPort {
   execute(command: SandboxCommand): Promise<CommandProviderResult<{ providerCommandId: string }>>;
-  stream(cursor: number): Promise<CommandProviderResult<ProviderStreamSlice>>;
+  stream(cursor: number, context?: { readonly providerCommandId?: string }): Promise<CommandProviderResult<ProviderStreamSlice>>;
   inspect(): Promise<
     CommandProviderResult<{
       running: boolean;
@@ -43,7 +43,7 @@ export interface TrueForgeCommandPort {
       signal?: string | undefined;
     }>
   >;
-  terminate(): Promise<CommandProviderResult<{ terminated: boolean }>>;
+  terminate(context?: { readonly providerCommandId?: string }): Promise<CommandProviderResult<{ terminated: boolean }>>;
 }
 
 /** Deterministic in-memory command provider for unit tests. */

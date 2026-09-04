@@ -12,11 +12,14 @@ import {
   ApprovalResumeService,
   InMemoryApprovalStore,
   WebhookProcessingService,
+  buildEnvelope,
+  type QueuePortShape,
   type JobEnvelope,
   type JobHandler,
   type JobRegistry,
   type JobTypeV1,
 } from '@devguard/queue';
+import type { ApprovalResumeStorePort as ApprovalStorePort } from '@devguard/db';
 import type { CommentCommandService } from '@devguard/workflows';
 import { parseWorkerIssueCommentPayload } from './webhook-comment.js';
 
@@ -25,19 +28,15 @@ export interface RunStoreExecutor {
 }
 
 export interface RunTransitionPort {
-  readonly markRunning: (runId: string) => Promise<boolean>;
+  readonly markRunning: (runId: string, leaseToken?: string) => Promise<boolean>;
 }
 
 /** Durable run transition backed by the Postgres run store. */
 export function durableRunTransitions(pool: RunStoreExecutor): RunTransitionPort {
   const store = new WorkflowRunStore(pool);
   return {
-    markRunning: async (runId) => {
-      const detail = await store.getDetail(runId);
-      if (detail === null || detail.status !== 'queued') return false;
-      await store.transition(runId, detail.rowVersion, 'queued', 'running');
-      return true;
-    },
+    markRunning: (runId, leaseToken = `worker:${process.pid}`) =>
+      store.claimExecutionLease(runId, `worker-${process.pid}`, leaseToken, 30_000),
   };
 }
 
@@ -48,10 +47,10 @@ export function volatileRunTransitions(): RunTransitionPort {
 
 /** Ensure a per-run delta anything a downstream owner can mount. */
 export function registerWorkflowExecute(registry: JobRegistry, runStore: RunTransitionPort): void {
-  registry.register('workflow.execute', 1, async (envelope: JobEnvelope) => {
+  registry.register('workflow.execute', 1, async (envelope: JobEnvelope, context) => {
     const runId = String(envelope.payload['runId'] ?? '');
     if (runId === '') return fail('workflow_job_missing_run');
-    const started = await runStore.markRunning(runId);
+    const started = await runStore.markRunning(runId, context.leaseToken);
     return started
       ? { outcome: 'SUCCEEDED' as const, detail: 'run_started' }
       : fail('workflow_start_conflict');
@@ -122,7 +121,6 @@ export function registerWebhookProcess(
         return { outcome: 'RETRYABLE_FAILURE', errorCode: 'WEBHOOK_PROCESS_FAILED' };
       }
       try {
-        await store.transition(p.deliveryId, claimed.state, 'PROCESSING');
         const outcome = await options.commentCommands.handle(issueComment);
         const terminal = outcome.kind === 'ignored' ? 'IGNORED' : 'ROUTED';
         await store.transition(p.deliveryId, 'PROCESSING', terminal);
@@ -166,14 +164,50 @@ export function registerWebhookProcess(
  * The executor (real approved-action execution) mounts at CP013; until then it
  * fails CLOSED so an approved approval is never silently resumed-as-done.
  */
-export function registerApprovalResume(registry: JobRegistry): void {
+export interface ApprovalResumeOptions {
+  readonly store?: ApprovalStorePort;
+  readonly queue?: QueuePortShape;
+  readonly workerId?: string;
+}
+
+/**
+ * Resume is a durable hand-off: the approval state machine records progress,
+ * then this executor idempotently requeues the owning workflow. It never
+ * marks an approval as executed itself and it never performs a GitHub write.
+ */
+export function registerApprovalResume(
+  registry: JobRegistry,
+  options: ApprovalResumeOptions = {},
+): void {
   const service = new ApprovalResumeService({
-    store: new InMemoryApprovalStore(),
+    store: options.store ?? new InMemoryApprovalStore(),
     executor: {
-      execute: async () => ({
-        ok: false,
-        code: 'approved_action_executor_unavailable_until_cp013',
-      }),
+      execute: async (runId, approvalId) => {
+        if (options.queue === undefined) {
+          return { ok: false, code: 'approved_action_executor_unavailable' };
+        }
+        const job = buildEnvelope({
+          jobType: 'workflow.execute',
+          schemaVersion: 1,
+          queue: 'workflow-execution',
+          uniqueKey: `approval-resume:${approvalId}`,
+          payload: {
+            runId,
+            stepId: `approval:${approvalId}`,
+            stepAttempt: 0,
+            executionGeneration: 0,
+            cancellationGeneration: 0,
+          },
+          correlationId: approvalId,
+          workflowRunId: runId,
+        });
+        try {
+          await options.queue.enqueue(job);
+          return { ok: true };
+        } catch {
+          return { ok: false, code: 'QUEUE_UNAVAILABLE' };
+        }
+      },
     },
   });
   registry.register('approval.resume', 1, async (envelope: JobEnvelope) => {

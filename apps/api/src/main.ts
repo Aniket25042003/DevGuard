@@ -9,22 +9,13 @@ import { loadConfig, safeSummary } from '@devguard/config';
 import { toErrorEnvelope } from '@devguard/errors';
 import { buildContainer, validateReadiness } from './composition/container.js';
 import { assembleApi } from './app.js';
+import { assertSchemaCompatible } from '@devguard/db';
 
 const bootstrap = async (): Promise<void> => {
   const config = await Promise.resolve(loadConfig('api'));
   const container = buildContainer(config);
 
-  if (container.pool !== undefined && globalThis.process?.env?.['RUN_SERVER'] === '1') {
-    const { runMigrations } = await import('@devguard/db');
-    const migrationResult = await runMigrations(container.pool);
-    console.info(
-      JSON.stringify({
-        msg: 'migrations.applied',
-        applied: migrationResult.applied,
-        verified: migrationResult.verified,
-      }),
-    );
-  }
+  if (container.pool !== undefined) await assertSchemaCompatible(container.pool);
 
   // Fail closed: volatile bindings are refused in production and in development
   // unless the operator explicitly opts in (DEVGUARD_ALLOW_VOLATILE_AUTH=true).
@@ -47,7 +38,9 @@ const bootstrap = async (): Promise<void> => {
     console.info(JSON.stringify({ msg: 'http.listening', port }));
     const shutdown = async (): Promise<void> => {
       server.close(() => {
-        void container.pool?.drain().finally(() => globalThis.process?.exit(0));
+        void api.close()
+          .then(() => container.pool?.drain())
+          .finally(() => globalThis.process?.exit(0));
       });
     };
     globalThis.process?.once('SIGTERM', () => void shutdown());

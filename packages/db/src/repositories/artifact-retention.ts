@@ -1,5 +1,5 @@
 /**
- * C012 — tombstone SAFE artifacts older than the global default retention window.
+ * C012 — expire SAFE artifacts older than the global default retention window.
  */
 const DEFAULT_RETENTION_DAYS = 30;
 
@@ -17,14 +17,13 @@ export class PostgresArtifactRetentionCleaner {
 WITH candidates AS (
   SELECT id
   FROM artifacts
-  WHERE deleted_at IS NULL
-    AND scan_state = 'SAFE'
-    AND created_at < now() - ($2::int * interval '1 day')
+  WHERE status = 'SAFE'
+    AND COALESCE(retention_expires_at, created_at + ($2::int * interval '1 day')) <= now()
   ORDER BY created_at
   LIMIT $1
 )
 UPDATE artifacts
-SET deleted_at = now()
+SET status = 'EXPIRED', updated_at = now(), row_version = row_version + 1
 WHERE id IN (SELECT id FROM candidates)
 RETURNING id::text AS id`,
       values: [batchSize, this.retentionDays],

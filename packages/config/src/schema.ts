@@ -90,6 +90,7 @@ export const FIELD_INVENTORY: readonly FieldDefinition[] = Object.freeze([
   ),
   field('AUTH_GITHUB_OAUTH_CALLBACK_URL', 'C005', ['api'], 'internal', 'OAuth callback URL.'),
   field('DEVGUARD_GITHUB_APP_ID', 'C017', ['api', 'worker'], 'internal', 'GitHub App numeric id.'),
+  field('DEVGUARD_GITHUB_APP_SLUG', 'C017', ['api', 'worker'], 'internal', 'GitHub App URL slug.'),
   field(
     'GITHUB_APP_PRIVATE_KEY',
     'C017',
@@ -580,6 +581,12 @@ function parseArtifactStorage(parser: ConfigParser, env: EnvRecord): ArtifactSto
       driver: 's3',
       s3: { endpoint, bucket, accessKeyIdRef, secretAccessKeyRef },
     };
+  }
+  if (env['DEVGUARD_ENV'] === 'production') {
+    parser.addIssue(
+      'DEVGUARD_ARTIFACT_DRIVER',
+      'local artifact storage is forbidden in production; configure the s3 driver',
+    );
   }
   return {
     driver: 'local',

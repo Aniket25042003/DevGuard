@@ -33,12 +33,14 @@ export interface ApprovalPort {
     approvalId: string,
     resolution: 'approved' | 'rejected',
     userId: string,
+    options?: { readonly idempotencyKey: string; readonly expectedVersion: number },
   ): Promise<{ ok: true } | { ok: false; code: string; detail: string }>;
 }
 
 export function registerApprovalRoutes(
   kernel: { registerV1Route: RegisterV1Route },
   approvals: ApprovalPort,
+  authorize?: (input: { repositoryId: string; userId: string; requestId: string }) => Promise<void>,
 ): void {
   kernel.registerV1Route(
     'get',
@@ -59,6 +61,20 @@ export function registerApprovalRoutes(
           401,
         );
       const list = await approvals.listFor(c.req.param('runId') ?? '', principal.userId);
+      if (authorize !== undefined && list[0]?.repositoryId !== undefined) {
+        try {
+          await authorize({
+            repositoryId: list[0].repositoryId,
+            userId: principal.userId,
+            requestId: c.get('requestContext').requestId,
+          });
+        } catch {
+          return c.json(
+            { error: { code: 'APPROVAL_UNKNOWN', message: 'Approval not found.', requestId: c.get('requestContext').requestId, retryable: false } },
+            404,
+          );
+        }
+      }
       return c.json({ approvals: list });
     },
   );
@@ -98,11 +114,49 @@ export function registerApprovalRoutes(
       }
       const runId = c.req.param('runId') ?? '';
       const approvalId = c.req.param('approvalId') ?? '';
+      if (authorize !== undefined) {
+        const visible = (await approvals.listFor(runId, principal.userId)).find(
+          (approval) => approval.approvalId === approvalId,
+        );
+        if (visible?.repositoryId === undefined) {
+          return c.json(
+            { error: { code: 'APPROVAL_UNKNOWN', message: 'Approval was not found.', requestId: c.get('requestContext').requestId, retryable: false } },
+            404,
+          );
+        }
+        try {
+          await authorize({
+            repositoryId: visible.repositoryId,
+            userId: principal.userId,
+            requestId: c.get('requestContext').requestId,
+          });
+        } catch {
+          return c.json(
+            { error: { code: 'APPROVAL_UNKNOWN', message: 'Approval was not found.', requestId: c.get('requestContext').requestId, retryable: false } },
+            404,
+          );
+        }
+      }
+      const idempotencyKey = c.req.header('idempotency-key');
+      const ifMatch = c.req.header('if-match');
+      if (idempotencyKey === undefined || idempotencyKey.trim().length < 8) {
+        return c.json(
+          { error: { code: 'IDEMPOTENCY_KEY_REQUIRED', message: 'Idempotency-Key is required.', requestId: c.get('requestContext').requestId, retryable: false } },
+          428,
+        );
+      }
+      if (ifMatch === undefined || !/^\d+$/.test(ifMatch)) {
+        return c.json(
+          { error: { code: 'PRECONDITION_REQUIRED', message: 'If-Match (approval version) is required.', requestId: c.get('requestContext').requestId, retryable: false } },
+          428,
+        );
+      }
       const result = await approvals.resolve(
         runId,
         approvalId,
         action === 'approve' ? 'approved' : 'rejected',
         principal.userId,
+        { idempotencyKey, expectedVersion: Number(ifMatch) },
       );
       if (!result.ok)
         return c.json(

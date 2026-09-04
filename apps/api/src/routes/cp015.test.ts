@@ -47,7 +47,7 @@ const makeRuns: RunsSummaryPort = async ({ repositoryId }) => ({
       status: 'queued',
       createdAtIso: '2026-01-01T00:00:00.000Z',
       updatedAtIso: '2026-01-01T00:00:00.000Z',
-      definitionVersion: 1,
+      definitionVersion: '1.0.0',
       triggerType: 'manual',
       originSurface: 'web',
       rowVersion: 1,

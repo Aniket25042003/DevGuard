@@ -42,7 +42,6 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
   private readonly timeoutMs: number;
   private readonly fetchImpl: FetchLike['fetch'];
   private readonly apiPrefix: string;
-  private commandId: string | undefined;
 
   constructor(private readonly options: TrueForgeCommandPortOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
@@ -86,12 +85,11 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
     if (disabled === undefined)
       return { ok: false, code: 'SERVER_ERROR', detail: 'sandbox integration disabled' };
     if (!disabled.ok) return disabled;
-    this.commandId = disabled.value.providerCommandId;
     return disabled;
   }
 
-  async stream(cursor: number): Promise<CommandProviderResult<ProviderStreamSlice>> {
-    const id = this.commandId;
+  async stream(cursor: number, context?: { readonly providerCommandId?: string }): Promise<CommandProviderResult<ProviderStreamSlice>> {
+    const id = context?.providerCommandId;
     if (id === undefined) return { ok: false, code: 'NOT_FOUND', detail: 'no active command' };
     const out = await this.run<Record<string, unknown>>(
       'GET',
@@ -133,10 +131,13 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
     return disabled;
   }
 
-  async terminate(): Promise<CommandProviderResult<{ terminated: boolean }>> {
+  async terminate(context?: { readonly providerCommandId?: string }): Promise<CommandProviderResult<{ terminated: boolean }>> {
+    if (context?.providerCommandId === undefined) {
+      return { ok: false, code: 'NOT_FOUND', detail: 'provider command id required' };
+    }
     const disabled: CommandProviderResult<{ terminated: boolean }> | undefined = await this.run<{
       terminated: boolean;
-    }>('POST', '/workspace/commands/terminate', {});
+    }>('POST', `/workspace/commands/${encodeURIComponent(context.providerCommandId)}/terminate`, {});
     if (disabled === undefined)
       return { ok: false, code: 'CANCEL_UNSUPPORTED', detail: 'sandbox integration disabled' };
     return disabled;

@@ -106,6 +106,7 @@ export const agentSessionSchema = z
     version: z.number().int().nonnegative(),
     startedAtIso: z.string().min(1).max(40),
     updatedAtIso: z.string().min(1).max(40),
+    commandKey: z.string().min(1).max(128),
   })
   .strict();
 export interface AgentSession {
@@ -124,6 +125,7 @@ export interface AgentSession {
   readonly version: number;
   readonly startedAtIso: string;
   readonly updatedAtIso: string;
+  readonly commandKey: string;
 }
 
 export const agentTurnSchema = z

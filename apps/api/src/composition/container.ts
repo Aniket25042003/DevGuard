@@ -46,6 +46,7 @@ import {
 import { DurableWebhookAcceptance } from './durable-webhook-acceptance.js';
 import { buildGitHubPermissionPort } from './github-permission-port.js';
 import { buildRepositoryDomainServices, type RepositoryDomainServices } from './repository-services.js';
+import { ManualCommandPolicyAdapter, type ManualCommandPolicyPort } from './repository-manual-commands.js';
 import { configurationInvalid } from '@devguard/errors';
 import type { ApiConfigSnapshot } from '@devguard/config';
 import { createPool, type DevGuardPool } from '@devguard/db';
@@ -53,6 +54,7 @@ import {
   ApprovalStore,
   ConnectedRepositoryStore,
   createUnitOfWork,
+  OutboxWriter,
   PostgresApiTokenRepository,
   PostgresArtifactStore,
   PostgresAuthSessionRepository,
@@ -162,6 +164,21 @@ export class DurableRepositoryCatalog implements RepositoryCatalogPort {
       installationId: row.installationId,
     }));
   }
+
+  async findById(repositoryId: string): Promise<Repository | null> {
+    const row = await this.store.findById(repositoryId);
+    if (row === null) return null;
+    return {
+      id: row.id,
+      name: row.name,
+      role: 'member',
+      owner: row.owner,
+      fullName: row.fullName,
+      status: row.status,
+      defaultBranch: row.defaultBranch,
+      installationId: row.installationId,
+    };
+  }
 }
 
 /** CP018 — approvals list/resolve over the durable aggregate (same use case as run-nested). */
@@ -182,6 +199,7 @@ export class DurableApprovals implements ApprovalPort {
     approvalId: string,
     resolution: 'approved' | 'rejected',
     userId: string,
+    options?: { readonly idempotencyKey: string; readonly expectedVersion: number },
   ): Promise<{ ok: true } | { ok: false; code: string; detail: string }> {
     const uow = createUnitOfWork(this.pool);
     return uow.transaction(async (tx) => {
@@ -202,19 +220,38 @@ export class DurableApprovals implements ApprovalPort {
         };
       }
       try {
+        const expectedVersion = options?.expectedVersion ?? Number(row['rowVersion'] ?? 0);
         await this.store.transition(
           approvalId,
-          Number(row['rowVersion'] ?? 0),
+          expectedVersion,
           {
             from: 'pending',
             to: resolution,
             actorType: 'user',
             actorId: userId,
             reasonCode: resolution === 'approved' ? 'user_approved' : 'user_rejected',
-            commandKey: `web:${approvalId}:${resolution}`,
+            commandKey: options?.idempotencyKey ?? `web:${approvalId}:${resolution}`,
           },
           tx,
         );
+        if (resolution === 'approved') {
+          await new OutboxWriter().append(
+            {
+              eventType: 'approval.resume_requested',
+              schemaVersion: 1,
+              payload: {
+                approvalId,
+                workflowRunId,
+                action: 'resume',
+                resolutionVersion: expectedVersion + 1,
+              },
+              correlation: { approvalId, workflowRunId, idempotencyKey: options?.idempotencyKey ?? `web:${approvalId}:${resolution}` },
+              aggregateType: 'approval',
+              aggregateId: approvalId,
+            },
+            tx,
+          );
+        }
         return { ok: true };
       } catch {
         return {
@@ -307,6 +344,7 @@ export interface CompositionBindings {
   readonly artifacts: ArtifactPort;
   readonly audit: AuditPort;
   readonly findings: FindingsPort;
+  readonly manualCommands: ManualCommandPolicyPort;
 }
 
 export interface ApiContainer {
@@ -429,7 +467,16 @@ export function buildContainer(
   // CP002 §13: bind the pool when a real DATABASE_URL is present; lazy pg Pool.
   // NOTE: the snapshot's `databaseUrlRef.name` carries the connection string
   // value (legacy naming); it is only a real DSN when it is not a `<...>` placeholder.
-  const databaseUrl = isReal(config.databaseUrlRef.name) ? config.databaseUrlRef.name : undefined;
+  // Unit/integration tests intentionally use placeholder URLs such as
+  // postgres://x. Never construct a network pool in the volatile test
+  // composition; service-backed tests opt into a real DB explicitly through
+  // the production composition.
+  const databaseUrl =
+    config.environment === 'test'
+      ? undefined
+      : isReal(config.databaseUrlRef.name)
+        ? config.databaseUrlRef.name
+        : undefined;
   const pool: DevGuardPool | undefined =
     databaseUrl === undefined ? undefined : createPool({ connectionString: databaseUrl });
 
@@ -503,6 +550,7 @@ export function buildContainer(
     artifacts: durableAuth ? new DurableArtifactsAdapter(pool) : VolatileArtifacts,
     audit: durableAuth ? new DurableAuditAdapter(pool) : VolatileAudit,
     findings: durableAuth ? new DurableFindingsAdapter(pool) : VolatileFindings,
+    manualCommands: new ManualCommandPolicyAdapter(pool),
     ...overrides,
   };
 

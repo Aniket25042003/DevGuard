@@ -8,9 +8,11 @@
 import { type Hono } from 'hono';
 import type { ApiContainer } from './composition/container.js';
 import { createTransportKernel, type AppEnv, type RouteMetadata } from './transport/kernel.js';
-import { InMemoryRateLimiter } from './transport/rate-limit.js';
+import { InMemoryRateLimiter, RedisRateLimiter } from './transport/rate-limit.js';
+import { Redis } from 'ioredis';
 import { enforceCsrfAndOrigin } from './transport/security.js';
 import { requireCapability } from './authorization/http.js';
+import { requireAllow } from '@devguard/authorization';
 import { registerAuthRoutes } from './routes/auth.routes.js';
 import { registerApiTokenRoutes } from './routes/auth-tokens.routes.js';
 import { registerSessionRoutes } from './routes/session.routes.js';
@@ -33,6 +35,7 @@ import { registerFindingsRoutes, registerFindingsRemediationRoutes } from './rou
 import { registerDiagnosticsRoutes, type PreflightStatus } from './routes/diagnostics.routes.js';
 import { registerWebSurfaceRoutes } from './routes/web-surface.routes.js';
 import { registerRepositoryTargetRoutes } from './routes/repository-targets.routes.js';
+import { TrueForgeSdkAgentRuntime } from '@devguard/agent';
 
 /** CP015 (C074) — dependency preflight from the container config (fail closed). */
 function preflightStatus(container: ApiContainer): PreflightStatus {
@@ -53,11 +56,31 @@ function preflightStatus(container: ApiContainer): PreflightStatus {
 export interface AssembledApi {
   readonly app: Hono<AppEnv>;
   readonly routeMetadata: ReadonlyMap<string, RouteMetadata>;
+  readonly close: () => Promise<void>;
 }
 
 export function assembleApi(container: ApiContainer): AssembledApi {
+  const redisUrl = container.config.redisUrlRef.name;
+  const redisConfigured =
+    container.config.environment === 'production' &&
+    (redisUrl.startsWith('redis://') || redisUrl.startsWith('rediss://'));
+  const redisClient = redisConfigured
+    ? new Redis(redisUrl, { maxRetriesPerRequest: null, enableReadyCheck: true })
+    : undefined;
+  const rateLimiter = redisClient !== undefined ? new RedisRateLimiter(redisClient) : new InMemoryRateLimiter();
+  const trueforgeRuntime =
+    container.config.features.trueforgeIntegrationEnabled.value && container.config.trueforge !== undefined
+      ? new TrueForgeSdkAgentRuntime({
+          enabled: true,
+          baseUrl: container.config.trueforge.baseUrl,
+          ...(container.config.trueforge.apiKeyRef !== undefined
+            ? { apiKey: container.config.trueforge.apiKeyRef }
+            : {}),
+          timeoutMs: container.config.trueforge.timeoutMs,
+        })
+      : undefined;
   const kernel = createTransportKernel({
-    rateLimiter: new InMemoryRateLimiter(),
+    rateLimiter,
     authenticate: async ({ sessionToken, bearerToken }) => {
       // CP004: a bearer is resolved against the API-token store; a cookie is
       // resolved against sessions. Never both — the kernel already rejects the
@@ -106,7 +129,20 @@ export function assembleApi(container: ApiContainer): AssembledApi {
 
   // C068 session/event routes, C070 approval routes.
   registerSessionRoutes(kernel, container.bindings.sessionEvents);
-  registerApprovalRoutes(kernel, container.bindings.approvals);
+  registerApprovalRoutes(kernel, container.bindings.approvals, async ({ repositoryId, requestId, userId }) => {
+    const principal = {
+      kind: 'user' as const,
+      userId,
+      issuer: 'github',
+      providerSubject: userId,
+    };
+    const decision = await container.authorizer.authorize({
+      principal,
+      repositoryId,
+      capability: 'approval:resolve',
+    });
+    requireAllow(decision, requestId);
+  });
   registerDiagnosticsRoutes(kernel, {
     preflight: preflightStatus(container),
     runs: async (input) => container.workflowQueries.listRuns(input),
@@ -138,6 +174,40 @@ export function assembleApi(container: ApiContainer): AssembledApi {
             },
           } as const,
         ]),
+    {
+      name: 'redis-configured',
+      critical: container.config.environment === 'production',
+      check: async () => {
+        if (redisClient === undefined) return { ok: false };
+        try {
+          return { ok: (await redisClient.ping()) === 'PONG' };
+        } catch {
+          return { ok: false };
+        }
+      },
+    },
+    {
+      name: 'github-app-configured',
+      critical: container.config.environment === 'production',
+      check: async () => ({ ok: container.config.github !== undefined }),
+    },
+    {
+      name: 'trueforge-configured',
+      critical: container.config.features.trueforgeIntegrationEnabled.value,
+      check: async () => {
+        if (!container.config.features.trueforgeIntegrationEnabled.value) return { ok: true };
+        if (trueforgeRuntime === undefined) return { ok: false };
+        const result = await trueforgeRuntime.preflight();
+        return { ok: result.ok };
+      },
+    },
+    {
+      name: 'artifact-storage',
+      critical: container.config.environment === 'production',
+      check: async () => ({
+        ok: container.config.artifacts.driver === 's3' && container.config.artifacts.s3 !== undefined,
+      }),
+    },
   ]);
   registerWebhookRoutes(
     kernel,
@@ -149,5 +219,11 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   registerWebSurfaceRoutes(kernel, container, container.bindings.approvals);
   registerRepositoryTargetRoutes(kernel, container);
 
-  return { app: kernel.app, routeMetadata: kernel.routeMetadata };
+  return {
+    app: kernel.app,
+    routeMetadata: kernel.routeMetadata,
+    close: async () => {
+      if (redisClient !== undefined) await redisClient.quit();
+    },
+  };
 }

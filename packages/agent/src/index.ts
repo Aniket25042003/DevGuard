@@ -259,6 +259,10 @@ export {
   type TrueForgeHttpTransport,
 } from './trueforge/trueforge-http-runtime.js';
 export {
+  TrueForgeSdkAgentRuntime,
+  type TrueForgeSdkAgentRuntimeOptions,
+} from './trueforge/trueforge-sdk-runtime.js';
+export {
   InMemorySessionStore,
   InMemoryTurnStore,
   sessionIdForCommand,

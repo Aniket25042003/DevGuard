@@ -244,14 +244,22 @@ export class CommandBus {
   }
 }
 
-/** Reject empty/malformed definition versions (exact pass-through otherwise). */
+/** Canonicalize legacy integer versions and require semver thereafter. */
 function normalizeDefinitionVersion(raw: string | undefined): string | undefined {
   if (raw === undefined) return undefined;
   const value = raw.trim();
   if (value.length === 0 || value.length > 64) {
     throw validationFailed([{ path: 'definitionVersion', constraint: '1..64 chars' }]);
   }
-  return value;
+  const canonical = /^\d+$/.test(value)
+    ? `${value}.0.0`
+    : /^\d+\.\d+$/.test(value)
+      ? `${value}.0`
+      : value;
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(canonical)) {
+    throw validationFailed([{ path: 'definitionVersion', constraint: 'semver_required' }]);
+  }
+  return canonical;
 }
 
 /** Plain (non-array, non-null) JSON-object guard for command input. */

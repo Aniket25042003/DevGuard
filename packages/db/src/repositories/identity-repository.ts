@@ -68,6 +68,8 @@ export interface RepositoryPatch {
 
 const REPO_COLS = `id, github_repository_id, installation_id, owner, name, full_name,
   default_branch, status, row_version::text AS row_version`;
+const REPO_COLS_QUALIFIED = `r.id, r.github_repository_id, r.installation_id, r.owner, r.name, r.full_name,
+  r.default_branch, r.status, r.row_version::text AS row_version`;
 
 function mapRepository(row: Record<string, unknown>): ConnectedRepository {
   return {
@@ -113,11 +115,19 @@ export class IdentityRepository {
     input: ObservedIdentityInput,
     tx?: TransactionContext,
   ): Promise<void> {
+    // GitHub webhook actors can arrive before an OAuth login. Materialize the
+    // user row in the same transaction so the external-identity FK can never
+    // fail during comment processing.
+    const executor = tx ?? { query: this.poolLike.query.bind(this.poolLike) };
+    await executor.query({
+      text: `INSERT INTO users (id, login) VALUES ($1, $2)
+             ON CONFLICT (id) DO UPDATE SET login = EXCLUDED.login, updated_at = now()`,
+      values: [input.userId, input.loginSnapshot],
+    });
     const sql = `
 INSERT INTO external_identities (id, user_id, issuer, subject, login_snapshot)
 VALUES (gen_random_uuid(), $1, $2, $3, $4)
 ON CONFLICT (issuer, subject) DO UPDATE SET last_seen_at = now(), login_snapshot = EXCLUDED.login_snapshot`;
-    const executor = tx ?? { query: this.poolLike.query.bind(this.poolLike) };
     await executor.query({
       text: sql,
       values: [input.userId, input.issuer, input.subject, input.loginSnapshot],
@@ -259,7 +269,15 @@ RETURNING ${REPO_COLS}`;
 
   async listForUser(userId: string): Promise<readonly ConnectedRepository[]> {
     const rows = await this.poolLike.query<Record<string, unknown>>({
-      text: `SELECT ${REPO_COLS} FROM repositories WHERE connected_by = $1 AND status != 'disconnected' ORDER BY full_name`,
+      text: `SELECT ${REPO_COLS_QUALIFIED}
+FROM repositories r
+JOIN user_installation_links uil ON uil.installation_id = r.installation_id
+JOIN github_installations gi ON gi.id = r.installation_id
+WHERE uil.user_id = $1
+  AND (uil.expires_at IS NULL OR uil.expires_at > now())
+  AND gi.status = 'active'
+  AND r.status != 'disconnected'
+ORDER BY r.full_name`,
       values: [userId],
     });
     return rows.map(mapRepository);

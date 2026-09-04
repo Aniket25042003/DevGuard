@@ -13,21 +13,32 @@ import { loadConfig, safeSummary } from '@devguard/config';
 import { toErrorEnvelope } from '@devguard/errors';
 import {
   buildWorkerContainer,
+  checkWorkerReadiness,
   validateWorkerReadiness,
   workerStartupStatus,
 } from './composition/container.js';
 import { startWorkerHealthServer } from './health-server.js';
+import { OutboxRepository } from '@devguard/db';
+import { BullMqQueue, BullMqWorkerRuntime } from '@devguard/queue';
+import { publishOutboxOnce } from './composition/outbox-publish.js';
+import { assertSchemaCompatible } from '@devguard/db';
 
 const bootstrap = async (): Promise<void> => {
   const config = await Promise.resolve(loadConfig('worker'));
   const container = buildWorkerContainer(config);
+  if (container.pool !== undefined) await assertSchemaCompatible(container.pool);
   validateWorkerReadiness(config, container);
+  const dependencyReadiness = await checkWorkerReadiness(container);
+  if (!dependencyReadiness.ok && config.environment === 'production') {
+    throw new Error(`WORKER_DEPENDENCY_UNAVAILABLE:${dependencyReadiness.reasons.join(',')}`);
+  }
   const startup = workerStartupStatus(container);
 
   const portRaw = globalThis.process?.env?.['PORT'];
+  let workerReady = false;
   const stopHealth =
     portRaw !== undefined && portRaw.length > 0
-      ? startWorkerHealthServer(Number.parseInt(portRaw, 10))
+      ? startWorkerHealthServer(Number.parseInt(portRaw, 10), () => workerReady)
       : undefined;
 
   console.info(
@@ -46,6 +57,7 @@ const bootstrap = async (): Promise<void> => {
     );
     const shutdownIdle = (): void => {
       stopHealth?.();
+      void container.redisHealth?.quit();
       process.exit(0);
     };
     process.on('SIGTERM', shutdownIdle);
@@ -54,20 +66,45 @@ const bootstrap = async (): Promise<void> => {
     // CP008: start the typed queue consumers from the durable WorkerRuntime.
     const runtime = container.runtime;
     runtime.start();
-    const interval = setInterval(async () => {
-      try {
-        await runtime.processOnce(Date.now());
-      } catch (error) {
-        console.error(
-          JSON.stringify({ msg: 'worker.poll_failed', ...toErrorEnvelope(error, 'poll') }),
-        );
-      }
-    }, container.runtime.pollIntervalMs);
+    workerReady = dependencyReadiness.ok;
+    if (!dependencyReadiness.ok) {
+      console.warn(JSON.stringify({ msg: 'worker.dependency_degraded', reasons: dependencyReadiness.reasons }));
+    }
+    const outboxRelay =
+      container.pool !== undefined && container.queue instanceof BullMqQueue
+        ? setInterval(() => {
+            void publishOutboxOnce({
+              outbox: new OutboxRepository(container.pool!),
+              queue: container.queue,
+              workerId: `relay-${process.pid}`,
+            }).catch((error: unknown) => {
+              console.error(JSON.stringify({ msg: 'outbox.relay_failed', ...toErrorEnvelope(error, 'outbox') }));
+            });
+          }, 500)
+        : undefined;
+    const interval =
+      runtime instanceof BullMqWorkerRuntime
+        ? undefined
+        : setInterval(async () => {
+            try {
+              await runtime.processOnce(Date.now());
+            } catch (error) {
+              console.error(
+                JSON.stringify({ msg: 'worker.poll_failed', ...toErrorEnvelope(error, 'poll') }),
+              );
+            }
+          }, container.runtime.pollIntervalMs);
     const shutdown = (): void => {
-      clearInterval(interval);
+      workerReady = false;
+      if (interval !== undefined) clearInterval(interval);
+      if (outboxRelay !== undefined) clearInterval(outboxRelay);
       runtime.stop();
       stopHealth?.();
-      void runtime.drain(() => false).finally(() => process.exit(0));
+      void runtime
+        .drain(() => false)
+        .then(() => (container.queue instanceof BullMqQueue ? container.queue.close() : undefined))
+        .finally(() => container.redisHealth?.quit())
+        .finally(() => process.exit(0));
     };
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
