@@ -109,21 +109,21 @@ export async function publishOutboxOnce(deps: OutboxPublishDeps): Promise<number
   const claimed = await deps.outbox.claim(batchSize, leaseMs, deps.workerId);
   let published = 0;
   for (const row of claimed) {
-      const mapping = DEFAULT_MAPPINGS.find((m) => m.matchingEventTypes.includes(row.eventType));
-      try {
-        if (mapping === undefined) {
-          await deps.outbox.deadLetter(row.id, row.rowVersion, 'OUTBOX_EVENT_UNKNOWN');
-          continue;
-        }
-        const envelope = toEnvelope(row, mapping, now);
-        await deps.queue.enqueue(envelope, 0);
-        await deps.outbox.markPublished(row.id, row.rowVersion);
-        published += 1;
-      } catch (error) {
-        const nextAt = new Date(now() + 5_000).toISOString();
-        const code = error instanceof Error ? error.message.slice(0, 128) : 'outbox_publish_failed';
-        await deps.outbox.reschedule(row.id, row.rowVersion, nextAt, code);
+    const mapping = DEFAULT_MAPPINGS.find((m) => m.matchingEventTypes.includes(row.eventType));
+    try {
+      if (mapping === undefined) {
+        await deps.outbox.deadLetter(row.id, row.rowVersion, 'OUTBOX_EVENT_UNKNOWN');
+        continue;
       }
+      const envelope = toEnvelope(row, mapping, now);
+      await deps.queue.enqueue(envelope, 0);
+      await deps.outbox.markPublished(row.id, row.rowVersion);
+      published += 1;
+    } catch (error) {
+      const nextAt = new Date(now() + 5_000).toISOString();
+      const code = error instanceof Error ? error.message.slice(0, 128) : 'outbox_publish_failed';
+      await deps.outbox.reschedule(row.id, row.rowVersion, nextAt, code);
+    }
   }
   return published;
 }

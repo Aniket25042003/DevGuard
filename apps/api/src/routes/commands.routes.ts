@@ -49,8 +49,7 @@ export function registerRepositoryCommandRoutes(
     listMeta,
     async (c) => {
       const repositoryId = c.req.param('repositoryId') ?? '';
-      const repo =
-        (await container.bindings.repositoryCatalog.findById?.(repositoryId)) ?? null;
+      const repo = (await container.bindings.repositoryCatalog.findById?.(repositoryId)) ?? null;
       const allowed = await container.bindings.manualCommands.resolve({
         repositoryId,
         ...(repo !== null && repo !== undefined ? { owner: repo.owner, name: repo.name } : {}),
@@ -92,8 +91,7 @@ export function registerRepositoryCommandRoutes(
         return renderCommandError(c, new CommandOriginForgedError(parsed.data.originSurface));
       }
 
-      const repo =
-        (await container.bindings.repositoryCatalog.findById?.(repositoryId)) ?? null;
+      const repo = (await container.bindings.repositoryCatalog.findById?.(repositoryId)) ?? null;
       const allowed = await container.bindings.manualCommands.resolve({
         repositoryId,
         ...(repo !== null && repo !== undefined ? { owner: repo.owner, name: repo.name } : {}),

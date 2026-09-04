@@ -164,7 +164,11 @@ export class S3ObjectStore implements ObjectStore {
     return `${this.prefix.replace(/\/$/, '')}/${objectKey}`;
   }
 
-  async put(objectKey: string, bytes: Uint8Array, contentType?: string): Promise<ObjectStoreResult> {
+  async put(
+    objectKey: string,
+    bytes: Uint8Array,
+    contentType?: string,
+  ): Promise<ObjectStoreResult> {
     const text = Buffer.from(bytes).toString('utf8');
     if (containsSecret(text)) throw new ArtifactStorageError('ARTIFACT_CONTAINS_SECRET');
     const sha256 = createHash('sha256').update(bytes).digest('hex');
@@ -196,7 +200,10 @@ export class S3ObjectStore implements ObjectStore {
       if (expected !== undefined && createHash('sha256').update(bytes).digest('hex') !== expected) {
         throw new ArtifactStorageError('OBJECT_CHECKSUM_MISMATCH');
       }
-      return { bytes, ...(response.ContentType !== undefined ? { contentType: response.ContentType } : {}) };
+      return {
+        bytes,
+        ...(response.ContentType !== undefined ? { contentType: response.ContentType } : {}),
+      };
     } catch (error) {
       if (error instanceof ArtifactStorageError) throw error;
       if ((error as { name?: string }).name === 'NoSuchKey') return null;
@@ -206,7 +213,9 @@ export class S3ObjectStore implements ObjectStore {
 
   async delete(objectKey: string): Promise<boolean> {
     try {
-      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: this.key(objectKey) }));
+      await this.client.send(
+        new DeleteObjectCommand({ Bucket: this.bucket, Key: this.key(objectKey) }),
+      );
       return true;
     } catch {
       return false;

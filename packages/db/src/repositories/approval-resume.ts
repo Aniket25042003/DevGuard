@@ -1,7 +1,16 @@
 export type ApprovalResumeState =
-  | 'QUEUED' | 'CLAIMED' | 'REVALIDATING' | 'SYNCING_CHECKPOINT' | 'EXECUTING'
-  | 'VERIFYING' | 'COMPLETED' | 'RETRY_WAIT' | 'STALE_NOOP' | 'CANCELLED_FENCED'
-  | 'DEAD_LETTERED' | 'EXPIRED';
+  | 'QUEUED'
+  | 'CLAIMED'
+  | 'REVALIDATING'
+  | 'SYNCING_CHECKPOINT'
+  | 'EXECUTING'
+  | 'VERIFYING'
+  | 'COMPLETED'
+  | 'RETRY_WAIT'
+  | 'STALE_NOOP'
+  | 'CANCELLED_FENCED'
+  | 'DEAD_LETTERED'
+  | 'EXPIRED';
 
 export interface ApprovalRecord {
   readonly approvalId: string;
@@ -16,8 +25,15 @@ export interface ApprovalRecord {
 
 export interface ApprovalStorePort {
   get(approvalId: string): Promise<ApprovalRecord | undefined>;
-  resumeState(approvalId: string, resolutionVersion: number): Promise<ApprovalResumeState | undefined>;
-  setResumeState(approvalId: string, resolutionVersion: number, state: ApprovalResumeState): Promise<void>;
+  resumeState(
+    approvalId: string,
+    resolutionVersion: number,
+  ): Promise<ApprovalResumeState | undefined>;
+  setResumeState(
+    approvalId: string,
+    resolutionVersion: number,
+    state: ApprovalResumeState,
+  ): Promise<void>;
   markExpired(approvalId: string): Promise<void>;
 }
 
@@ -70,7 +86,11 @@ LIMIT 1`,
     return {
       approvalId: String(row['approval_id']),
       resolution:
-        status === 'approved' ? 'approved' : status === 'rejected' || status === 'stale' ? 'stale' : 'stale',
+        status === 'approved'
+          ? 'approved'
+          : status === 'rejected' || status === 'stale'
+            ? 'stale'
+            : 'stale',
       resolutionVersion: Number(row['resolution_version'] ?? 0),
       resolutionFingerprint: String(row['fingerprint_hash'] ?? ''),
       runId: String(row['run_id'] ?? ''),
@@ -130,8 +150,17 @@ LIMIT 1`,
 
 function isResumeState(value: string): value is ApprovalResumeState {
   return new Set<ApprovalResumeState>([
-    'QUEUED', 'CLAIMED', 'REVALIDATING', 'SYNCING_CHECKPOINT', 'EXECUTING',
-    'VERIFYING', 'COMPLETED', 'RETRY_WAIT', 'STALE_NOOP', 'CANCELLED_FENCED',
-    'DEAD_LETTERED', 'EXPIRED',
+    'QUEUED',
+    'CLAIMED',
+    'REVALIDATING',
+    'SYNCING_CHECKPOINT',
+    'EXECUTING',
+    'VERIFYING',
+    'COMPLETED',
+    'RETRY_WAIT',
+    'STALE_NOOP',
+    'CANCELLED_FENCED',
+    'DEAD_LETTERED',
+    'EXPIRED',
   ]).has(value as ApprovalResumeState);
 }

@@ -98,11 +98,13 @@ export interface BullMqWorkerRuntimeOptions {
   readonly queues: readonly QueueName[];
   readonly registry: JobRegistry;
   readonly concurrency?: number | undefined;
-  readonly logger?: {
-    info(event: string, fields?: Record<string, unknown>): void;
-    warn(event: string, fields?: Record<string, unknown>): void;
-    error(event: string, error: unknown, fields?: Record<string, unknown>): void;
-  } | undefined;
+  readonly logger?:
+    | {
+        info(event: string, fields?: Record<string, unknown>): void;
+        warn(event: string, fields?: Record<string, unknown>): void;
+        error(event: string, error: unknown, fields?: Record<string, unknown>): void;
+      }
+    | undefined;
 }
 
 /** BullMQ push workers with typed registry dispatch and retry classification. */
@@ -116,15 +118,11 @@ export class BullMqWorkerRuntime {
     if (this.running) return;
     this.running = true;
     for (const queueName of this.options.queues) {
-      const worker = new BullWorker<JobEnvelope>(
-        queueName,
-        async (job) => this.process(job),
-        {
-          connection: this.options.connection,
-          prefix: this.options.prefix ?? 'devguard',
-          concurrency: this.options.concurrency ?? 10,
-        },
-      );
+      const worker = new BullWorker<JobEnvelope>(queueName, async (job) => this.process(job), {
+        connection: this.options.connection,
+        prefix: this.options.prefix ?? 'devguard',
+        concurrency: this.options.concurrency ?? 10,
+      });
       worker.on('failed', (job, error) => {
         this.options.logger?.error('job.failed', error, {
           jobId: job?.id,

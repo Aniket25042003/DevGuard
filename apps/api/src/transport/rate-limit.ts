@@ -80,7 +80,10 @@ export class RedisRateLimiter implements RateLimiterPort {
     return count > limits.limit
       ? {
           allowed: false,
-          retryAfterSeconds: Math.max(1, limits.windowSeconds - (Math.floor(Date.now() / 1000) % limits.windowSeconds)),
+          retryAfterSeconds: Math.max(
+            1,
+            limits.windowSeconds - (Math.floor(Date.now() / 1000) % limits.windowSeconds),
+          ),
         }
       : { allowed: true, retryAfterSeconds: 0 };
   }

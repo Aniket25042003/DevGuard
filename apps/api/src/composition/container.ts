@@ -45,8 +45,14 @@ import {
 } from '@devguard/authorization';
 import { DurableWebhookAcceptance } from './durable-webhook-acceptance.js';
 import { buildGitHubPermissionPort } from './github-permission-port.js';
-import { buildRepositoryDomainServices, type RepositoryDomainServices } from './repository-services.js';
-import { ManualCommandPolicyAdapter, type ManualCommandPolicyPort } from './repository-manual-commands.js';
+import {
+  buildRepositoryDomainServices,
+  type RepositoryDomainServices,
+} from './repository-services.js';
+import {
+  ManualCommandPolicyAdapter,
+  type ManualCommandPolicyPort,
+} from './repository-manual-commands.js';
 import { configurationInvalid } from '@devguard/errors';
 import type { ApiConfigSnapshot } from '@devguard/config';
 import { createPool, type DevGuardPool } from '@devguard/db';
@@ -246,7 +252,11 @@ export class DurableApprovals implements ApprovalPort {
                 action: 'resume',
                 resolutionVersion: expectedVersion + 1,
               },
-              correlation: { approvalId, workflowRunId, idempotencyKey: options?.idempotencyKey ?? `web:${approvalId}:${resolution}` },
+              correlation: {
+                approvalId,
+                workflowRunId,
+                idempotencyKey: options?.idempotencyKey ?? `web:${approvalId}:${resolution}`,
+              },
               aggregateType: 'approval',
               aggregateId: approvalId,
             },

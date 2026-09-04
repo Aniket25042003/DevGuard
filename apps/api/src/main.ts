@@ -38,7 +38,8 @@ const bootstrap = async (): Promise<void> => {
     console.info(JSON.stringify({ msg: 'http.listening', port }));
     const shutdown = async (): Promise<void> => {
       server.close(() => {
-        void api.close()
+        void api
+          .close()
           .then(() => container.pool?.drain())
           .finally(() => globalThis.process?.exit(0));
       });

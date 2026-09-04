@@ -96,10 +96,7 @@ export {
   PostgresAgentSessionStore,
   PostgresAgentTurnStore,
 } from './repositories/agent-execution.js';
-export type {
-  AgentSessionRecord,
-  AgentTurnRecord,
-} from './repositories/agent-execution.js';
+export type { AgentSessionRecord, AgentTurnRecord } from './repositories/agent-execution.js';
 
 // ---- CP012 durable artifact metadata ----
 export { PostgresArtifactStore, type StoredArtifact } from './repositories/artifacts.js';

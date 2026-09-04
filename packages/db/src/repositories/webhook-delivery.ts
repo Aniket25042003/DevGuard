@@ -32,11 +32,11 @@ export class PostgresWebhookDeliveryStore {
 
   async insert(
     input: {
-    readonly githubDeliveryId: string;
-    readonly githubEvent: string;
-    readonly rawPayloadHash: string;
-    readonly payloadRef?: string | undefined;
-    readonly repositoryId?: string | undefined;
+      readonly githubDeliveryId: string;
+      readonly githubEvent: string;
+      readonly rawPayloadHash: string;
+      readonly payloadRef?: string | undefined;
+      readonly repositoryId?: string | undefined;
     },
     executor: Queryish | TransactionContext = this.pool,
   ): Promise<{ accepted: boolean; replay: boolean }> {

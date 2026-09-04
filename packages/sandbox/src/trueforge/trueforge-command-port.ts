@@ -88,7 +88,10 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
     return disabled;
   }
 
-  async stream(cursor: number, context?: { readonly providerCommandId?: string }): Promise<CommandProviderResult<ProviderStreamSlice>> {
+  async stream(
+    cursor: number,
+    context?: { readonly providerCommandId?: string },
+  ): Promise<CommandProviderResult<ProviderStreamSlice>> {
     const id = context?.providerCommandId;
     if (id === undefined) return { ok: false, code: 'NOT_FOUND', detail: 'no active command' };
     const out = await this.run<Record<string, unknown>>(
@@ -131,13 +134,19 @@ export class TrueForgeHttpCommandPort implements TrueForgeCommandPort {
     return disabled;
   }
 
-  async terminate(context?: { readonly providerCommandId?: string }): Promise<CommandProviderResult<{ terminated: boolean }>> {
+  async terminate(context?: {
+    readonly providerCommandId?: string;
+  }): Promise<CommandProviderResult<{ terminated: boolean }>> {
     if (context?.providerCommandId === undefined) {
       return { ok: false, code: 'NOT_FOUND', detail: 'provider command id required' };
     }
     const disabled: CommandProviderResult<{ terminated: boolean }> | undefined = await this.run<{
       terminated: boolean;
-    }>('POST', `/workspace/commands/${encodeURIComponent(context.providerCommandId)}/terminate`, {});
+    }>(
+      'POST',
+      `/workspace/commands/${encodeURIComponent(context.providerCommandId)}/terminate`,
+      {},
+    );
     if (disabled === undefined)
       return { ok: false, code: 'CANCEL_UNSUPPORTED', detail: 'sandbox integration disabled' };
     return disabled;

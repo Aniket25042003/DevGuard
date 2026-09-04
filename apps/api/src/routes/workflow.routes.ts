@@ -301,7 +301,7 @@ export function registerWorkflowRoutes(
           runs: page.runs.map(toRunDto),
           hasMore: page.hasMore,
           ...(page.nextCursor !== undefined
-          ? { nextCursor: encodeResourceCursor(page.nextCursor) }
+            ? { nextCursor: encodeResourceCursor(page.nextCursor) }
             : {}),
         },
       });

@@ -31,7 +31,10 @@ import {
 } from './routes/github.routes.js';
 import { registerArtifactRoutes } from './routes/artifact.routes.js';
 import { registerAuditRoutes } from './routes/audit.routes.js';
-import { registerFindingsRoutes, registerFindingsRemediationRoutes } from './routes/findings.routes.js';
+import {
+  registerFindingsRoutes,
+  registerFindingsRemediationRoutes,
+} from './routes/findings.routes.js';
 import { registerDiagnosticsRoutes, type PreflightStatus } from './routes/diagnostics.routes.js';
 import { registerWebSurfaceRoutes } from './routes/web-surface.routes.js';
 import { registerRepositoryTargetRoutes } from './routes/repository-targets.routes.js';
@@ -67,9 +70,11 @@ export function assembleApi(container: ApiContainer): AssembledApi {
   const redisClient = redisConfigured
     ? new Redis(redisUrl, { maxRetriesPerRequest: null, enableReadyCheck: true })
     : undefined;
-  const rateLimiter = redisClient !== undefined ? new RedisRateLimiter(redisClient) : new InMemoryRateLimiter();
+  const rateLimiter =
+    redisClient !== undefined ? new RedisRateLimiter(redisClient) : new InMemoryRateLimiter();
   const trueforgeRuntime =
-    container.config.features.trueforgeIntegrationEnabled.value && container.config.trueforge !== undefined
+    container.config.features.trueforgeIntegrationEnabled.value &&
+    container.config.trueforge !== undefined
       ? new TrueForgeSdkAgentRuntime({
           enabled: true,
           baseUrl: container.config.trueforge.baseUrl,
@@ -129,20 +134,24 @@ export function assembleApi(container: ApiContainer): AssembledApi {
 
   // C068 session/event routes, C070 approval routes.
   registerSessionRoutes(kernel, container.bindings.sessionEvents);
-  registerApprovalRoutes(kernel, container.bindings.approvals, async ({ repositoryId, requestId, userId }) => {
-    const principal = {
-      kind: 'user' as const,
-      userId,
-      issuer: 'github',
-      providerSubject: userId,
-    };
-    const decision = await container.authorizer.authorize({
-      principal,
-      repositoryId,
-      capability: 'approval:resolve',
-    });
-    requireAllow(decision, requestId);
-  });
+  registerApprovalRoutes(
+    kernel,
+    container.bindings.approvals,
+    async ({ repositoryId, requestId, userId }) => {
+      const principal = {
+        kind: 'user' as const,
+        userId,
+        issuer: 'github',
+        providerSubject: userId,
+      };
+      const decision = await container.authorizer.authorize({
+        principal,
+        repositoryId,
+        capability: 'approval:resolve',
+      });
+      requireAllow(decision, requestId);
+    },
+  );
   registerDiagnosticsRoutes(kernel, {
     preflight: preflightStatus(container),
     runs: async (input) => container.workflowQueries.listRuns(input),
@@ -205,7 +214,8 @@ export function assembleApi(container: ApiContainer): AssembledApi {
       name: 'artifact-storage',
       critical: container.config.environment === 'production',
       check: async () => ({
-        ok: container.config.artifacts.driver === 's3' && container.config.artifacts.s3 !== undefined,
+        ok:
+          container.config.artifacts.driver === 's3' && container.config.artifacts.s3 !== undefined,
       }),
     },
   ]);
