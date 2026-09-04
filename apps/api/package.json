@@ -33,6 +33,7 @@
     "@devguard/sandbox": "workspace:*",
     "@devguard/workflows": "workspace:*",
     "@hono/node-server": "^1.14.4",
-    "hono": "^4.9.7"
+    "hono": "^4.9.7",
+    "ioredis": "^5.4.1"
   }
 }
