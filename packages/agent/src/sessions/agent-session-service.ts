@@ -207,20 +207,71 @@ export class AgentSessionService {
     }
     await this.#event('turn.requested.v1', turn.id, { sessionId: req.sessionId });
 
+    // Reserve the session's active-turn slot before crossing the provider
+    // boundary. Cancellation can therefore fence this turn even while the
+    // provider request is still being created.
+    const reservedSession: AgentSession = {
+      ...session,
+      status: 'TURN_ACTIVE',
+      currentTurnId: turn.id,
+      updatedAtIso: this.#clock.nowIso(),
+    };
+    const sessionReserved = await this.#sessions.save(reservedSession, session.version);
+    if (!sessionReserved.ok) {
+      await this.#turns.save({
+        ...turn,
+        status: 'CANCELLED',
+        completedAtIso: this.#clock.nowIso(),
+      });
+      throw makeError('SESSION_VERSION_CONFLICT', {});
+    }
+
     if (session.providerSessionId === undefined) {
       const failed = { ...turn, status: 'FAILED' as const, errorCode: 'SESSION_PROVIDER_MISSING' };
       await this.#turns.save(failed);
+      await this.#sessions.save(
+        {
+          ...sessionReserved.session,
+          status: 'READY',
+          currentTurnId: undefined,
+          updatedAtIso: this.#clock.nowIso(),
+        },
+        sessionReserved.session.version,
+      );
       throw makeError('SESSION_PROVIDER_MISSING', { details: { sessionId: session.id } });
     }
 
     const submitting = { ...turn, status: 'SUBMITTING' as const };
     await this.#turns.save(submitting);
+    const beforeCreate = await this.#sessions.get(session.id);
+    if (
+      beforeCreate === undefined ||
+      beforeCreate.cancellationGeneration !== session.cancellationGeneration ||
+      isTerminalSession(beforeCreate.status) ||
+      beforeCreate.currentTurnId !== turn.id
+    ) {
+      await this.#turns.save({
+        ...submitting,
+        status: 'CANCELLED',
+        completedAtIso: this.#clock.nowIso(),
+      });
+      return refOfTurn({ ...submitting, status: 'CANCELLED' });
+    }
     const created = await this.#runtime.createTurn({
       providerSessionId: session.providerSessionId,
       ordinal: turn.ordinal,
     });
     if (!created.ok) {
       await this.#turns.save({ ...submitting, status: 'FAILED', errorCode: created.code });
+      await this.#sessions.save(
+        {
+          ...sessionReserved.session,
+          status: 'READY',
+          currentTurnId: undefined,
+          updatedAtIso: this.#clock.nowIso(),
+        },
+        sessionReserved.session.version,
+      );
       await this.#event('turn.state_changed.v1', turn.id, {
         sessionId: session.id,
         status: 'FAILED',
@@ -229,20 +280,39 @@ export class AgentSessionService {
       throw makeError('TURN_CREATE_FAILED', { details: { code: created.code } });
     }
 
+    // Re-read the session after provider creation. If cancellation won the
+    // race, immediately fence the newly-created provider turn and never
+    // publish it as running.
+    const afterCreate = await this.#sessions.get(session.id);
+    if (
+      afterCreate === undefined ||
+      afterCreate.cancellationGeneration !== session.cancellationGeneration ||
+      isTerminalSession(afterCreate.status) ||
+      afterCreate.currentTurnId !== turn.id
+    ) {
+      await this.#runtime.cancelTurn?.({
+        providerSessionId: session.providerSessionId,
+        providerTurnId: created.value.providerTurnId,
+      });
+      await this.#turns.save({
+        ...submitting,
+        status: 'CANCELLED',
+        providerTurnId: created.value.providerTurnId,
+        completedAtIso: this.#clock.nowIso(),
+      });
+      return refOfTurn({
+        ...submitting,
+        status: 'CANCELLED',
+        providerTurnId: created.value.providerTurnId,
+      });
+    }
+
     const running: AgentTurn = {
       ...submitting,
       status: 'RUNNING',
       providerTurnId: created.value.providerTurnId,
     };
     await this.#turns.save(running);
-    const activeSession: AgentSession = {
-      ...session,
-      status: 'TURN_ACTIVE',
-      currentTurnId: running.id,
-      updatedAtIso: this.#clock.nowIso(),
-    };
-    const sessionSaved = await this.#sessions.save(activeSession, session.version);
-    if (!sessionSaved.ok) throw makeError('SESSION_VERSION_CONFLICT', {});
     await this.#event('turn.started.v1', turn.id, { sessionId: session.id });
     return refOfTurn(running);
   }
@@ -273,11 +343,20 @@ export class AgentSessionService {
                 : {}),
               ...(isTerminalTurn(nextStatus) ? { completedAtIso: this.#clock.nowIso() } : {}),
             };
-            await this.#turns.save(observed);
+            const saved = this.#turns.saveIfCurrent
+              ? await this.#turns.saveIfCurrent(observed, turn.version ?? 0)
+              : (await this.#turns.save(observed), true);
+            if (!saved) {
+              const latest = await this.#turns.get(turn.id);
+              observed = latest ?? turn;
+            }
           }
         } else {
           observed = { ...turn, status: 'RECONCILING', errorCode: result.code };
-          await this.#turns.save(observed);
+          const saved = this.#turns.saveIfCurrent
+            ? await this.#turns.saveIfCurrent(observed, turn.version ?? 0)
+            : (await this.#turns.save(observed), true);
+          if (!saved) observed = (await this.#turns.get(turn.id)) ?? turn;
           await this.#event('turn.state_changed.v1', turn.id, {
             sessionId: turn.sessionId,
             status: 'RECONCILING',
@@ -303,7 +382,10 @@ export class AgentSessionService {
   }
 
   /** Cancel provider work and fence every in-flight turn with a new generation. */
-  async cancelSession(input: { sessionId: string; expectedVersion: number }): Promise<AgentSessionRef> {
+  async cancelSession(input: {
+    sessionId: string;
+    expectedVersion: number;
+  }): Promise<AgentSessionRef> {
     if (!Number.isInteger(input.expectedVersion) || input.expectedVersion < 0)
       throw makeError('VALIDATION_FAILED', { details: { reasonCode: 'CANCEL_SESSION_INPUT' } });
     const session = await this.#sessions.get(input.sessionId);
@@ -319,7 +401,9 @@ export class AgentSessionService {
     const claimed = await this.#sessions.save(cancelling, input.expectedVersion);
     if (!claimed.ok) throw makeError('SESSION_VERSION_CONFLICT', {});
     if (session.providerSessionId !== undefined && this.#runtime.cancelSession !== undefined) {
-      const result = await this.#runtime.cancelSession({ providerSessionId: session.providerSessionId });
+      const result = await this.#runtime.cancelSession({
+        providerSessionId: session.providerSessionId,
+      });
       if (!result.ok) {
         const reconciling: AgentSession = {
           ...claimed.session,
@@ -330,14 +414,34 @@ export class AgentSessionService {
         throw makeError('SESSION_CANCEL_FAILED', { details: { code: result.code } });
       }
     }
-    const cancelled = { ...claimed.session, status: 'CANCELLED' as const, updatedAtIso: this.#clock.nowIso() };
+    const cancelled = {
+      ...claimed.session,
+      status: 'CANCELLED' as const,
+      updatedAtIso: this.#clock.nowIso(),
+    };
     const saved = await this.#sessions.save(cancelled, claimed.session.version);
     if (!saved.ok) throw makeError('SESSION_VERSION_CONFLICT', {});
-    const activeTurn = session.currentTurnId === undefined ? undefined : await this.#turns.get(session.currentTurnId);
+    const activeTurn =
+      session.currentTurnId === undefined
+        ? undefined
+        : await this.#turns.get(session.currentTurnId);
     if (activeTurn !== undefined && !isTerminalTurn(activeTurn.status)) {
-      await this.#turns.save({ ...activeTurn, status: 'CANCELLED', completedAtIso: this.#clock.nowIso() });
+      if (this.#turns.saveIfCurrent !== undefined) {
+        await this.#turns.saveIfCurrent(
+          { ...activeTurn, status: 'CANCELLED', completedAtIso: this.#clock.nowIso() },
+          activeTurn.version ?? 0,
+        );
+      } else {
+        await this.#turns.save({
+          ...activeTurn,
+          status: 'CANCELLED',
+          completedAtIso: this.#clock.nowIso(),
+        });
+      }
     }
-    await this.#event('session.cancelled.v1', session.id, { cancellationGeneration: saved.session.cancellationGeneration });
+    await this.#event('session.cancelled.v1', session.id, {
+      cancellationGeneration: saved.session.cancellationGeneration,
+    });
     return refOf(saved.session);
   }
 
@@ -367,7 +471,12 @@ export class AgentSessionService {
 
   async #settleSessionForTurn(turn: AgentTurn): Promise<void> {
     const session = await this.#sessions.get(turn.sessionId);
-    if (session === undefined || session.currentTurnId !== turn.id || isTerminalSession(session.status)) return;
+    if (
+      session === undefined ||
+      session.currentTurnId !== turn.id ||
+      isTerminalSession(session.status)
+    )
+      return;
     const nextStatus = turn.status === 'FAILED' ? 'RECONCILING' : 'READY';
     const settled: AgentSession = {
       ...session,

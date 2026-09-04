@@ -23,6 +23,8 @@ export interface TurnStorePort {
   countActive(sessionId: string): Promise<number>;
   nextOrdinal(sessionId: string): Promise<number>;
   save(turn: AgentTurn): Promise<void>;
+  /** Atomically persists a transition only when the row is still at version. */
+  saveIfCurrent?(turn: AgentTurn, version: number): Promise<boolean>;
 }
 
 export function sha256Hex(value: string): string {
@@ -87,7 +89,16 @@ export class InMemoryTurnStore implements TurnStorePort {
     return max + 1;
   }
   async save(turn: AgentTurn): Promise<void> {
-    this.turns.set(turn.id, turn);
-    this.byCommand.set(turn.commandKey, turn);
+    const current = this.turns.get(turn.id);
+    const next = { ...turn, version: (current?.version ?? 0) + 1 };
+    this.turns.set(turn.id, next);
+    this.byCommand.set(turn.commandKey, next);
+  }
+
+  async saveIfCurrent(turn: AgentTurn, version: number): Promise<boolean> {
+    const current = this.turns.get(turn.id);
+    if (current === undefined || current.version !== version) return false;
+    await this.save(turn);
+    return true;
   }
 }

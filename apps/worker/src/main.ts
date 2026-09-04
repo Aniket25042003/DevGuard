@@ -36,9 +36,31 @@ const bootstrap = async (): Promise<void> => {
 
   const portRaw = globalThis.process?.env?.['PORT'];
   let workerReady = false;
+  let readinessCheckedAt = 0;
+  let readinessInFlight: Promise<boolean> | undefined;
+  const refreshReadiness = async (): Promise<boolean> => {
+    const now = Date.now();
+    if (now - readinessCheckedAt < 5_000) return workerReady;
+    if (readinessInFlight !== undefined) return readinessInFlight;
+    readinessInFlight = checkWorkerReadiness(container)
+      .then((result) => {
+        workerReady = result.ok;
+        readinessCheckedAt = Date.now();
+        return workerReady;
+      })
+      .catch(() => {
+        workerReady = false;
+        readinessCheckedAt = Date.now();
+        return false;
+      })
+      .finally(() => {
+        readinessInFlight = undefined;
+      });
+    return readinessInFlight;
+  };
   const stopHealth =
     portRaw !== undefined && portRaw.length > 0
-      ? startWorkerHealthServer(Number.parseInt(portRaw, 10), () => workerReady)
+      ? startWorkerHealthServer(Number.parseInt(portRaw, 10), refreshReadiness)
       : undefined;
 
   console.info(
@@ -68,7 +90,9 @@ const bootstrap = async (): Promise<void> => {
     runtime.start();
     workerReady = dependencyReadiness.ok;
     if (!dependencyReadiness.ok) {
-      console.warn(JSON.stringify({ msg: 'worker.dependency_degraded', reasons: dependencyReadiness.reasons }));
+      console.warn(
+        JSON.stringify({ msg: 'worker.dependency_degraded', reasons: dependencyReadiness.reasons }),
+      );
     }
     const outboxRelay =
       container.pool !== undefined && container.queue instanceof BullMqQueue
@@ -78,7 +102,9 @@ const bootstrap = async (): Promise<void> => {
               queue: container.queue,
               workerId: `relay-${process.pid}`,
             }).catch((error: unknown) => {
-              console.error(JSON.stringify({ msg: 'outbox.relay_failed', ...toErrorEnvelope(error, 'outbox') }));
+              console.error(
+                JSON.stringify({ msg: 'outbox.relay_failed', ...toErrorEnvelope(error, 'outbox') }),
+              );
             });
           }, 500)
         : undefined;

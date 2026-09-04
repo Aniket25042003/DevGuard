@@ -15,6 +15,10 @@ export interface AgentRuntimePort {
   cancelSession?(input: {
     providerSessionId: string;
   }): Promise<AgentRuntimeResult<{ cancelled: boolean }>>;
+  cancelTurn?(input: {
+    providerSessionId: string;
+    providerTurnId: string;
+  }): Promise<AgentRuntimeResult<{ cancelled: boolean }>>;
   createSession(input: {
     provider: string;
     agentVersion: string;
@@ -43,6 +47,10 @@ export class InMemoryAgentRuntimePort implements AgentRuntimePort {
   }
 
   async cancelSession(): Promise<AgentRuntimeResult<{ cancelled: boolean }>> {
+    return { ok: true, value: { cancelled: true } };
+  }
+
+  async cancelTurn(): Promise<AgentRuntimeResult<{ cancelled: boolean }>> {
     return { ok: true, value: { cancelled: true } };
   }
 

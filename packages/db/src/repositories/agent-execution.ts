@@ -42,6 +42,7 @@ export interface AgentTurnRecord {
   readonly errorCode?: string | undefined;
   readonly startedAtIso: string;
   readonly completedAtIso?: string | undefined;
+  readonly version?: number | undefined;
 }
 
 const sessionColumns = `s.id::text AS id, s.run_id::text AS workflow_run_id,
@@ -55,7 +56,7 @@ const turnColumns = `id::text AS id, session_id::text AS session_id,
   (turn_index + 1)::int AS ordinal, purpose, command_key, input_digest,
   tool_profile_id, status, provider_turn_ref, provider_terminal_reason,
   final_response_digest, error_code, COALESCE(started_at, created_at)::text AS started_at,
-  completed_at::text AS completed_at`;
+  completed_at::text AS completed_at, row_version::text AS row_version`;
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
@@ -110,6 +111,7 @@ function turn(row: Record<string, unknown>): AgentTurnRecord {
     ...(optionalString(row['error_code']) ? { errorCode: String(row['error_code']) } : {}),
     startedAtIso: String(row['started_at']),
     ...(optionalString(row['completed_at']) ? { completedAtIso: String(row['completed_at']) } : {}),
+    version: Number(row['row_version'] ?? 0),
   };
 }
 
@@ -259,5 +261,29 @@ ON CONFLICT (id) DO UPDATE SET
         value.completedAtIso ?? null,
       ],
     });
+  }
+
+  async saveIfCurrent(value: AgentTurnRecord, version: number): Promise<boolean> {
+    const result = await this.pool.query({
+      text: `UPDATE agent_turns SET
+               provider_turn_ref = $2, status = $3,
+               provider_terminal_reason = $4, final_response_digest = $5,
+               error_code = $6, started_at = $7, completed_at = $8,
+               row_version = row_version + 1, updated_at = now()
+             WHERE id = $1::uuid AND row_version = $9
+             RETURNING id`,
+      values: [
+        value.id,
+        value.providerTurnId ?? null,
+        value.status,
+        value.providerTerminalReason ?? null,
+        value.finalResponseDigest ?? null,
+        value.errorCode ?? null,
+        value.startedAtIso,
+        value.completedAtIso ?? null,
+        version,
+      ],
+    });
+    return result.length > 0;
   }
 }

@@ -340,7 +340,7 @@ RETURNING ${RUN_COLS}`,
   execution_lease_token = $3,
   execution_lease_expires_at = now() + ($4::bigint * interval '1 millisecond'),
   execution_generation = execution_generation + 1
-WHERE id = $1 AND status IN ('queued', 'dispatch_pending')
+ WHERE id = $1 AND status IN ('queued', 'dispatch_pending', 'resuming')
 RETURNING id::text AS id`,
       values: [id, owner, token, Math.max(1_000, leaseMs)],
     });
@@ -350,6 +350,23 @@ RETURNING id::text AS id`,
       values: [id],
     });
     return existing[0]?.status === 'running';
+  }
+
+  /** Atomically hands an approved run to the execution queue. */
+  async resumeForApproval(id: string): Promise<boolean> {
+    const rows = await this.poolLike.query<{ id: string }>({
+      text: `UPDATE workflow_runs
+             SET status = 'resuming', updated_at = now(), row_version = row_version + 1
+             WHERE id = $1 AND status = 'waiting_for_approval'
+             RETURNING id::text AS id`,
+      values: [id],
+    });
+    if (rows.length > 0) return true;
+    const existing = await this.poolLike.query<{ status: string }>({
+      text: 'SELECT status FROM workflow_runs WHERE id = $1',
+      values: [id],
+    });
+    return existing[0]?.status === 'resuming';
   }
 }
 

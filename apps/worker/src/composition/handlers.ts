@@ -29,6 +29,7 @@ export interface RunStoreExecutor {
 
 export interface RunTransitionPort {
   readonly markRunning: (runId: string, leaseToken?: string) => Promise<boolean>;
+  readonly resumeForApproval?: (runId: string) => Promise<boolean>;
 }
 
 /** Durable run transition backed by the Postgres run store. */
@@ -37,6 +38,7 @@ export function durableRunTransitions(pool: RunStoreExecutor): RunTransitionPort
   return {
     markRunning: (runId, leaseToken = `worker:${process.pid}`) =>
       store.claimExecutionLease(runId, `worker-${process.pid}`, leaseToken, 30_000),
+    resumeForApproval: (runId) => store.resumeForApproval(runId),
   };
 }
 
@@ -168,6 +170,7 @@ export interface ApprovalResumeOptions {
   readonly store?: ApprovalStorePort;
   readonly queue?: QueuePortShape;
   readonly workerId?: string;
+  readonly resumeRun?: (runId: string) => Promise<boolean>;
 }
 
 /**
@@ -185,6 +188,9 @@ export function registerApprovalResume(
       execute: async (runId, approvalId) => {
         if (options.queue === undefined) {
           return { ok: false, code: 'approved_action_executor_unavailable' };
+        }
+        if (options.resumeRun !== undefined && !(await options.resumeRun(runId))) {
+          return { ok: false, code: 'WORKFLOW_NOT_WAITING_FOR_APPROVAL' };
         }
         const job = buildEnvelope({
           jobType: 'workflow.execute',

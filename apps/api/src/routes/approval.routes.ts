@@ -68,9 +68,17 @@ export function registerApprovalRoutes(
             userId: principal.userId,
             requestId: c.get('requestContext').requestId,
           });
-        } catch {
+        } catch (error) {
+          if ((error as { code?: string }).code !== 'REPOSITORY_FORBIDDEN') throw error;
           return c.json(
-            { error: { code: 'APPROVAL_UNKNOWN', message: 'Approval not found.', requestId: c.get('requestContext').requestId, retryable: false } },
+            {
+              error: {
+                code: 'APPROVAL_UNKNOWN',
+                message: 'Approval not found.',
+                requestId: c.get('requestContext').requestId,
+                retryable: false,
+              },
+            },
             404,
           );
         }
@@ -120,7 +128,14 @@ export function registerApprovalRoutes(
         );
         if (visible?.repositoryId === undefined) {
           return c.json(
-            { error: { code: 'APPROVAL_UNKNOWN', message: 'Approval was not found.', requestId: c.get('requestContext').requestId, retryable: false } },
+            {
+              error: {
+                code: 'APPROVAL_UNKNOWN',
+                message: 'Approval was not found.',
+                requestId: c.get('requestContext').requestId,
+                retryable: false,
+              },
+            },
             404,
           );
         }
@@ -130,9 +145,17 @@ export function registerApprovalRoutes(
             userId: principal.userId,
             requestId: c.get('requestContext').requestId,
           });
-        } catch {
+        } catch (error) {
+          if ((error as { code?: string }).code !== 'REPOSITORY_FORBIDDEN') throw error;
           return c.json(
-            { error: { code: 'APPROVAL_UNKNOWN', message: 'Approval was not found.', requestId: c.get('requestContext').requestId, retryable: false } },
+            {
+              error: {
+                code: 'APPROVAL_UNKNOWN',
+                message: 'Approval was not found.',
+                requestId: c.get('requestContext').requestId,
+                retryable: false,
+              },
+            },
             404,
           );
         }
@@ -141,13 +164,27 @@ export function registerApprovalRoutes(
       const ifMatch = c.req.header('if-match');
       if (idempotencyKey === undefined || idempotencyKey.trim().length < 8) {
         return c.json(
-          { error: { code: 'IDEMPOTENCY_KEY_REQUIRED', message: 'Idempotency-Key is required.', requestId: c.get('requestContext').requestId, retryable: false } },
+          {
+            error: {
+              code: 'IDEMPOTENCY_KEY_REQUIRED',
+              message: 'Idempotency-Key is required.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
           428,
         );
       }
       if (ifMatch === undefined || !/^\d+$/.test(ifMatch)) {
         return c.json(
-          { error: { code: 'PRECONDITION_REQUIRED', message: 'If-Match (approval version) is required.', requestId: c.get('requestContext').requestId, retryable: false } },
+          {
+            error: {
+              code: 'PRECONDITION_REQUIRED',
+              message: 'If-Match (approval version) is required.',
+              requestId: c.get('requestContext').requestId,
+              retryable: false,
+            },
+          },
           428,
         );
       }

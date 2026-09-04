@@ -178,6 +178,8 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
           store: new PostgresApprovalResumeStore(pool),
           queue: approvalQueue,
           workerId: `worker-${process.pid}`,
+          resumeRun: async (runId) =>
+            (await durableRunTransitions(pool).resumeForApproval?.(runId)) ?? false,
         }
       : undefined,
   );
