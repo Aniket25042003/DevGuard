@@ -1,16 +1,25 @@
 'use client';
 
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { getApiClient } from '@/lib/api/client';
 import type { TimelineEvent } from '@/lib/api/index';
 import { originLabel } from '@/lib/commands';
+import { formatRelativeTime } from '@/lib/time';
 import { queryKeys } from '@/lib/server-state/query-keys';
 import { createTimelineStream, type StreamStatus } from '@/lib/server-state/stream-manager';
-import { Button, PageHeader, StatusBadge } from '@/components/ui/primitives';
+import {
+  Badge,
+  Button,
+  Card,
+  PageHeader,
+  RiskIndicator,
+  SectionHeading,
+  StatusBadge,
+} from '@/components/ui/primitives';
+import { Icon } from '@/components/ui/icons';
 import { buildAppHref } from '@/features/navigation/routes';
 import { ProblemAlert, classifyUiProblem } from '@/features/errors/index';
-import { RiskIndicator } from '@/components/ui/primitives';
 
 export function WorkflowRunDetailPage({
   repositoryId,
@@ -43,126 +52,222 @@ export function WorkflowRunDetailPage({
         ifMatch: String(run.data?.version ?? ''),
         idempotencyKey: `cancel-${runId}`,
       }),
+    onSuccess: async () => {
+      await run.refetch();
+    },
   });
-
   const sessionId = run.data?.sessionId;
+  const status = run.data?.status ?? 'unknown';
+  const terminal = ['completed', 'failed', 'cancelled', 'rejected', 'timed_out'].includes(status);
 
   return (
     <div>
       <PageHeader
-        title="Workflow run"
-        description={`${run.data?.workflowType.replaceAll('_', ' ') ?? runId}`}
+        title={run.data?.workflowType.replaceAll('_', ' ') ?? 'Loading run'}
+        description={
+          run.data
+            ? `Run ${run.data.id} · started ${formatRelativeTime(run.data.createdAt)}`
+            : runId
+        }
         actions={
-          <Button href={buildAppHref({ name: 'repository', repositoryId })} tone="neutral">
-            Back to dashboard
+          <Button
+            href={buildAppHref({ name: 'repository', repositoryId })}
+            tone="ghost"
+            icon="chevron-right"
+          >
+            Back to repository
           </Button>
         }
       />
       {run.isError ? (
         <ProblemAlert problem={classifyUiProblem(run.error)} onRecover={() => void run.refetch()} />
       ) : null}
-      {run.data !== undefined ? (
-        <dl className="mb-6 grid gap-3 sm:grid-cols-2">
-          <Item term="Status" detail={<StatusBadge status={run.data.status} />} />
-          <Item term="Source" detail={originLabel(run.data.trigger.originSurface)} />
-          <Item term="Trigger" detail={run.data.trigger.triggerType} />
-          <Item term="Version" detail={String(run.data.version)} />
-          {run.data.pullRequestNumber !== undefined ? (
-            <Item term="Pull request" detail={`#${run.data.pullRequestNumber}`} />
-          ) : null}
-        </dl>
-      ) : null}
-      {run.data !== undefined &&
-      (run.data.status === 'queued' || run.data.status === 'waiting_for_approval') ? (
-        <div className="mb-6">
-          <Button
-            tone="danger"
-            onClick={() => cancel.mutate()}
-            disabled={cancel.isPending || run.data === undefined}
+      {run.data ? (
+        <>
+          <section
+            className="status-strip mb-6 flex flex-col gap-4 rounded-[var(--radius-lg)] p-5 sm:flex-row sm:items-center sm:justify-between"
+            data-tone={
+              status === 'waiting_for_approval'
+                ? 'warn'
+                : status === 'failed'
+                  ? 'danger'
+                  : status === 'completed'
+                    ? 'ok'
+                    : undefined
+            }
           >
-            {cancel.isPending ? 'Cancelling…' : 'Request cancel'}
-          </Button>
-          {cancel.isError ? <ProblemAlert problem={classifyUiProblem(cancel.error)} /> : null}
-        </div>
+            <div className="flex items-center gap-3">
+              <StatusBadge status={status} />
+              <span className="h-4 w-px bg-[var(--line)]" />
+              <span className="text-sm text-[var(--muted)]">
+                {originLabel(run.data.trigger.originSurface)} · {run.data.trigger.triggerType}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="neutral" icon="shield">
+                Policy checked
+              </Badge>
+              {run.data.pullRequestNumber !== undefined ? (
+                <Badge tone="neutral" icon="repo">
+                  PR #{run.data.pullRequestNumber}
+                </Badge>
+              ) : null}
+              {!terminal && (status === 'queued' || status === 'waiting_for_approval') ? (
+                <Button
+                  tone="danger"
+                  size="sm"
+                  onClick={() => cancel.mutate()}
+                  disabled={cancel.isPending}
+                  loading={cancel.isPending}
+                >
+                  {cancel.isPending ? 'Cancelling' : 'Request cancel'}
+                </Button>
+              ) : null}
+            </div>
+          </section>
+          {cancel.isError ? (
+            <div className="mb-5">
+              <ProblemAlert problem={classifyUiProblem(cancel.error)} />
+            </div>
+          ) : null}
+        </>
       ) : null}
 
-      <h2 className="mb-3 text-lg font-medium">Approvals</h2>
-      {(approvals.data ?? []).length === 0 ? (
-        <p className="mb-6 text-[var(--muted)]">No approvals on this run.</p>
-      ) : (
-        <ul className="mb-6 space-y-2">
-          {(approvals.data ?? []).map((approval) => (
-            <li key={approval.approvalId} className="rounded-md border border-[var(--line)] p-3">
-              <StatusBadge status={approval.state.toLowerCase()} />
-              {approval.riskClass !== undefined ? (
-                <span className="ml-3">
-                  <RiskIndicator risk={approval.riskClass} />
-                </span>
-              ) : null}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)]">
+        <SessionTimeline sessionId={sessionId} runId={runId} />
+        <aside className="space-y-6">
+          <EvidencePanel title="Approvals" icon="shield" count={approvals.data?.length}>
+            {(approvals.data ?? []).length === 0 ? (
               <p className="text-sm text-[var(--muted)]">
-                {approval.reason ?? approval.rationaleSummary}
+                No approval gate has been recorded for this run.
               </p>
-              <a
-                className="inline-flex min-h-11 items-center underline"
-                href={buildAppHref({ name: 'approvals' })}
-              >
-                Open approval center
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <SessionTimeline sessionId={sessionId} />
-
-      <h2 className="mb-3 mt-8 text-lg font-medium">Artifacts</h2>
-      {(artifacts.data ?? []).length === 0 ? (
-        <p className="text-[var(--muted)]">No SAFE artifacts listed for this run.</p>
-      ) : (
-        <ul className="space-y-2">
-          {(artifacts.data ?? []).map((artifact) => (
-            <li key={artifact.id} className="rounded-md border border-[var(--line)] p-3">
-              <p className="font-medium">{artifact.path ?? artifact.id}</p>
+            ) : (
+              <ul className="space-y-3">
+                {(approvals.data ?? []).map((approval) => (
+                  <li
+                    key={approval.approvalId}
+                    className="border-t border-[var(--line)] pt-3 first:border-0 first:pt-0"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge status={approval.state.toLowerCase()} />
+                      {approval.riskClass ? <RiskIndicator risk={approval.riskClass} /> : null}
+                    </div>
+                    <p className="mt-2 text-sm font-semibold">
+                      {approval.actionType ?? 'Privileged action'}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
+                      {approval.reason ??
+                        approval.rationaleSummary ??
+                        'Server-provided rationale is shown when present.'}
+                    </p>
+                    <LinkToApprovals />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </EvidencePanel>
+          <EvidencePanel title="Artifacts" icon="repo" count={artifacts.data?.length}>
+            {(artifacts.data ?? []).length === 0 ? (
               <p className="text-sm text-[var(--muted)]">
-                Scan state SAFE
-                {artifact.sizeBytes !== undefined ? ` · ${artifact.sizeBytes} bytes` : ''}
+                No safe artifacts have been published yet.
               </p>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <h2 className="mb-3 mt-8 text-lg font-medium">Findings</h2>
-      {(findings.data ?? []).length === 0 ? (
-        <p className="text-[var(--muted)]">
-          No normalized findings for this run. That is not a clean scan unless a scan completed.
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {(findings.data ?? []).map((finding) => (
-            <li key={finding.id} className="rounded-md border border-[var(--line)] p-3">
-              <p className="font-medium">
-                {finding.rule ?? finding.id} · {finding.severity} · {finding.status}
+            ) : (
+              <ul className="space-y-3">
+                {(artifacts.data ?? []).map((artifact) => (
+                  <li
+                    key={artifact.id}
+                    className="flex items-start gap-3 border-t border-[var(--line)] pt-3 first:border-0 first:pt-0"
+                  >
+                    <Icon name="code" size={16} className="mt-0.5 text-[var(--accent)]" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">
+                        {artifact.path ?? artifact.id}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--muted)]">
+                        Safe to retrieve
+                        {artifact.sizeBytes !== undefined ? ` · ${artifact.sizeBytes} bytes` : ''}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </EvidencePanel>
+          <EvidencePanel title="Findings" icon="alert" count={findings.data?.length}>
+            {(findings.data ?? []).length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">
+                No normalized findings recorded yet. This is not a clean scan unless verification
+                completed.
               </p>
-            </li>
-          ))}
-        </ul>
-      )}
+            ) : (
+              <ul className="space-y-3">
+                {(findings.data ?? []).map((finding) => (
+                  <li
+                    key={finding.id}
+                    className="border-t border-[var(--line)] pt-3 first:border-0 first:pt-0"
+                  >
+                    <p className="text-sm font-semibold">{finding.rule ?? finding.id}</p>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      {finding.severity} · {finding.status}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </EvidencePanel>
+        </aside>
+      </div>
     </div>
   );
 }
 
-function Item({ term, detail }: { readonly term: string; readonly detail: ReactNode }): ReactNode {
+function LinkToApprovals(): ReactNode {
   return (
-    <div>
-      <dt className="text-sm text-[var(--muted)]">{term}</dt>
-      <dd>{detail}</dd>
-    </div>
+    <a
+      className="mt-2 inline-flex min-h-10 items-center gap-1 text-xs font-bold text-[var(--accent)] hover:underline"
+      href={buildAppHref({ name: 'approvals' })}
+    >
+      Open approval center <Icon name="arrow-up-right" size={13} />
+    </a>
   );
 }
 
-function SessionTimeline({ sessionId }: { readonly sessionId: string | undefined }): ReactNode {
+function EvidencePanel({
+  title,
+  icon,
+  count,
+  children,
+}: {
+  readonly title: string;
+  readonly icon: 'shield' | 'repo' | 'alert';
+  readonly count?: number | undefined;
+  readonly children: ReactNode;
+}): ReactNode {
+  return (
+    <Card className="p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Icon name={icon} size={16} className="text-[var(--accent)]" />
+          <h2 className="text-sm font-bold">{title}</h2>
+        </div>
+        {count !== undefined ? (
+          <span className="text-xs tabular-nums text-[var(--subtle)]">{count}</span>
+        ) : null}
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+function SessionTimeline({
+  sessionId,
+  runId,
+}: {
+  readonly sessionId: string | undefined;
+  readonly runId: string;
+}): ReactNode {
   const client = getApiClient();
+  const queryClient = useQueryClient();
   const snapshot = useQuery({
     queryKey:
       sessionId !== undefined ? queryKeys.session.events(sessionId) : ['sessionEvents', 'none'],
@@ -171,7 +276,7 @@ function SessionTimeline({ sessionId }: { readonly sessionId: string | undefined
   });
   const [liveEvents, setLiveEvents] = useState<readonly TimelineEvent[]>([]);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>('idle');
-
+  const eventCountRef = useRef(0);
   useEffect(() => {
     if (sessionId === undefined) return;
     const controller = new AbortController();
@@ -181,6 +286,38 @@ function SessionTimeline({ sessionId }: { readonly sessionId: string | undefined
       onState: (state) => {
         setLiveEvents(state.events);
         setStreamStatus(state.status);
+        if (state.events.length === eventCountRef.current) return;
+        eventCountRef.current = state.events.length;
+        const latest = state.events[state.events.length - 1];
+        if (latest !== undefined) {
+          const kind = latest.eventType.toLowerCase();
+          const queries: Promise<unknown>[] = [];
+          if (
+            kind.startsWith('run.') ||
+            kind.startsWith('workflow.') ||
+            kind.startsWith('session.')
+          ) {
+            queries.push(
+              queryClient.invalidateQueries({ queryKey: queryKeys.workflows.detail(runId) }),
+            );
+          }
+          if (kind.startsWith('approval.') || kind.includes('approval')) {
+            queries.push(
+              queryClient.invalidateQueries({ queryKey: queryKeys.approvals.forRun(runId) }),
+            );
+          }
+          if (kind.startsWith('artifact.') || kind.includes('artifact')) {
+            queries.push(
+              queryClient.invalidateQueries({ queryKey: queryKeys.artifacts.forRun(runId) }),
+            );
+          }
+          if (kind.startsWith('finding.') || kind.includes('finding')) {
+            queries.push(
+              queryClient.invalidateQueries({ queryKey: queryKeys.findings.forRun(runId) }),
+            );
+          }
+          void Promise.all(queries);
+        }
       },
       pollFallback: () => client.sessions.listEvents(sessionId, { signal: controller.signal }),
     });
@@ -188,55 +325,96 @@ function SessionTimeline({ sessionId }: { readonly sessionId: string | undefined
       handle.stop();
       controller.abort();
     };
-  }, [client, sessionId]);
-
+  }, [client, queryClient, runId, sessionId]);
   const events = liveEvents.length > 0 ? liveEvents : (snapshot.data ?? []);
-
+  const streamLabel =
+    streamStatus === 'live'
+      ? 'Live'
+      : streamStatus === 'connecting'
+        ? 'Connecting'
+        : streamStatus === 'reconnecting'
+          ? 'Reconnecting'
+          : streamStatus === 'gap'
+            ? 'Reconciling gap'
+            : streamStatus === 'stopped'
+              ? 'Stopped'
+              : 'Idle';
   return (
     <section>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-medium">Timeline</h2>
-        <StatusBadge
-          status={
-            streamStatus === 'live' ? 'ready' : streamStatus === 'stopped' ? 'failed' : 'unknown'
-          }
-          label={streamLabel(streamStatus)}
-        />
-      </div>
-      {sessionId === undefined ? (
-        <p className="text-[var(--muted)]">
-          This run has no session id yet. Timeline appears when the worker attaches a session.
-        </p>
-      ) : snapshot.isError ? (
-        <ProblemAlert
-          problem={classifyUiProblem(snapshot.error)}
-          onRecover={() => void snapshot.refetch()}
-        />
-      ) : events.length === 0 ? (
-        <p className="text-[var(--muted)]">No timeline events yet.</p>
-      ) : (
-        <ol className="space-y-3">
-          {events.map((event) => (
-            <li
-              key={event.eventId ?? `${event.eventType}-${event.sequenceNumber}`}
-              className="rounded-md border border-[var(--line)] p-3"
-            >
-              <p className="font-medium">{event.eventType}</p>
-              <p>{event.summary}</p>
-              <p className="text-sm text-[var(--muted)]">Sequence {event.sequenceNumber}</p>
-            </li>
-          ))}
-        </ol>
-      )}
+      <SectionHeading
+        title="Execution trace"
+        description="Immutable events from the governed run."
+        action={
+          <StatusBadge
+            status={
+              streamStatus === 'live' ? 'ready' : streamStatus === 'stopped' ? 'failed' : 'unknown'
+            }
+            label={streamLabel}
+          />
+        }
+      />
+      <Card className="p-5 sm:p-6">
+        {sessionId === undefined ? (
+          <div className="status-strip rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <Icon name="clock" size={17} className="mt-0.5 text-[var(--warn)]" />
+              <div>
+                <p className="text-sm font-semibold">Session not attached yet</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  The run is durable, but the worker has not attached an agent session. Timeline
+                  events will appear here when execution is available.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : snapshot.isError ? (
+          <ProblemAlert
+            problem={classifyUiProblem(snapshot.error)}
+            onRecover={() => void snapshot.refetch()}
+          />
+        ) : events.length === 0 ? (
+          <div className="py-10 text-center">
+            <Icon name="activity" size={24} className="mx-auto text-[var(--subtle)]" />
+            <p className="mt-3 text-sm text-[var(--muted)]">
+              Waiting for the first execution event…
+            </p>
+          </div>
+        ) : (
+          <ol className="timeline-rail space-y-0">
+            {events.map((event) => (
+              <li
+                key={event.eventId ?? `${event.eventType}-${event.sequenceNumber}`}
+                className="relative flex gap-4 pb-6 last:pb-0"
+              >
+                <span
+                  className={`timeline-node ${eventStatusClass(event)}`}
+                  data-status={eventStatusClass(event)}
+                  aria-hidden="true"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-sm font-bold">{event.eventType}</p>
+                    <span className="font-mono text-[0.6875rem] text-[var(--subtle)]">
+                      #{event.sequenceNumber}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-[var(--muted)]">{event.summary}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
     </section>
   );
 }
 
-function streamLabel(status: StreamStatus): string {
-  if (status === 'live') return 'Live';
-  if (status === 'connecting') return 'Connecting';
-  if (status === 'reconnecting') return 'Reconnecting';
-  if (status === 'gap') return 'Reconciling gap';
-  if (status === 'stopped') return 'Stopped';
-  return 'Idle';
+function eventStatusClass(event: TimelineEvent): 'active' | 'success' | 'warning' | 'danger' | '' {
+  const kind = event.eventType.toLowerCase();
+  if (kind.includes('fail') || kind.includes('deny') || kind.includes('error')) return 'danger';
+  if (kind.includes('approval') || kind.includes('wait')) return 'warning';
+  if (kind.includes('complete') || kind.includes('verified') || kind.includes('success'))
+    return 'success';
+  if (kind.includes('start') || kind.includes('run') || kind.includes('sandbox')) return 'active';
+  return '';
 }

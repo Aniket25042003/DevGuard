@@ -60,6 +60,8 @@ export function WorkflowLauncherPage({
   const [manualFindings, setManualFindings] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const idempotencyRef = useRef<string | undefined>(undefined);
+  const reviewRef = useRef<HTMLDivElement>(null);
+  const launchOpenerRef = useRef<HTMLElement | null>(null);
   const prSearch = useDebouncedSearch();
   const issueSearch = useDebouncedSearch();
   const refSearch = useDebouncedSearch();
@@ -112,6 +114,43 @@ export function WorkflowLauncherPage({
     },
   });
 
+  useEffect(() => {
+    if (!confirming) return;
+    launchOpenerRef.current = document.activeElement as HTMLElement | null;
+    const dialog = reviewRef.current;
+    const focusable = () =>
+      Array.from(
+        dialog?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+    const firstButton = reviewRef.current?.querySelector(
+      'button:not([disabled])',
+    ) as HTMLButtonElement | null;
+    firstButton?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !launch.isPending) setConfirming(false);
+      if (event.key !== 'Tab') return;
+      const elements = focusable();
+      if (!elements.length) return;
+      if (event.shiftKey && document.activeElement === elements[0]) {
+        event.preventDefault();
+        elements.at(-1)?.focus();
+      } else if (!event.shiftKey && document.activeElement === elements.at(-1)) {
+        event.preventDefault();
+        elements[0]?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [confirming, launch.isPending]);
+
+  useEffect(() => {
+    if (confirming) return;
+    launchOpenerRef.current?.focus();
+    launchOpenerRef.current = null;
+  }, [confirming]);
+
   const prItems: Array<{ readonly key: string; readonly pr: PullRequestSummary }> = (
     pullRequests.data ?? []
   ).map((pr) => ({
@@ -148,7 +187,7 @@ export function WorkflowLauncherPage({
           onRecover={() => void commands.refetch()}
         />
       ) : null}
-      <ul className="mb-6 grid gap-3">
+      <ul className="mb-6 grid gap-3" role="group" aria-label="Workflow type">
         {COMMAND_BUTTONS.map((command) => {
           const enabled = advertised.has(command.commandId);
           if (
@@ -168,6 +207,7 @@ export function WorkflowLauncherPage({
             <li key={command.commandId}>
               <button
                 type="button"
+                aria-pressed={selected === command.commandId}
                 disabled={!enabled && commands.data !== undefined}
                 onClick={() => setSelected(command.commandId)}
                 className={`w-full rounded-[var(--radius-lg)] border px-4 py-3.5 text-left transition ${
@@ -397,30 +437,44 @@ export function WorkflowLauncherPage({
       </form>
       {confirming ? (
         <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="launch-review-title"
-          className="mt-6 rounded-lg border border-[var(--line)] bg-[var(--bg-elevated)] p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !launch.isPending) setConfirming(false);
+          }}
         >
-          <h2 id="launch-review-title" className="text-lg font-medium">
-            Confirm launch
-          </h2>
-          <p className="mt-2">
-            Repository <strong>{repository.data?.fullName ?? repositoryId}</strong> · command{' '}
-            <strong>{selected}</strong> · origin <strong>web</strong>.
-          </p>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            A 202 means the run is queued, not completed. The same idempotency key is reused if this
-            click retries.
-          </p>
-          {launch.isError ? <ProblemAlert problem={classifyUiProblem(launch.error)} /> : null}
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Button onClick={() => launch.mutate()} disabled={launch.isPending}>
-              {launch.isPending ? 'Submitting…' : 'Launch'}
-            </Button>
-            <Button tone="neutral" onClick={() => setConfirming(false)} disabled={launch.isPending}>
-              Cancel
-            </Button>
+          <div
+            ref={reviewRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="launch-review-title"
+            className="w-full max-w-lg rounded-[var(--radius-lg)] border border-[var(--line-strong)] bg-[var(--bg-elevated)] p-6 shadow-[var(--shadow-md)]"
+          >
+            <h2 id="launch-review-title" className="text-lg font-medium">
+              Confirm launch
+            </h2>
+            <p className="mt-2">
+              Repository <strong>{repository.data?.fullName ?? repositoryId}</strong> · command{' '}
+              <strong>{selected}</strong> · origin <strong>web</strong>.
+            </p>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              A 202 means the run is queued, not completed. The same idempotency key is reused if
+              this click retries.
+            </p>
+            {launch.isError ? <ProblemAlert problem={classifyUiProblem(launch.error)} /> : null}
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Button
+                onClick={() => launch.mutate()}
+                disabled={launch.isPending}
+                loading={launch.isPending}
+                icon="play"
+              >
+                {launch.isPending ? 'Submitting' : 'Launch'}
+              </Button>
+              <Button tone="ghost" onClick={() => setConfirming(false)} disabled={launch.isPending}>
+                Cancel
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}

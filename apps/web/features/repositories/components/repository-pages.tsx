@@ -6,7 +6,8 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { getApiClient } from '@/lib/api/client';
 import { newIdempotencyKey } from '@/lib/commands';
 import { queryKeys } from '@/lib/server-state/query-keys';
-import { Button, Card, EmptyState, PageHeader } from '@/components/ui/primitives';
+import { Badge, Button, Card, EmptyState, PageHeader, Skeleton } from '@/components/ui/primitives';
+import { Icon } from '@/components/ui/icons';
 import { buildAppHref } from '@/features/navigation/routes';
 import { ProblemAlert, classifyUiProblem } from '@/features/errors/index';
 import type { RepositorySummary } from '@/lib/api/client';
@@ -22,12 +23,19 @@ export function RepositoryIndexPage(): ReactNode {
     <div>
       <PageHeader
         title="Repositories"
-        description="Select a connected repository. Access is decided by the API, not by this list."
+        description="Choose a governed repository. Access and policy posture are decided by the API, not by this list."
         actions={
-          <Button href={buildAppHref({ name: 'connectRepository' })}>Connect repository</Button>
+          <Button href={buildAppHref({ name: 'connectRepository' })} icon="plus">
+            Connect repository
+          </Button>
         }
       />
-      {repos.isLoading ? <p role="status">Loading repositories…</p> : null}
+      {repos.isLoading ? (
+        <div className="space-y-3" role="status">
+          <Skeleton className="h-20" />
+          <Skeleton className="h-20" />
+        </div>
+      ) : null}
       {repos.isError ? (
         <ProblemAlert
           problem={classifyUiProblem(repos.error)}
@@ -48,14 +56,31 @@ export function RepositoryIndexPage(): ReactNode {
             <li key={repo.id}>
               <a
                 href={buildAppHref({ name: 'repository', repositoryId: repo.id })}
-                className="group surface-soft block rounded-[var(--radius-lg)] px-5 py-4 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]"
+                className="group surface-soft flex items-center justify-between gap-4 rounded-[var(--radius-lg)] px-5 py-4 transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
               >
-                <span className="font-medium group-hover:text-[var(--accent)]">
-                  {repo.fullName ?? repo.name}
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-muted)] text-[var(--accent)]">
+                    <Icon name="repo" size={17} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold group-hover:text-[var(--accent)]">
+                      {repo.fullName ?? repo.name}
+                    </span>
+                    <span className="mt-1 block text-xs text-[var(--muted)]">
+                      {repo.defaultBranch
+                        ? `Default branch: ${repo.defaultBranch}`
+                        : 'Repository access granted'}
+                    </span>
+                  </span>
                 </span>
-                {repo.status !== undefined ? (
-                  <span className="ml-2 text-sm text-[var(--muted)]">{repo.status}</span>
-                ) : null}
+                <span className="flex shrink-0 items-center gap-2">
+                  {repo.status !== undefined ? (
+                    <Badge tone={repo.status === 'connected' ? 'ok' : 'neutral'}>
+                      {repo.status}
+                    </Badge>
+                  ) : null}
+                  <Icon name="chevron-right" size={16} className="text-[var(--subtle)]" />
+                </span>
               </a>
             </li>
           ))}

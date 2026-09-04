@@ -12,6 +12,7 @@ import {
 import { queryKeys } from '@/lib/server-state/query-keys';
 import { ProblemAlert, classifyUiProblem } from '@/features/errors/index';
 import { Button } from '@/components/ui/primitives';
+export { formatRelativeTime } from '@/lib/time';
 
 export function TargetPicker<T extends { readonly key: string }>({
   label,
@@ -50,19 +51,24 @@ export function TargetPicker<T extends { readonly key: string }>({
         {isLoading ? <span className="text-sm text-[var(--muted)]">Loading…</span> : null}
       </div>
       {onSearchChange !== undefined ? (
-        <input
-          id={searchId}
-          value={searchValue ?? ''}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder={searchPlaceholder ?? 'Search…'}
-          className="mb-3 min-h-11 w-full rounded-md border border-[var(--line)] bg-[var(--bg-elevated)] px-3"
-        />
+        <>
+          <label htmlFor={searchId} className="sr-only">
+            Search {label}
+          </label>
+          <input
+            id={searchId}
+            value={searchValue ?? ''}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={searchPlaceholder ?? 'Search…'}
+            className="mb-3 min-h-11 w-full rounded-md border border-[var(--line)] bg-[var(--bg-elevated)] px-3"
+          />
+        </>
       ) : null}
       {isError ? <ProblemAlert problem={classifyUiProblem(error)} onRecover={onRecover} /> : null}
       {!isLoading && !isError && items.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">{emptyMessage}</p>
       ) : null}
-      <ul className="max-h-72 space-y-2 overflow-y-auto">
+      <ul className="scroll-shadow max-h-72 space-y-2 overflow-y-auto" aria-label={label}>
         {items.map((item) => {
           const selected = item.key === selectedKey;
           return (
@@ -81,12 +87,6 @@ export function TargetPicker<T extends { readonly key: string }>({
       </ul>
     </div>
   );
-}
-
-export function formatRelativeTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString();
 }
 
 export function ManualEntryToggle({

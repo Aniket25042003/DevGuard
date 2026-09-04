@@ -8,7 +8,7 @@ import { queryKeys } from '@/lib/server-state/query-keys';
 import { Button, Card } from '@/components/ui/primitives';
 import { buildAppHref } from '@/features/navigation/routes';
 import { ProblemAlert, classifyUiProblem } from '@/features/errors/index';
-import { formatRelativeTime } from '@/features/workflow-launcher/components/target-picker';
+import { formatRelativeTime } from '@/lib/time';
 
 export function RepositoryLaunchTargets({
   repositoryId,
