@@ -6,7 +6,7 @@
  */
 import type { RateLimiterPort } from './kernel.js';
 import { RATE_LIMITS, type RateLimitClass } from './kernel.js';
-import { Redis } from 'ioredis';
+import type { Redis } from 'ioredis';
 
 interface Bucket {
   readonly windowStart: number;
