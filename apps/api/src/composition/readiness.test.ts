@@ -159,7 +159,9 @@ const durableOverrides: Partial<CompositionBindings> = {
 
 describe('validateReadiness matrix (CP002 §22)', () => {
   it('refuses volatile default bindings in production', () => {
-    const container = buildContainer(snapshot('production', { withDatabase: false }), { ...ENV_NO_DB });
+    const container = buildContainer(snapshot('production', { withDatabase: false }), {
+      ...ENV_NO_DB,
+    });
     expect(() => validateReadiness(container.config, container.bindings)).toThrow();
   });
 
@@ -178,7 +180,9 @@ describe('validateReadiness matrix (CP002 §22)', () => {
   });
 
   it('refuses volatile bindings in development by default (fail closed)', () => {
-    const container = buildContainer(snapshot('development', { withDatabase: false }), { ...ENV_NO_DB });
+    const container = buildContainer(snapshot('development', { withDatabase: false }), {
+      ...ENV_NO_DB,
+    });
     expect(() => validateReadiness(container.config, container.bindings)).toThrow();
   });
 
@@ -190,7 +194,9 @@ describe('validateReadiness matrix (CP002 §22)', () => {
   });
 
   it('ignores the development escape in production (flag cannot weaken prod)', () => {
-    const container = buildContainer(snapshot('production', { withDatabase: false }), { ...ENV_NO_DB });
+    const container = buildContainer(snapshot('production', { withDatabase: false }), {
+      ...ENV_NO_DB,
+    });
     expect(() =>
       validateReadiness(container.config, container.bindings, { allowVolatileDevelopment: true }),
     ).toThrow();

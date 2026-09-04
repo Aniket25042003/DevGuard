@@ -34,20 +34,29 @@ export function SignInPage(): ReactNode {
             Welcome back
           </h1>
           <p className="mt-2 text-[var(--muted)]">
-            Sign in with GitHub to access your governed workspace. Sessions are HttpOnly cookies — no
-            personal access tokens required.
+            Sign in with GitHub to access your governed workspace. Sessions are HttpOnly cookies —
+            no personal access tokens required.
           </p>
           <ul className="mt-6 space-y-3 text-sm text-[var(--muted)]">
             <li className="flex gap-3">
-              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />
+              <span
+                className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]"
+                aria-hidden="true"
+              />
               Identity sign-in is separate from GitHub App repository access
             </li>
             <li className="flex gap-3">
-              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />
+              <span
+                className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]"
+                aria-hidden="true"
+              />
               Privileged actions require in-product approval
             </li>
             <li className="flex gap-3">
-              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />
+              <span
+                className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--accent)]"
+                aria-hidden="true"
+              />
               Agent code runs in sandboxed workspaces, not on the host
             </li>
           </ul>
@@ -165,8 +174,8 @@ export function GitHubConnectionPage(): ReactNode {
             GitHub connection
           </h1>
           <p className="mt-2 text-[var(--muted)]">
-            Installations and repository grants are recorded by the API. This page does not talk to GitHub
-            directly.
+            Installations and repository grants are recorded by the API. This page does not talk to
+            GitHub directly.
           </p>
         </div>
         <Button tone="neutral" onClick={() => logout.mutate()} disabled={logout.isPending}>
@@ -199,7 +208,8 @@ export function GitHubConnectionPage(): ReactNode {
           </div>
           <p className="mt-4 text-sm text-[var(--muted)]">
             After installing on GitHub, use Link existing installation and paste either the
-            installation ID or the full GitHub settings URL. For automatic redirect after install, set your GitHub App setup URL to{' '}
+            installation ID or the full GitHub settings URL. For automatic redirect after install,
+            set your GitHub App setup URL to{' '}
             <code className="rounded bg-[var(--bg-muted)] px-1.5 py-0.5">
               https://devguard-olive.vercel.app/settings/github/setup
             </code>
@@ -265,7 +275,10 @@ export function GitHubConnectionPage(): ReactNode {
       ) : (
         <ul className="mt-3 space-y-2">
           {(repos.data ?? []).map((repo) => (
-            <li key={repo.id} className="rounded-lg border border-[var(--line)] bg-[var(--bg-muted)] px-4 py-2">
+            <li
+              key={repo.id}
+              className="rounded-lg border border-[var(--line)] bg-[var(--bg-muted)] px-4 py-2"
+            >
               {repo.fullName ?? repo.name}
             </li>
           ))}

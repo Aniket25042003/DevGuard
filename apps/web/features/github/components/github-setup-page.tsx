@@ -74,7 +74,10 @@ export function GitHubSetupPage(): ReactNode {
         {manualInput.trim().length > 0 && parsedManualId === undefined ? (
           <p className="mt-2 text-sm text-[var(--danger)]" role="alert">
             Enter a numeric installation ID or a GitHub settings URL that ends with{' '}
-            <code className="rounded bg-[var(--bg-muted)] px-1 py-0.5">/installations/12345678</code>.
+            <code className="rounded bg-[var(--bg-muted)] px-1 py-0.5">
+              /installations/12345678
+            </code>
+            .
           </p>
         ) : parsedManualId !== undefined ? (
           <p className="mt-2 text-sm text-[var(--muted)]">

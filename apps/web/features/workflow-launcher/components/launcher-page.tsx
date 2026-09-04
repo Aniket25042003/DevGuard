@@ -3,7 +3,13 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { getApiClient, type GitRefSummary, type IssueSummary, type PullRequestSummary, type RepositoryFindingSummary } from '@/lib/api/client';
+import {
+  getApiClient,
+  type GitRefSummary,
+  type IssueSummary,
+  type PullRequestSummary,
+  type RepositoryFindingSummary,
+} from '@/lib/api/client';
 import { COMMAND_BUTTONS, newIdempotencyKey } from '@/lib/commands';
 import { queryKeys } from '@/lib/server-state/query-keys';
 import { Button, PageHeader } from '@/components/ui/primitives';
@@ -41,9 +47,7 @@ export function WorkflowLauncherPage({
   const initialPr = searchParams.get('pr');
   const initialIssue = searchParams.get('issue');
   const [selected, setSelected] = useState<string>(
-    initialCommand !== null && initialCommand.length > 0
-      ? initialCommand
-      : 'review_remediation',
+    initialCommand !== null && initialCommand.length > 0 ? initialCommand : 'review_remediation',
   );
   const [prNumber, setPrNumber] = useState(initialPr ?? '');
   const [issueNumber, setIssueNumber] = useState(initialIssue ?? '');
@@ -126,12 +130,11 @@ export function WorkflowLauncherPage({
     key: ref.name,
     ref,
   }));
-  const findingItems: Array<{ readonly key: string; readonly finding: RepositoryFindingSummary }> = (
-    findings.data ?? []
-  ).map((finding) => ({
-    key: finding.id,
-    finding,
-  }));
+  const findingItems: Array<{ readonly key: string; readonly finding: RepositoryFindingSummary }> =
+    (findings.data ?? []).map((finding) => ({
+      key: finding.id,
+      finding,
+    }));
 
   return (
     <div className="max-w-3xl">
@@ -273,9 +276,7 @@ export function WorkflowLauncherPage({
                     </span>
                     <span className="mt-1 block text-sm text-[var(--muted)]">
                       {item.issue.authorLogin} · {formatRelativeTime(item.issue.updatedAt)}
-                      {item.issue.labels.length > 0
-                        ? ` · ${item.issue.labels.join(', ')}`
-                        : null}
+                      {item.issue.labels.length > 0 ? ` · ${item.issue.labels.join(', ')}` : null}
                     </span>
                   </>
                 )}
@@ -387,7 +388,10 @@ export function WorkflowLauncherPage({
             </ManualEntryToggle>
           </div>
         ) : null}
-        <Button type="submit" disabled={!canSubmit(selected, { prNumber, issueNumber, findingIds })}>
+        <Button
+          type="submit"
+          disabled={!canSubmit(selected, { prNumber, issueNumber, findingIds })}
+        >
           Review before launch
         </Button>
       </form>
@@ -426,7 +430,11 @@ export function WorkflowLauncherPage({
 
 function canSubmit(
   commandId: string,
-  fields: { readonly prNumber: string; readonly issueNumber: string; readonly findingIds: readonly string[] },
+  fields: {
+    readonly prNumber: string;
+    readonly issueNumber: string;
+    readonly findingIds: readonly string[];
+  },
 ): boolean {
   if (commandId === 'review_remediation' || commandId === 'diagnose_failure') {
     return /^\d+$/.test(fields.prNumber);

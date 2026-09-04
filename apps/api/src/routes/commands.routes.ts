@@ -53,9 +53,7 @@ export function registerRepositoryCommandRoutes(
         (await container.bindings.repositoryCatalog.findById?.(repositoryId)) ?? null;
       const allowed = await container.bindings.manualCommands.resolve({
         repositoryId,
-        ...(repo !== null && repo !== undefined
-          ? { owner: repo.owner, name: repo.name }
-          : {}),
+        ...(repo !== null && repo !== undefined ? { owner: repo.owner, name: repo.name } : {}),
       });
       const commands = container.commandBus
         .listAvailable()
@@ -98,9 +96,7 @@ export function registerRepositoryCommandRoutes(
         (await container.bindings.repositoryCatalog.findById?.(repositoryId)) ?? null;
       const allowed = await container.bindings.manualCommands.resolve({
         repositoryId,
-        ...(repo !== null && repo !== undefined
-          ? { owner: repo.owner, name: repo.name }
-          : {}),
+        ...(repo !== null && repo !== undefined ? { owner: repo.owner, name: repo.name } : {}),
       });
       let workflowId: ReturnType<typeof normalizeCommandId>;
       try {

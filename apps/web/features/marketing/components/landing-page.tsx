@@ -87,11 +87,14 @@ export function LandingPage(): ReactNode {
               aria-label="Example workflow run"
             >
               <p className="text-[var(--muted)]">
-                <span className="text-[var(--accent)]">$</span> devguard run review_remediation --pr 142
+                <span className="text-[var(--accent)]">$</span> devguard run review_remediation --pr
+                142
               </p>
               <p className="mt-3 text-[var(--muted)]">policy: autonomy=supervised · risk=write</p>
               <p className="mt-1">queued → running → waiting_for_approval</p>
-              <p className="mt-3 text-[var(--warn)]">approval required: push to feature/auth-refactor</p>
+              <p className="mt-3 text-[var(--warn)]">
+                approval required: push to feature/auth-refactor
+              </p>
               <p className="mt-3 text-[var(--ok)]">approved · run completed in 4m 12s</p>
             </aside>
           </div>
@@ -102,7 +105,10 @@ export function LandingPage(): ReactNode {
               { term: 'Identity', detail: 'GitHub OAuth' },
               { term: 'Governance', detail: 'Policy + approvals' },
             ].map((item) => (
-              <div key={item.term} className="surface-soft rounded-[var(--radius-lg)] px-5 py-4 text-center">
+              <div
+                key={item.term}
+                className="surface-soft rounded-[var(--radius-lg)] px-5 py-4 text-center"
+              >
                 <dt className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">
                   {item.term}
                 </dt>
@@ -169,7 +175,8 @@ export function LandingPage(): ReactNode {
                   Ready to try DevGuard?
                 </h2>
                 <p className="mt-2 max-w-xl text-[var(--muted)]">
-                  Connect GitHub, onboard a repository, and launch your first governed workflow today.
+                  Connect GitHub, onboard a repository, and launch your first governed workflow
+                  today.
                 </p>
               </div>
               <Button href={SIGN_IN} size="lg">

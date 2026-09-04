@@ -75,7 +75,7 @@ export async function runMigrations(
 
       const applied = (
         await client.query<AppliedRow>(
-          'SELECT version::text AS version, name, checksum FROM schema_migrations ORDER BY version',
+          'SELECT version::text AS version, name, checksum FROM schema_migrations ORDER BY version::bigint',
         )
       ).rows;
       const failures = await client.query<{ version: string }>(

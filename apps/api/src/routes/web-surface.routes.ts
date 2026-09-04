@@ -16,8 +16,14 @@ import { IDEMPOTENCY_KEY_HEADER, idempotencyKeySchema } from '@devguard/api-cont
 import type { RegisterV1Route, RouteMetadata } from '../transport/kernel.js';
 import type { ApiContainer } from '../composition/container.js';
 import type { ApprovalPort, ApprovalProjection } from './approval.routes.js';
-import type { RepositoryLifecycleService, RepositoryMetadataHealthService } from '@devguard/github-adapter';
-import { completeGitHubInstallationSetup, refreshGitHubInstallationSnapshot } from '../composition/github-installation-setup.js';
+import type {
+  RepositoryLifecycleService,
+  RepositoryMetadataHealthService,
+} from '@devguard/github-adapter';
+import {
+  completeGitHubInstallationSetup,
+  refreshGitHubInstallationSnapshot,
+} from '../composition/github-installation-setup.js';
 import { listGitHubInstallationRepositories } from '../composition/github-installation-repositories.js';
 
 const repoRead: RouteMetadata = {
@@ -39,8 +45,7 @@ export function registerWebSurfaceRoutes(
   approvals: ApprovalPort,
 ): void {
   const pool = container.pool;
-  const lifecycle: RepositoryLifecycleService | undefined =
-    container.repositoryServices?.lifecycle;
+  const lifecycle: RepositoryLifecycleService | undefined = container.repositoryServices?.lifecycle;
   const metadataHealth: RepositoryMetadataHealthService | undefined =
     container.repositoryServices?.metadataHealth;
   const repoStore = pool === undefined ? undefined : new ConnectedRepositoryStore(pool);
@@ -341,8 +346,7 @@ export function registerWebSurfaceRoutes(
     async (c) => {
       const principal = c.get('requestContext').principal!;
       const body = (await c.req.json().catch(() => undefined)) as
-        | { githubInstallationId?: unknown }
-        | undefined;
+        { githubInstallationId?: unknown } | undefined;
       if (
         typeof body?.githubInstallationId !== 'string' ||
         !/^\d{1,20}$/.test(body.githubInstallationId)

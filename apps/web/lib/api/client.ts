@@ -791,7 +791,11 @@ export class DevGuardApiClient {
     pullRequests: (
       repositoryId: string,
       options: RequestOptions,
-      filters?: { readonly state?: 'open' | 'closed' | 'all'; readonly q?: string; readonly limit?: number },
+      filters?: {
+        readonly state?: 'open' | 'closed' | 'all';
+        readonly q?: string;
+        readonly limit?: number;
+      },
     ): Promise<readonly PullRequestSummary[]> =>
       this.requestJson(
         'GET',
@@ -825,7 +829,11 @@ export class DevGuardApiClient {
     issues: (
       repositoryId: string,
       options: RequestOptions,
-      filters?: { readonly state?: 'open' | 'closed' | 'all'; readonly q?: string; readonly limit?: number },
+      filters?: {
+        readonly state?: 'open' | 'closed' | 'all';
+        readonly q?: string;
+        readonly limit?: number;
+      },
     ): Promise<readonly IssueSummary[]> =>
       this.requestJson('GET', `/repositories/${encodeURIComponent(repositoryId)}/github/issues`, {
         options,
@@ -879,28 +887,32 @@ export class DevGuardApiClient {
       options: RequestOptions,
       filters?: { readonly status?: 'open' | 'confirmed' | 'all'; readonly limit?: number },
     ): Promise<readonly RepositoryFindingSummary[]> =>
-      this.requestJson('GET', `/repositories/${encodeURIComponent(repositoryId)}/security-findings`, {
-        options,
-        query: {
-          status: filters?.status,
-          limit: filters?.limit !== undefined ? String(filters.limit) : undefined,
+      this.requestJson(
+        'GET',
+        `/repositories/${encodeURIComponent(repositoryId)}/security-findings`,
+        {
+          options,
+          query: {
+            status: filters?.status,
+            limit: filters?.limit !== undefined ? String(filters.limit) : undefined,
+          },
+          schema: z
+            .object({
+              findings: z.array(
+                z.object({
+                  id: z.string().uuid(),
+                  severity: z.string(),
+                  status: z.string(),
+                  title: z.string(),
+                  rule: z.string().optional(),
+                  filePath: z.string().optional(),
+                  autoFixable: z.boolean(),
+                }),
+              ),
+            })
+            .transform((value) => value.findings),
         },
-        schema: z
-          .object({
-            findings: z.array(
-              z.object({
-                id: z.string().uuid(),
-                severity: z.string(),
-                status: z.string(),
-                title: z.string(),
-                rule: z.string().optional(),
-                filePath: z.string().optional(),
-                autoFixable: z.boolean(),
-              }),
-            ),
-          })
-          .transform((value) => value.findings),
-      }),
+      ),
   };
 
   private async requestEmpty(

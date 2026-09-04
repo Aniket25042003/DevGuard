@@ -3,7 +3,14 @@
  */
 import type { OutboxRecord, OutboxRepository } from '@devguard/db';
 import { buildEnvelope } from '@devguard/queue';
-import type { JobEnvelope, JobHandler, JobRegistry, JobTypeV1, QueueName, QueueTransport } from '@devguard/queue';
+import type {
+  JobEnvelope,
+  JobHandler,
+  JobRegistry,
+  JobTypeV1,
+  QueueName,
+  QueueTransport,
+} from '@devguard/queue';
 
 const DEFAULT_MAPPINGS: ReadonlyArray<{
   readonly matchingEventTypes: readonly string[];
@@ -114,8 +121,7 @@ export async function publishOutboxOnce(deps: OutboxPublishDeps): Promise<number
         published += 1;
       } catch (error) {
         const nextAt = new Date(now() + 5_000).toISOString();
-        const code =
-          error instanceof Error ? error.message.slice(0, 128) : 'outbox_publish_failed';
+        const code = error instanceof Error ? error.message.slice(0, 128) : 'outbox_publish_failed';
         await deps.outbox.reschedule(row.id, row.rowVersion, nextAt, code);
       }
   }

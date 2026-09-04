@@ -2,7 +2,12 @@
  * C019 §22 — read adapter normalization and error mapping.
  */
 import { describe, expect, it } from 'vitest';
-import { GitHubBaseClient, GitHubReadAdapter, secretFrom, type RawTransportResponse } from '@devguard/github-adapter';
+import {
+  GitHubBaseClient,
+  GitHubReadAdapter,
+  secretFrom,
+  type RawTransportResponse,
+} from '@devguard/github-adapter';
 
 function transportReturning(response: Partial<RawTransportResponse>) {
   return {

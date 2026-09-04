@@ -22,7 +22,11 @@ describe('TrueForgeHttpAgentRuntime (CP013)', () => {
     const fetchImpl = async (url: string) => {
       calls.push(url);
       if (url.endsWith('/api/v1/capabilities'))
-        return { ok: true, status: 200, json: async () => ({ data: { sandbox: { enabled: true } } }) };
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: { sandbox: { enabled: true } } }),
+        };
       if (url.endsWith('/api/v1/sessions'))
         return { ok: true, status: 201, json: async () => ({ sessionId: 's1', threadId: 't1' }) };
       return { ok: false, status: 404, json: async () => ({}) };

@@ -63,6 +63,7 @@ import { buildGitHubPermissionPort } from './github-permission-port.js';
 import { registerOutboxPublish } from './outbox-publish.js';
 import { registerRetentionCleanup } from './retention-cleanup.js';
 import { EmptyLocalRepositoryAccessPort } from './stubs.js';
+import { LocalObjectStore, S3ObjectStore, type ObjectStore } from '@devguard/artifact-storage';
 
 export interface WorkerContainer {
   readonly config: WorkerConfigSnapshot;
@@ -77,6 +78,7 @@ export interface WorkerContainer {
   readonly agentSessions: AgentSessionService;
   /** Dedicated health connection; queue/worker connections are owned by BullMQ. */
   readonly redisHealth?: Redis | undefined;
+  readonly objectStore: ObjectStore;
 }
 
 function real(value: string | undefined): boolean {
@@ -96,6 +98,15 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
   const pool: DevGuardPool | undefined = isPostgresDsn(config.databaseUrlRef.name)
     ? createPool({ connectionString: config.databaseUrlRef.name })
     : undefined;
+
+  const objectStore: ObjectStore =
+    config.artifacts.driver === 's3' && config.artifacts.s3 !== undefined
+      ? new S3ObjectStore(config.artifacts.s3.bucket, {
+          endpoint: config.artifacts.s3.endpoint,
+          accessKeyId: config.artifacts.s3.accessKeyIdRef,
+          secretAccessKey: config.artifacts.s3.secretAccessKeyRef,
+        })
+      : new LocalObjectStore(config.artifacts.localDir ?? '.data/artifacts');
 
   const privateKeyPem =
     config.github !== undefined && real(config.github.privateKeyRef)
@@ -230,6 +241,7 @@ export function buildWorkerContainer(config: WorkerConfigSnapshot): WorkerContai
     ...(pool !== undefined ? { pool } : {}),
     agentRuntime,
     agentSessions,
+    objectStore,
     ...(redisHealth !== undefined ? { redisHealth } : {}),
   };
 }

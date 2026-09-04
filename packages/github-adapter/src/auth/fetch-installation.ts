@@ -71,8 +71,7 @@ export async function fetchAppInstallation(
     accountLogin,
     status: suspendedAt === null || suspendedAt === undefined ? 'active' : 'suspended',
     permissionsJson: JSON.stringify(permissions ?? {}),
-    repositorySelection:
-      typeof repositorySelection === 'string' ? repositorySelection : 'selected',
+    repositorySelection: typeof repositorySelection === 'string' ? repositorySelection : 'selected',
     ...(typeof suspendedAt === 'string' ? { suspendedAt } : {}),
   };
 }

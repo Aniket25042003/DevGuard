@@ -82,7 +82,9 @@ export type GitHubPermissionPortShape = {
   }): Promise<{ role: NormalizedGitHubRole; snapshotHash: string }>;
 };
 
-export function asGitHubPermissionPort(service: GitHubPermissionService): GitHubPermissionPortShape {
+export function asGitHubPermissionPort(
+  service: GitHubPermissionService,
+): GitHubPermissionPortShape {
   return {
     fetchUserRole: (input) => service.fetchUserRole(input),
   };

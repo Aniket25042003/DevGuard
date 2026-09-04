@@ -4,11 +4,11 @@ A short product overview of **DevGuard** — the control plane for agentic devel
 
 ## Video
 
-| | |
-| --- | --- |
-| **File** | [`devguard-launch-demo.mp4`](./devguard-launch-demo.mp4) |
-| **Duration** | ~2:36 |
-| **Format** | MP4, 1920×1080 |
+|              |                                                          |
+| ------------ | -------------------------------------------------------- |
+| **File**     | [`devguard-launch-demo.mp4`](./devguard-launch-demo.mp4) |
+| **Duration** | ~2:36                                                    |
+| **Format**   | MP4, 1920×1080                                           |
 
 ## What it covers
 

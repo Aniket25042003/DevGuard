@@ -70,6 +70,7 @@ import {
   type WorkflowRunStorePort,
 } from '@devguard/workflows';
 import { isVolatileBinding } from './bindings.js';
+import { LocalObjectStore, S3ObjectStore, type ObjectStore } from '@devguard/artifact-storage';
 import {
   DurableAuditAdapter,
   DurableCommandCatalogAdapter,
@@ -359,6 +360,7 @@ export interface ApiContainer {
   readonly commandBus: CommandBus;
   readonly workflowQueries: WorkflowQueryService;
   readonly authorizer: RepositoryAuthorizationService;
+  readonly objectStore: ObjectStore;
 }
 
 /** Environments that permit volatile (in-memory) bindings without a flag. */
@@ -480,6 +482,15 @@ export function buildContainer(
   const pool: DevGuardPool | undefined =
     databaseUrl === undefined ? undefined : createPool({ connectionString: databaseUrl });
 
+  const objectStore: ObjectStore =
+    config.artifacts.driver === 's3' && config.artifacts.s3 !== undefined
+      ? new S3ObjectStore(config.artifacts.s3.bucket, {
+          endpoint: config.artifacts.s3.endpoint,
+          accessKeyId: config.artifacts.s3.accessKeyIdRef,
+          secretAccessKey: config.artifacts.s3.secretAccessKeyRef,
+        })
+      : new LocalObjectStore(config.artifacts.localDir ?? '.data/artifacts');
+
   // CP003: durable auth stores in non-test environments with a pool; volatile
   // (in-memory) stores otherwise (only allowed in `test`, or `development`
   // behind DEVGUARD_ALLOW_VOLATILE_AUTH=true via validateReadiness).
@@ -600,6 +611,7 @@ export function buildContainer(
     commandBus: commandBusService,
     workflowQueries,
     authorizer,
+    objectStore,
     ...(pool !== undefined ? { pool } : {}),
     ...(repositoryServices !== undefined ? { repositoryServices } : {}),
     ...(webhookSecret !== undefined ? { webhookSecret } : {}),
